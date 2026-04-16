@@ -1,0 +1,271 @@
+import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { AppError } from '../utils/errors.js';
+
+const SYSTEM_PROMPT =
+  'Você é o AgroAssist: assistente rural no WhatsApp para AGRICULTURA, PECUÁRIA e MEDICINA VETERINÁRIA de campo (orientação geral, não substitui visita de agrônomo ou médico veterinário em casos graves). ' +
+  'Abrangência: lavouras (grãos, hortaliças, frutas, café, cana, pastagens cultivadas); solo e adubação em linguagem simples; irrigação e manejo; pragas e doenças de plantas; máquinas e armazenamento básico quando couber. ' +
+  'Pecuária: bovinos, ovinos, caprinos, suínos, aves, abelhas, equinos e criações de pequeno porte; nutrição e pastagem; reprodução e manejo de rebanho; instalações, conforto animal e biossegurança em nível produtor. ' +
+  'Sanidade animal: sinais clínicos comuns (digestório, respiratório, pele, casco, úbere, nervoso); prevenção de doenças; vacinação e vermifugação apenas como CONCEITOS (sem doses, marcas ou receitas). ' +
+  'Leite e qualidade; bem-estar; transporte e manejo com mínimo estresse; noções de zootecnia e nutrição animal sem fórmulas prescritivas. ' +
+  'Seja OBJETIVO: vá direto ao ponto. Entregue a resposta COMPLETA (tópicos e frases fechados; nada cortado no meio). ' +
+  'TEXTO PURO para WhatsApp: sem Markdown (sem **, __, #, ```, links formatados). Use só • ou 1) para listas. ' +
+  'Linguagem simples, acessível a quem trabalha na roça. Trabalhe com hipóteses, o que observar no animal ou na lavoura, e próximos passos seguros. ' +
+  'Em suspeita de emergência (animal caído, sangramento forte, não come/bebe, gestação com problema, surto rápido no rebanho), diga para buscar MÉDICO VETERINÁRIO ou serviço oficial na hora. ' +
+  'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. Não repita a pergunta do usuário.';
+
+/** Tokens de saída — padrão alto o bastante para resposta completa sem cortar (ajuste com LLM_MAX_OUTPUT_TOKENS) */
+const DEFAULT_MAX_OUTPUT_TOKENS = () =>
+  Math.min(8192, Math.max(400, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 2048));
+
+/**
+ * Resposta fixa para desenvolvimento quando MOCK_LLM=true (sem chamar API externa).
+ */
+function mockAgriculturalReply({ text, imageUrl }) {
+  const excerpt = text?.trim()
+    ? text.trim().slice(0, 120) + (text.trim().length > 120 ? '…' : '')
+    : '(sem texto)';
+  return (
+    '[TESTE — MOCK_LLM]\n\n' +
+    '• Pode ser falta de nutrientes, rega em excesso ou praga.\n' +
+    '• Veja manchas, bichos e se a planta melhora com rega moderada.\n' +
+    '• Se piorar, leve amostra a um técnico. Sem produto sem orientação.\n' +
+    (imageUrl ? '\n(Imagem recebida — em produção a IA analisaria a foto.)\n' : '') +
+    `\nContexto: ${excerpt}`
+  );
+}
+
+/**
+ * Qual provedor usar: gemini (padrão se houver GEMINI_API_KEY), senão openai.
+ */
+function resolveProvider() {
+  const explicit = process.env.LLM_PROVIDER?.toLowerCase();
+  if (explicit === 'openai') return 'openai';
+  if (explicit === 'gemini') return 'gemini';
+  if (process.env.GEMINI_API_KEY) return 'gemini';
+  if (process.env.OPENAI_API_KEY) return 'openai';
+  return null;
+}
+
+/** Cabeçalhos que reduzem 403/429 em CDNs (ex.: Wikimedia) ao não parecer “bot sem User-Agent”. */
+const IMAGE_FETCH_HEADERS = {
+  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+  'User-Agent':
+    'Mozilla/5.0 (compatible; AgroAssist/1.0; +https://github.com/) AppleWebKit/537.36 (KHTML, like Gecko)',
+};
+
+/**
+ * Baixa imagem pública e retorna base64 + mime (para Gemini).
+ * Repete 1x em 429 (rate limit) após pequena espera.
+ */
+async function fetchImageAsInlineData(imageUrl) {
+  const maxAttempts = 2;
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 25_000);
+    try {
+      const res = await fetch(imageUrl, {
+        signal: controller.signal,
+        headers: IMAGE_FETCH_HEADERS,
+      });
+      lastStatus = res.status;
+
+      if (res.status === 429 && attempt < maxAttempts - 1) {
+        await sleep(2500);
+        continue;
+      }
+
+      if (!res.ok) {
+        throw new AppError(
+          `Não foi possível baixar a imagem (HTTP ${res.status}). ` +
+            `Dica: Wikimedia e outros sites limitam robôs — use uma URL direta estável (ex.: seu storage) ou tente outro link.`,
+          400
+        );
+      }
+
+      const buf = Buffer.from(await res.arrayBuffer());
+      const rawMime = res.headers.get('content-type') || 'image/jpeg';
+      const mimeType = rawMime.split(';')[0].trim() || 'image/jpeg';
+      if (!mimeType.startsWith('image/')) {
+        throw new AppError('A URL não parece ser uma imagem válida.', 400);
+      }
+      return { mimeType, data: buf.toString('base64') };
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new AppError(`Erro ao obter imagem: ${msg}`, 400);
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  throw new AppError(
+    `Não foi possível baixar a imagem (HTTP ${lastStatus}). Tente outra URL ou envie a foto por um host (Supabase Storage, Imgur, etc.).`,
+    400
+  );
+}
+
+async function generateWithGemini({ text, imageUrl }) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new AppError('GEMINI_API_KEY não configurada.', 500);
+  }
+
+  // IDs mudam com o tempo; se der 404, ajuste GEMINI_MODEL (ex.: gemini-2.0-flash-001)
+  const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const genAI = new GoogleGenerativeAI(key);
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    systemInstruction: SYSTEM_PROMPT,
+  });
+
+  const parts = [];
+
+  if (text?.trim()) {
+    parts.push({ text: text.trim() });
+  }
+
+  if (imageUrl?.trim()) {
+    const { mimeType, data } = await fetchImageAsInlineData(imageUrl.trim());
+    parts.push({ inlineData: { mimeType, data } });
+  }
+
+  if (parts.length === 0) {
+    throw new AppError('Nenhum conteúdo para enviar à IA.', 400);
+  }
+
+  if (!text?.trim() && imageUrl?.trim()) {
+    parts.unshift({
+      text: 'Analise a imagem (lavoura, animal, instalações ou equipamento rural). Resposta completa em tópicos • — hipóteses, o que observar e próximos passos seguros. Não deixe a resposta cortada.',
+    });
+  }
+
+  const maxAttempts = Math.min(8, Math.max(1, Number(process.env.GEMINI_RETRY_ATTEMPTS) || 3));
+  const baseMs = Math.max(500, Number(process.env.GEMINI_RETRY_MS) || 2000);
+  const maxOut = DEFAULT_MAX_OUTPUT_TOKENS();
+
+  let lastMsg = '';
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          maxOutputTokens: maxOut,
+          temperature: 0.35,
+        },
+      });
+      const reply = result.response.text()?.trim();
+      if (!reply) {
+        throw new AppError('Resposta vazia do Gemini.', 502);
+      }
+      return reply;
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      lastMsg = err instanceof Error ? err.message : String(err);
+      const retryable = isRetryableGeminiError(lastMsg);
+      if (!retryable || attempt === maxAttempts - 1) {
+        throw new AppError(`Falha na API Gemini: ${lastMsg}`, 502);
+      }
+      const waitMs = baseMs * (attempt + 1);
+      console.warn(
+        `[Gemini] ${modelName}: tentativa ${attempt + 1}/${maxAttempts} — ${retryable ? 'serviço sobrecarregado ou limite; ' : ''}aguardando ${waitMs}ms...`
+      );
+      await sleep(waitMs);
+    }
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** 503 / alta demanda / 429 costumam ser temporários — vale repetir a chamada. */
+function isRetryableGeminiError(message) {
+  const m = message.toLowerCase();
+  return (
+    m.includes('503') ||
+    m.includes('service unavailable') ||
+    m.includes('high demand') ||
+    m.includes('overloaded') ||
+    m.includes('429') ||
+    m.includes('too many requests') ||
+    m.includes('resource_exhausted') ||
+    m.includes('unavailable')
+  );
+}
+
+async function generateWithOpenAI({ text, imageUrl }) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    throw new AppError('OPENAI_API_KEY não configurada.', 500);
+  }
+
+  const openai = new OpenAI({ apiKey: key });
+  const model = process.env.OPENAI_MODEL || 'gpt-4o';
+
+  /** @type {import('openai').OpenAI.Chat.Completions.ChatCompletionContentPart[]} */
+  const userContent = [];
+
+  if (text && text.trim()) {
+    userContent.push({ type: 'text', text: text.trim() });
+  }
+
+  if (imageUrl && imageUrl.trim()) {
+    userContent.push({
+      type: 'image_url',
+      image_url: { url: imageUrl.trim(), detail: 'auto' },
+    });
+  }
+
+  if (userContent.length === 0) {
+    throw new AppError('Nenhum conteúdo para enviar à IA.', 400);
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ],
+      max_tokens: DEFAULT_MAX_OUTPUT_TOKENS(),
+      temperature: 0.35,
+    });
+
+    const reply = completion.choices[0]?.message?.content?.trim();
+    if (!reply) {
+      throw new AppError('Resposta vazia da OpenAI.', 502);
+    }
+    return reply;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new AppError(`Falha na API OpenAI: ${msg}`, 502);
+  }
+}
+
+/**
+ * Gera resposta agrícola (Gemini por padrão se GEMINI_API_KEY existir; senão OpenAI).
+ * @param {{ text?: string, imageUrl?: string }} input
+ * @returns {Promise<string>}
+ */
+export async function generateAgriculturalReply(input) {
+  if (process.env.MOCK_LLM === 'true') {
+    return mockAgriculturalReply(input);
+  }
+
+  const provider = resolveProvider();
+  if (!provider) {
+    throw new AppError(
+      'Nenhuma IA configurada. Defina GEMINI_API_KEY (recomendado, grátis no Google AI Studio) ou OPENAI_API_KEY no .env.',
+      500
+    );
+  }
+
+  if (provider === 'gemini') {
+    return generateWithGemini(input);
+  }
+  return generateWithOpenAI(input);
+}
