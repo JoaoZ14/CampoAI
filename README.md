@@ -46,6 +46,13 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
    - Veja [limites e uso](https://ai.google.dev/gemini-api/docs/rate-limits) e o painel do projeto no Google AI.
    - Para testar **só o backend** (WhatsApp + Supabase + contador) **sem chamar** Gemini/OpenAI: `MOCK_LLM=true` no `.env`.
 
+## Deploy no Vercel
+
+- O Vercel trata **`src/app.js`** como entrada especial e exige `export default` de função — por isso a app Express está em **`src/expressApp.js`**.
+- O handler serverless está em **`server.js`** na raiz (`export default serverless(createApp())`). O **`vercel.json`** redireciona todo o tráfego para **`/server`**.
+- **Não voltes a criar `src/app.js`** ou o deploy volta a falhar com *Invalid export*.
+- Localmente: `npm run dev` / `npm start` usam **`src/index.js`** com `listen()`.
+
 ## Endpoints
 
 | Método | Rota | Descrição |
