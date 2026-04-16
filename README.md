@@ -89,7 +89,7 @@ Corpo JSON (exemplo Postman):
 ## Velocidade e Twilio
 
 - **Twilio** (`/webhook/whatsapp/twilio`): por padrão o servidor **só responde 200 depois** de processar a mensagem e enviar o WhatsApp (assim a resposta não “some” por falha em background). Só ative `TWILIO_WEBHOOK_ASYNC_ACK=true` se precisar responder ao Twilio antes (há risco de não entregar a mensagem).
-- **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **1024**. Retries em 503/429: 2 tentativas (`GEMINI_RETRY_*` no `.env`).
+- **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **4096** (evita cortar no meio; até **8192** se precisar). Se no terminal aparecer aviso `MAX_TOKENS`, aumente esse valor no `.env`. Retries em 503/429: 2 tentativas (`GEMINI_RETRY_*`).
 
 ## Pagamentos (futuro)
 

@@ -13,9 +13,12 @@ const SYSTEM_PROMPT =
   'Em suspeita de emergência (animal caído, sangramento forte, não come/bebe, gestação com problema, surto rápido no rebanho), diga para buscar MÉDICO VETERINÁRIO ou serviço oficial na hora. ' +
   'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. Não repita a pergunta do usuário.';
 
-/** Tokens de saída — padrão equilibrado (menos tokens = resposta mais rápida). Aumente LLM_MAX_OUTPUT_TOKENS se cortar demais. */
+/**
+ * Tokens de saída do Gemini. Padrão alto para não cortar resposta no meio da frase.
+ * Se quiser respostas mais curtas e rápidas, reduza no .env (ex.: 2048).
+ */
 const DEFAULT_MAX_OUTPUT_TOKENS = () =>
-  Math.min(8192, Math.max(400, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 1024));
+  Math.min(8192, Math.max(512, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 4096));
 
 /**
  * Resposta fixa para desenvolvimento quando MOCK_LLM=true (sem chamar API externa).
@@ -144,6 +147,14 @@ async function generateWithGemini({ text, imageUrl }) {
           topP: 0.9,
         },
       });
+
+      const cand = result.response.candidates?.[0];
+      if (cand?.finishReason === 'MAX_TOKENS') {
+        console.warn(
+          '[Gemini] Resposta atingiu o limite de tokens (MAX_TOKENS) e pode ter sido cortada. Defina LLM_MAX_OUTPUT_TOKENS maior no .env (até 8192).'
+        );
+      }
+
       const reply = result.response.text()?.trim();
       if (!reply) {
         throw new AppError('Resposta vazia do Gemini.', 502);
