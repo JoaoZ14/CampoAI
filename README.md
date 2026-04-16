@@ -46,17 +46,6 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
    - Veja [limites e uso](https://ai.google.dev/gemini-api/docs/rate-limits) e o painel do projeto no Google AI.
    - Para testar **só o backend** (WhatsApp + Supabase + contador) **sem chamar** Gemini/OpenAI: `MOCK_LLM=true` no `.env`.
 
-## Deploy no Vercel
-
-Segue a [documentação oficial Express on Vercel](https://vercel.com/docs/frameworks/backend/express):
-
-- A app Express exporta-se com **`export default`** — ficheiro **`server.js`** na raiz do repo: `export default createApp();` (**sem** `serverless-http`).
-- O código da app está em **`src/expressApp.js`**. **Não** uses `src/app.js` (nome reservado / conflitos).
-- **Não** é obrigatório `vercel.json` para o caso básico; removido o `index.js` na raiz que às vezes não ia no Git.
-- **Confirma no Git:** `server.js` (raiz) e `src/expressApp.js`.
-- **Settings → General → Root Directory** no projeto Vercel: vazio (raiz do repo, onde está o `package.json`).
-- Localmente: `npm run dev` / `npm start` → **`src/index.js`** com `listen()`.
-
 ## Endpoints
 
 | Método | Rota | Descrição |
@@ -76,8 +65,6 @@ Segue a [documentação oficial Express on Vercel](https://vercel.com/docs/frame
 3. Salve e envie mensagem pelo WhatsApp para o número do Twilio.
 
 O Twilio envia `application/x-www-form-urlencoded` (não JSON). Use `MOCK_WHATSAPP=false` e as mesmas credenciais Twilio do `.env`.
-
-**Se o webhook retornar 500 no Vercel:** no painel do projeto → **Settings → Environment Variables**, confirme as mesmas chaves do `.env` local (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` ou `OPENAI_API_KEY`, `TWILIO_*`). O `.env` **não** sobe com o Git — sem essas variáveis o servidor devolve erro ao aceder ao Supabase ou à IA. Veja os **logs** da função em **Deployments → Functions** ou **Runtime Logs**.
 
 ### POST `/webhook/whatsapp`
 
