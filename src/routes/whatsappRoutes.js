@@ -4,9 +4,7 @@ import { handleTwilioInbound } from '../controllers/twilioInboundController.js';
 
 const router = express.Router();
 
-const twilioForm = express.urlencoded({ extended: true, limit: '1mb' });
-
 router.post('/whatsapp', handleWhatsAppWebhook);
-router.post('/whatsapp/twilio', twilioForm, handleTwilioInbound);
+router.post('/whatsapp/twilio', handleTwilioInbound);
 
 export default router;

@@ -66,6 +66,8 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
 
 O Twilio envia `application/x-www-form-urlencoded` (não JSON). Use `MOCK_WHATSAPP=false` e as mesmas credenciais Twilio do `.env`.
 
+**Se o webhook retornar 500 no Vercel:** no painel do projeto → **Settings → Environment Variables**, confirme as mesmas chaves do `.env` local (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` ou `OPENAI_API_KEY`, `TWILIO_*`). O `.env` **não** sobe com o Git — sem essas variáveis o servidor devolve erro ao aceder ao Supabase ou à IA. Veja os **logs** da função em **Deployments → Functions** ou **Runtime Logs**.
+
 ### POST `/webhook/whatsapp`
 
 Corpo JSON (exemplo Postman):

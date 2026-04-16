@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
@@ -10,6 +11,8 @@ export function createApp() {
 
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
+  /** Twilio envia application/x-www-form-urlencoded — necessário global no Vercel/serverless */
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   app.get('/openapi.json', (_req, res) => {
     res.json(openapiSpec);

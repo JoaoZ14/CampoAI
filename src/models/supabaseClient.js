@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { AppError } from '../utils/errors.js';
 
 /**
  * Cliente Supabase com service role (apenas servidor — nunca exponha no front).
@@ -8,8 +9,9 @@ export function createSupabaseClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    throw new Error(
-      'Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no arquivo .env'
+    throw new AppError(
+      'SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes (configure no Vercel: Settings → Environment Variables).',
+      500
     );
   }
 
