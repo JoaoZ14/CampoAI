@@ -49,7 +49,7 @@ export const openapiSpec = {
         tags: ['Webhook'],
         summary: 'Receber mensagem (texto e/ou imagem)',
         description:
-          'Busca ou cria o usuário pelo telefone, aplica limite gratuito, chama a OpenAI quando aplicável e envia resposta via Twilio (ou mock).',
+          'Busca ou cria o usuário pelo telefone, aplica limite gratuito, chama o Gemini quando aplicável e envia resposta via Twilio (ou mock).',
         operationId: 'postWhatsAppWebhook',
         requestBody: {
           required: true,
@@ -127,7 +127,7 @@ export const openapiSpec = {
           },
           '400': { description: 'Corpo inválido (ex.: telefone ausente)' },
           '500': { description: 'Erro interno ou serviço externo' },
-          '502': { description: 'Falha OpenAI ou Twilio' },
+          '502': { description: 'Falha Gemini ou Twilio' },
         },
       },
     },

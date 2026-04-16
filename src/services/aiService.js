@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AppError } from '../utils/errors.js';
 
@@ -14,9 +13,9 @@ const SYSTEM_PROMPT =
   'Em suspeita de emergência (animal caído, sangramento forte, não come/bebe, gestação com problema, surto rápido no rebanho), diga para buscar MÉDICO VETERINÁRIO ou serviço oficial na hora. ' +
   'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. Não repita a pergunta do usuário.';
 
-/** Tokens de saída — padrão alto o bastante para resposta completa sem cortar (ajuste com LLM_MAX_OUTPUT_TOKENS) */
+/** Tokens de saída — padrão equilibrado (menos tokens = resposta mais rápida). Aumente LLM_MAX_OUTPUT_TOKENS se cortar demais. */
 const DEFAULT_MAX_OUTPUT_TOKENS = () =>
-  Math.min(8192, Math.max(400, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 2048));
+  Math.min(8192, Math.max(400, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 1024));
 
 /**
  * Resposta fixa para desenvolvimento quando MOCK_LLM=true (sem chamar API externa).
@@ -33,18 +32,6 @@ function mockAgriculturalReply({ text, imageUrl }) {
     (imageUrl ? '\n(Imagem recebida — em produção a IA analisaria a foto.)\n' : '') +
     `\nContexto: ${excerpt}`
   );
-}
-
-/**
- * Qual provedor usar: gemini (padrão se houver GEMINI_API_KEY), senão openai.
- */
-function resolveProvider() {
-  const explicit = process.env.LLM_PROVIDER?.toLowerCase();
-  if (explicit === 'openai') return 'openai';
-  if (explicit === 'gemini') return 'gemini';
-  if (process.env.GEMINI_API_KEY) return 'gemini';
-  if (process.env.OPENAI_API_KEY) return 'openai';
-  return null;
 }
 
 /** Cabeçalhos que reduzem 403/429 em CDNs (ex.: Wikimedia) ao não parecer “bot sem User-Agent”. */
@@ -142,8 +129,8 @@ async function generateWithGemini({ text, imageUrl }) {
     });
   }
 
-  const maxAttempts = Math.min(8, Math.max(1, Number(process.env.GEMINI_RETRY_ATTEMPTS) || 3));
-  const baseMs = Math.max(500, Number(process.env.GEMINI_RETRY_MS) || 2000);
+  const maxAttempts = Math.min(6, Math.max(1, Number(process.env.GEMINI_RETRY_ATTEMPTS) || 2));
+  const baseMs = Math.max(400, Number(process.env.GEMINI_RETRY_MS) || 700);
   const maxOut = DEFAULT_MAX_OUTPUT_TOKENS();
 
   let lastMsg = '';
@@ -154,6 +141,7 @@ async function generateWithGemini({ text, imageUrl }) {
         generationConfig: {
           maxOutputTokens: maxOut,
           temperature: 0.35,
+          topP: 0.9,
         },
       });
       const reply = result.response.text()?.trim();
@@ -196,58 +184,8 @@ function isRetryableGeminiError(message) {
   );
 }
 
-async function generateWithOpenAI({ text, imageUrl }) {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    throw new AppError('OPENAI_API_KEY não configurada.', 500);
-  }
-
-  const openai = new OpenAI({ apiKey: key });
-  const model = process.env.OPENAI_MODEL || 'gpt-4o';
-
-  /** @type {import('openai').OpenAI.Chat.Completions.ChatCompletionContentPart[]} */
-  const userContent = [];
-
-  if (text && text.trim()) {
-    userContent.push({ type: 'text', text: text.trim() });
-  }
-
-  if (imageUrl && imageUrl.trim()) {
-    userContent.push({
-      type: 'image_url',
-      image_url: { url: imageUrl.trim(), detail: 'auto' },
-    });
-  }
-
-  if (userContent.length === 0) {
-    throw new AppError('Nenhum conteúdo para enviar à IA.', 400);
-  }
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userContent },
-      ],
-      max_tokens: DEFAULT_MAX_OUTPUT_TOKENS(),
-      temperature: 0.35,
-    });
-
-    const reply = completion.choices[0]?.message?.content?.trim();
-    if (!reply) {
-      throw new AppError('Resposta vazia da OpenAI.', 502);
-    }
-    return reply;
-  } catch (err) {
-    if (err instanceof AppError) throw err;
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new AppError(`Falha na API OpenAI: ${msg}`, 502);
-  }
-}
-
 /**
- * Gera resposta agrícola (Gemini por padrão se GEMINI_API_KEY existir; senão OpenAI).
+ * Gera resposta rural via Google Gemini (único motor de IA).
  * @param {{ text?: string, imageUrl?: string }} input
  * @returns {Promise<string>}
  */
@@ -256,16 +194,12 @@ export async function generateAgriculturalReply(input) {
     return mockAgriculturalReply(input);
   }
 
-  const provider = resolveProvider();
-  if (!provider) {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
     throw new AppError(
-      'Nenhuma IA configurada. Defina GEMINI_API_KEY (recomendado, grátis no Google AI Studio) ou OPENAI_API_KEY no .env.',
+      'GEMINI_API_KEY não configurada. O AgroAssist usa apenas Google Gemini — crie uma chave em https://aistudio.google.com/apikey',
       500
     );
   }
 
-  if (provider === 'gemini') {
-    return generateWithGemini(input);
-  }
-  return generateWithOpenAI(input);
+  return generateWithGemini(input);
 }

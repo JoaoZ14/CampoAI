@@ -1,23 +1,21 @@
 # AgroAssist — Backend (Node.js)
 
-API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Gemini** (plano gratuito no Google AI Studio) ou **OpenAI**, controla limite gratuito no Supabase e responde pelo Twilio.
+API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
 
 ## Pré-requisitos
 
 - Node.js 18+
 - Conta [Supabase](https://supabase.com) (Postgres)
 - Conta [Twilio](https://www.twilio.com) com WhatsApp (sandbox ou número aprovado)
-- Chave **Gemini** (grátis): [Google AI Studio](https://aistudio.google.com/apikey) — recomendado para desenvolvimento sem cartão
-- Opcional: chave [OpenAI](https://platform.openai.com) se usar `LLM_PROVIDER=openai` ou sem `GEMINI_API_KEY`
+- Chave **Gemini** (obrigatória): [Google AI Studio](https://aistudio.google.com/apikey)
 
 ## Configuração
 
 1. **Clone/copie** `.env.example` para `.env` e preencha:
 
    - `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (Settings → API no Supabase; use a **service role** só no servidor).
-   - `GEMINI_API_KEY` (crie em [AI Studio](https://aistudio.google.com/apikey)) — **prioridade** se existir; ou `OPENAI_API_KEY`.
-   - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.0-flash`. Se a API retornar 404 “model not found”, tente `gemini-2.0-flash-001` ou veja modelos disponíveis na [documentação de modelos](https://ai.google.dev/gemini-api/docs/models/gemini).
-   - Opcional: `LLM_PROVIDER=gemini` ou `openai` se tiver as duas chaves e quiser forçar.
+   - `GEMINI_API_KEY` (crie em [AI Studio](https://aistudio.google.com/apikey)).
+   - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.0-flash`. Se a API retornar 404 “model not found”, tente `gemini-2.0-flash-001` ou veja modelos na [documentação](https://ai.google.dev/gemini-api/docs/models/gemini).
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex.: `whatsapp:+14155238886` no sandbox).
 
 2. **Crie a tabela** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase.
@@ -44,7 +42,7 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
 
    - Espere **~1 minuto** e tente de novo (RPM limit).
    - Veja [limites e uso](https://ai.google.dev/gemini-api/docs/rate-limits) e o painel do projeto no Google AI.
-   - Para testar **só o backend** (WhatsApp + Supabase + contador) **sem chamar** Gemini/OpenAI: `MOCK_LLM=true` no `.env`.
+   - Para testar **só o backend** (WhatsApp + Supabase + contador) **sem chamar** o Gemini: `MOCK_LLM=true` no `.env`.
 
 ## Endpoints
 
@@ -80,13 +78,18 @@ Corpo JSON (exemplo Postman):
 
 - `phone` — obrigatório (será normalizado para formato `+` e dígitos).
 - `message` — texto opcional.
-- `imageUrl` — URL pública `http`/`https` opcional (OpenAI baixa a imagem).
+- `imageUrl` — URL pública `http`/`https` opcional (o servidor baixa e envia ao Gemini).
 
 **Comportamento:**
 
 - Sem `message` nem `imageUrl` válida → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
 - Usuário gratuito com `usageCount >= 5` e `isPaid === false` → envia mensagem de **limite** e não chama a IA.
-- Caso contrário → chama a OpenAI, incrementa `usage_count`, envia a resposta pelo WhatsApp.
+- Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp.
+
+## Velocidade e Twilio
+
+- **Twilio** (`/webhook/whatsapp/twilio`): por padrão o servidor **só responde 200 depois** de processar a mensagem e enviar o WhatsApp (assim a resposta não “some” por falha em background). Só ative `TWILIO_WEBHOOK_ASYNC_ACK=true` se precisar responder ao Twilio antes (há risco de não entregar a mensagem).
+- **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **1024**. Retries em 503/429: 2 tentativas (`GEMINI_RETRY_*` no `.env`).
 
 ## Pagamentos (futuro)
 
@@ -97,7 +100,7 @@ O arquivo `src/services/paymentService.js` reserva o lugar para webhooks e check
 ```
 src/
   controllers/   # Orquestração HTTP
-  services/      # Twilio, OpenAI, usuários, pagamento (stub)
+  services/      # Twilio, Gemini, usuários, pagamento (stub)
   routes/
   models/        # Cliente Supabase e constantes do domínio
   middleware/
