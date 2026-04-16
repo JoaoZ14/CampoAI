@@ -46,6 +46,13 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
    - Veja [limites e uso](https://ai.google.dev/gemini-api/docs/rate-limits) e o painel do projeto no Google AI.
    - Para testar **só o backend** (WhatsApp + Supabase + contador) **sem chamar** Gemini/OpenAI: `MOCK_LLM=true` no `.env`.
 
+## Deploy no Vercel
+
+- O app Express entra pelo **`api/index.js`** (serverless). O ficheiro da app foi renomeado para **`src/expressApp.js`** para o Vercel **não** tratar `src/app.js` como entrada inválida.
+- Na raiz existe **`vercel.json`** com rewrite de todas as rotas para `/api` (ex.: `/webhook/...` funciona na URL pública).
+- Configure as **mesmas variáveis** do `.env` em **Project → Settings → Environment Variables**.
+- No plano gratuito o tempo máximo da função é curto (~10s): chamadas longas à IA podem estourar o limite; considere **Pro** ou outro host (Railway/Render) para produção com Twilio.
+
 ## Endpoints
 
 | Método | Rota | Descrição |
