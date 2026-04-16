@@ -48,10 +48,10 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
 
 ## Deploy no Vercel
 
-- O Vercel trata **`src/app.js`** como entrada especial e exige `export default` de função — por isso a app Express está em **`src/expressApp.js`**.
-- O handler serverless está em **`server.js`** na raiz (`export default serverless(createApp())`). O **`vercel.json`** redireciona todo o tráfego para **`/server`**.
-- **Não voltes a criar `src/app.js`** ou o deploy volta a falhar com *Invalid export*.
-- Localmente: `npm run dev` / `npm start` usam **`src/index.js`** com `listen()`.
+- O Vercel trata **`src/app.js`** como entrada especial — a app Express está em **`src/expressApp.js`** (não uses `src/app.js`).
+- O handler serverless está em **`index.js` na raiz do repositório** (`export default serverless(createApp())`). O **`vercel.json`** reescreve tudo para **`/index`**.
+- **Confirma no Git** que existem: `index.js`, `vercel.json`, `src/expressApp.js`. Sem `index.js` na raiz o build falha com *No entrypoint found*.
+- Localmente: `npm run dev` / `npm start` usam **`src/index.js`** com `listen()` (não uses `node index.js` para servidor local).
 
 ## Endpoints
 
