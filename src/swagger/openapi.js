@@ -131,5 +131,46 @@ export const openapiSpec = {
         },
       },
     },
+    '/webhook/whatsapp/twilio': {
+      post: {
+        tags: ['Webhook'],
+        summary: 'Webhook Twilio (WhatsApp real)',
+        description:
+          'URL pública HTTPS para "When a message comes in" no Twilio. Content-Type: application/x-www-form-urlencoded. O Swagger não envia esse formato facilmente — use o WhatsApp ou um cliente HTTP.',
+        operationId: 'postTwilioWhatsappWebhook',
+        requestBody: {
+          content: {
+            'application/x-www-form-urlencoded': {
+              schema: {
+                type: 'object',
+                properties: {
+                  From: {
+                    type: 'string',
+                    example: 'whatsapp:+5511999999999',
+                    description: 'Remetente (WhatsApp)',
+                  },
+                  Body: { type: 'string', example: 'Minha vaca está mancando' },
+                  NumMedia: { type: 'string', example: '0' },
+                  MediaUrl0: {
+                    type: 'string',
+                    description: 'URL da primeira mídia se NumMedia > 0',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'OK — TwiML vazio',
+            content: {
+              'text/xml': {
+                schema: { type: 'string', example: '<Response></Response>' },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 };

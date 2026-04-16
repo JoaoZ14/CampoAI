@@ -53,7 +53,18 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
 | GET | `/api-docs` | **Swagger UI** — documentação e testes no navegador |
 | GET | `/openapi.json` | Especificação OpenAPI (JSON) |
 | GET | `/health` | Status do serviço |
-| POST | `/webhook/whatsapp` | Webhook simulando WhatsApp (Postman) |
+| POST | `/webhook/whatsapp` | Teste com JSON (Postman / Swagger) |
+| POST | `/webhook/whatsapp/twilio` | **Webhook do Twilio** — mensagens reais do WhatsApp |
+
+### Twilio (produção / teste com número)
+
+1. Suba a API com **HTTPS** (Railway, Render, ngrok, etc.).
+2. No [Twilio Console](https://console.twilio.com) → seu número ou **WhatsApp Sandbox** → em **When a message comes in** configure:
+   - **URL:** `https://SEU-DOMINIO/webhook/whatsapp/twilio`
+   - **HTTP:** POST
+3. Salve e envie mensagem pelo WhatsApp para o número do Twilio.
+
+O Twilio envia `application/x-www-form-urlencoded` (não JSON). Use `MOCK_WHATSAPP=false` e as mesmas credenciais Twilio do `.env`.
 
 ### POST `/webhook/whatsapp`
 
