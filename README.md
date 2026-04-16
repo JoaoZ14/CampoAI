@@ -50,10 +50,10 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
 
 Segue a [documentação oficial Express on Vercel](https://vercel.com/docs/frameworks/backend/express):
 
-- A app Express exporta-se com **`export default`** — ficheiro **`src/server.js`**: `export default createApp();` (**sem** `serverless-http`).
+- A app Express exporta-se com **`export default`** — ficheiro **`server.js`** na raiz do repo: `export default createApp();` (**sem** `serverless-http`).
 - O código da app está em **`src/expressApp.js`**. **Não** uses `src/app.js` (nome reservado / conflitos).
 - **Não** é obrigatório `vercel.json` para o caso básico; removido o `index.js` na raiz que às vezes não ia no Git.
-- **Confirma no Git:** `src/server.js` e `src/expressApp.js`.
+- **Confirma no Git:** `server.js` (raiz) e `src/expressApp.js`.
 - **Settings → General → Root Directory** no projeto Vercel: vazio (raiz do repo, onde está o `package.json`).
 - Localmente: `npm run dev` / `npm start` → **`src/index.js`** com `listen()`.
 
