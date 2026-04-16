@@ -48,8 +48,9 @@ API para o assistente agrícola **AgroAssist** via WhatsApp: recebe mensagens (t
 
 ## Deploy no Vercel
 
-- O app Express entra pelo **`api/index.js`** (serverless). O ficheiro da app foi renomeado para **`src/expressApp.js`** para o Vercel **não** tratar `src/app.js` como entrada inválida.
-- Na raiz existe **`vercel.json`** com rewrite de todas as rotas para `/api` (ex.: `/webhook/...` funciona na URL pública).
+- O entrypoint que o Vercel reconhece está em **`server.js`** na raiz (handler serverless). O código da app está em **`src/expressApp.js`** (evita conflito com o nome `src/app.js`).
+- **`vercel.json`** faz rewrite de todo o tráfego para **`/server`** (função gerada a partir de `server.js`).
+- Em desenvolvimento local use **`npm run start`** ou **`npm run dev`**, que usam **`src/index.js`** com `listen()` — não use `node server.js` para servidor local.
 - Configure as **mesmas variáveis** do `.env` em **Project → Settings → Environment Variables**.
 - No plano gratuito o tempo máximo da função é curto (~10s): chamadas longas à IA podem estourar o limite; considere **Pro** ou outro host (Railway/Render) para produção com Twilio.
 
