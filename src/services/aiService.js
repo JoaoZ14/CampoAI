@@ -133,13 +133,7 @@ async function generateWithGemini({ text, imageUrl }) {
     throw new AppError('GEMINI_API_KEY não configurada.', 500);
   }
 
-  // IDs mudam com o tempo; se der 404, ajuste GEMINI_MODEL (ex.: gemini-2.0-flash-001)
-  const modelName = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({
-    model: modelName,
-    systemInstruction: SYSTEM_PROMPT,
-  });
 
   const parts = [];
 
@@ -162,46 +156,78 @@ async function generateWithGemini({ text, imageUrl }) {
     });
   }
 
-  const maxAttempts = Math.min(6, Math.max(1, Number(process.env.GEMINI_RETRY_ATTEMPTS) || 2));
-  const baseMs = Math.max(400, Number(process.env.GEMINI_RETRY_MS) || 700);
+  // Modelo principal + opcional fallback (503 no 2.5 → chama o 2.0 na sequência, sem espera entre modelos).
+  const primary = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
+  const fallback = process.env.GEMINI_MODEL_FALLBACK?.trim();
+  const modelChain = [primary];
+  if (fallback && fallback !== primary) {
+    modelChain.push(fallback);
+  }
+
+  // Padrão 1 = uma chamada por modelo, sem fila de retentativas (resposta o mais rápido possível).
+  // Para insistir no mesmo modelo após 503: GEMINI_RETRY_ATTEMPTS=3 e GEMINI_RETRY_MS=1200
+  const maxAttempts = Math.min(8, Math.max(1, Number(process.env.GEMINI_RETRY_ATTEMPTS) || 1));
+  const baseMs = Math.max(0, Number(process.env.GEMINI_RETRY_MS) || 800);
   const maxOut = DEFAULT_MAX_OUTPUT_TOKENS();
 
-  let lastMsg = '';
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          maxOutputTokens: maxOut,
-          temperature: 0.35,
-          topP: 0.9,
-        },
-      });
+  for (let mi = 0; mi < modelChain.length; mi++) {
+    const modelName = modelChain[mi];
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      systemInstruction: SYSTEM_PROMPT,
+    });
 
-      const cand = result.response.candidates?.[0];
-      if (cand?.finishReason === 'MAX_TOKENS') {
-        console.warn(
-          '[Gemini] Resposta atingiu o limite de tokens (MAX_TOKENS) e pode ter sido cortada. Defina LLM_MAX_OUTPUT_TOKENS maior no .env (até 8192).'
-        );
-      }
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts }],
+          generationConfig: {
+            maxOutputTokens: maxOut,
+            temperature: 0.35,
+            topP: 0.9,
+          },
+        });
 
-      const reply = result.response.text()?.trim();
-      if (!reply) {
-        throw new AppError('Resposta vazia do Gemini.', 502);
-      }
-      return reply;
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      lastMsg = err instanceof Error ? err.message : String(err);
-      const retryable = isRetryableGeminiError(lastMsg);
-      if (!retryable || attempt === maxAttempts - 1) {
+        const cand = result.response.candidates?.[0];
+        if (cand?.finishReason === 'MAX_TOKENS') {
+          console.warn(
+            '[Gemini] Resposta atingiu o limite de tokens (MAX_TOKENS) e pode ter sido cortada. Defina LLM_MAX_OUTPUT_TOKENS maior no .env (até 8192).'
+          );
+        }
+
+        const reply = result.response.text()?.trim();
+        if (!reply) {
+          throw new AppError('Resposta vazia do Gemini.', 502);
+        }
+        return reply;
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        const lastMsg = err instanceof Error ? err.message : String(err);
+        const retryable = isRetryableGeminiError(lastMsg);
+
+        if (!retryable) {
+          throw new AppError(`Falha na API Gemini: ${lastMsg}`, 502);
+        }
+
+        const lastModel = mi === modelChain.length - 1;
+        const lastTryOnModel = attempt === maxAttempts - 1;
+        const waitMs = baseMs * (attempt + 1);
+
+        console.warn(`[Gemini] ${modelName} tentativa ${attempt + 1}/${maxAttempts} — ${lastMsg.slice(0, 160)}`);
+
+        if (!lastTryOnModel && maxAttempts > 1) {
+          console.warn(`[Gemini] aguardando ${waitMs}ms antes de nova tentativa no mesmo modelo…`);
+          await sleep(waitMs);
+          continue;
+        }
+
+        if (!lastModel) {
+          console.warn(`[Gemini] Alternando já para: ${modelChain[mi + 1]}`);
+          break;
+        }
+
         throw new AppError(`Falha na API Gemini: ${lastMsg}`, 502);
       }
-      const waitMs = baseMs * (attempt + 1);
-      console.warn(
-        `[Gemini] ${modelName}: tentativa ${attempt + 1}/${maxAttempts} — ${retryable ? 'serviço sobrecarregado ou limite; ' : ''}aguardando ${waitMs}ms...`
-      );
-      await sleep(waitMs);
     }
   }
 }

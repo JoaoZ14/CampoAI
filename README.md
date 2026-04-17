@@ -100,7 +100,7 @@ Corpo JSON (exemplo Postman):
 ## Velocidade e Twilio
 
 - **Twilio** (`/webhook/whatsapp/twilio`): por padrão o servidor **responde 200 ao Twilio na hora** e processa a mensagem em background — assim o Twilio **não corta** a conexão por timeout (~15s) enquanto o Gemini gera a resposta. Para depurar com o 200 só após o processamento completo, use `TWILIO_WEBHOOK_SYNC=true`. Há indicador de digitação (quando a API da Twilio aceitar) e mensagem opcional `WHATSAPP_IA_ACK_TEXT` antes da IA; se a IA falhar, o usuário recebe um texto de erro no WhatsApp em vez de silêncio.
-- **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **4096** (evita cortar no meio; até **8192** se precisar). Se no terminal aparecer aviso `MAX_TOKENS`, aumente esse valor no `.env`. Retries em 503/429: 2 tentativas (`GEMINI_RETRY_*`).
+- **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **4096** (evita cortar no meio; até **8192** se precisar). Se no terminal aparecer aviso `MAX_TOKENS`, aumente esse valor no `.env`. Por padrão **não há retentativas no mesmo modelo** (`GEMINI_RETRY_ATTEMPTS=1`) para responder o mais rápido possível; use `GEMINI_MODEL_FALLBACK` (ex.: `gemini-2.0-flash`) para tentar outro modelo na hora se o principal der 503. Para insistir no mesmo modelo após 503, aumente `GEMINI_RETRY_ATTEMPTS` e `GEMINI_RETRY_MS`.
 
 ## Pagamentos (futuro)
 
