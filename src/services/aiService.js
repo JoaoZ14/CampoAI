@@ -45,7 +45,36 @@ const IMAGE_FETCH_HEADERS = {
 };
 
 /**
- * Baixa imagem pública e retorna base64 + mime (para Gemini).
+ * URLs de mídia do Twilio (MediaUrl0 no webhook) exigem HTTP Basic: Account SID + Auth Token.
+ * @param {string} imageUrl
+ * @returns {Record<string, string>}
+ */
+function buildImageFetchHeaders(imageUrl) {
+  const headers = { ...IMAGE_FETCH_HEADERS };
+  let host = '';
+  try {
+    host = new URL(imageUrl).hostname.toLowerCase();
+  } catch {
+    return headers;
+  }
+  if (host !== 'api.twilio.com') {
+    return headers;
+  }
+  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+  if (!sid || !token) {
+    throw new AppError(
+      'Mídia do WhatsApp (Twilio): defina TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN no .env para baixar a foto.',
+      500
+    );
+  }
+  const basic = Buffer.from(`${sid}:${token}`, 'utf8').toString('base64');
+  headers.Authorization = `Basic ${basic}`;
+  return headers;
+}
+
+/**
+ * Baixa imagem (URL pública ou mídia Twilio com Basic Auth) e retorna base64 + mime (para Gemini).
  * Repete 1x em 429 (rate limit) após pequena espera.
  */
 async function fetchImageAsInlineData(imageUrl) {
@@ -56,9 +85,10 @@ async function fetchImageAsInlineData(imageUrl) {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), 25_000);
     try {
+      const headers = buildImageFetchHeaders(imageUrl);
       const res = await fetch(imageUrl, {
         signal: controller.signal,
-        headers: IMAGE_FETCH_HEADERS,
+        headers,
       });
       lastStatus = res.status;
 
