@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgroAssist — Painel dev</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="banner" class="banner" hidden></div>
+
+    <main class="wrap">
+      <header class="top">
+        <div>
+          <h1>AgroAssist</h1>
+          <p class="muted">Painel do desenvolvedor</p>
+        </div>
+        <button type="button" id="btn-logout" class="btn secondary" hidden>Sair</button>
+      </header>
+
+      <section id="view-login" class="card">
+        <h2>Entrar</h2>
+        <p class="muted small">
+          Use o mesmo e-mail cadastrado no Supabase Auth e que esteja em
+          <code>ADMIN_EMAILS</code> no servidor.
+        </p>
+        <form id="form-login" class="form">
+          <label>
+            E-mail
+            <input type="email" name="email" autocomplete="username" required />
+          </label>
+          <label>
+            Senha
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit" class="btn">Entrar</button>
+        </form>
+      </section>
+
+      <section id="view-dash" class="dash" hidden>
+        <div class="grid" id="stats-grid"></div>
+
+        <div class="card">
+          <h2>Integrações (env)</h2>
+          <div id="integrations" class="badges"></div>
+        </div>
+
+        <div class="card">
+          <div class="row-between">
+            <h2>Usuários (WhatsApp)</h2>
+            <div class="pager">
+              <button type="button" id="btn-prev" class="btn secondary">Anterior</button>
+              <span id="page-label" class="muted small"></span>
+              <button type="button" id="btn-next" class="btn secondary">Próximo</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Telefone</th>
+                  <th>Uso (IA)</th>
+                  <th>Pago</th>
+                  <th>Criado em</th>
+                </tr>
+              </thead>
+              <tbody id="users-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

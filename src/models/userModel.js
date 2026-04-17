@@ -26,4 +26,4 @@ export function mapUserRow(row) {
 }
 
 /** Limite de interações gratuitas (análises com IA). */
-export const FREE_USAGE_LIMIT = 5;
+export const FREE_USAGE_LIMIT = 10;

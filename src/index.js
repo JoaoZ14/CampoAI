@@ -10,6 +10,7 @@ const server = app.listen(port, () => {
   console.log(`Webhook Twilio: POST http://localhost:${port}/webhook/whatsapp/twilio`);
   console.log(`Health:  GET  http://localhost:${port}/health`);
   console.log(`Swagger: GET  http://localhost:${port}/api-docs`);
+  console.log(`Painel dev: http://localhost:${port}/admin/`);
 });
 
 server.on('error', (err) => {

@@ -134,7 +134,7 @@ async function generateWithGemini({ text, imageUrl }) {
   }
 
   // IDs mudam com o tempo; se der 404, ajuste GEMINI_MODEL (ex.: gemini-2.0-flash-001)
-  const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const modelName = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({
     model: modelName,

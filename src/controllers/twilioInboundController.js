@@ -82,6 +82,8 @@ export async function handleTwilioInbound(req, res, next) {
       phone: phoneRaw,
       message: Body.trim() || undefined,
       imageUrl: imageUrl || undefined,
+      messageSid:
+        typeof req.body?.MessageSid === 'string' ? req.body.MessageSid : undefined,
     };
 
     console.log('[Twilio webhook] processando', {
@@ -92,13 +94,13 @@ export async function handleTwilioInbound(req, res, next) {
     });
 
     /**
-     * Padrão: processa tudo antes do 200 (usuário sempre recebe resposta ou erro visível no Twilio).
-     * Só use background se souber o que está fazendo: TWILIO_WEBHOOK_ASYNC_ACK=true
-     * (pode falhar em silêncio se o processo morrer após responder ao Twilio).
+     * Padrão: responde 200 ao Twilio imediatamente e processa em background.
+     * O Twilio encerra a conexão se o servidor demorar ~15s — isso causava “não responde” com IA lenta.
+     * Para depurar com o webhook só retornando 200 depois do processamento: TWILIO_WEBHOOK_SYNC=true
      */
-    const asyncAck = process.env.TWILIO_WEBHOOK_ASYNC_ACK === 'true';
+    const syncWebhook = process.env.TWILIO_WEBHOOK_SYNC === 'true';
 
-    if (asyncAck) {
+    if (!syncWebhook) {
       res.status(200).type('text/xml').send('<Response></Response>');
       void processIncomingMessage(payload).catch((err) => {
         console.error('[Twilio webhook] falha no processamento async:', err);

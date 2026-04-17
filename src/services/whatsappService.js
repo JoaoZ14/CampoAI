@@ -40,6 +40,47 @@ function sleep(ms) {
 }
 
 /**
+ * Indicador "digitando..." no WhatsApp (Twilio Messaging API).
+ * Requer o SID da mensagem recebida (SM… ou MM…). Falha silenciosa se não houver credenciais.
+ * @param {string} messageSid
+ * @see https://www.twilio.com/docs/whatsapp/api/typing-indicators-resource
+ */
+export async function sendWhatsAppTypingIndicator(messageSid) {
+  const id = typeof messageSid === 'string' ? messageSid.trim() : '';
+  if (!id || !/^(SM|MM)/.test(id)) return;
+
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    console.log(`[MOCK_WHATSAPP] typing indicator para messageId=${id}`);
+    return;
+  }
+
+  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+  if (!sid || !token) return;
+
+  const auth = Buffer.from(`${sid}:${token}`, 'utf8').toString('base64');
+  const body = new URLSearchParams({ messageId: id, channel: 'whatsapp' });
+
+  try {
+    const res = await fetch('https://messaging.twilio.com/v2/Indicators/Typing.json', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      console.warn(`[Twilio] typing indicator HTTP ${res.status}: ${txt.slice(0, 200)}`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Twilio] typing indicator: ${msg}`);
+  }
+}
+
+/**
  * Envia mensagem WhatsApp via Twilio para o número informado.
  * Textos longos são divididos em várias mensagens (limite 1600 caracteres).
  * @param {string} toPhone E.164, ex: +5511999999999
