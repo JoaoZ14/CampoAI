@@ -11,7 +11,8 @@ const SYSTEM_PROMPT =
   'TEXTO PURO para WhatsApp: sem Markdown (sem **, __, #, ```, links formatados). Use só • ou 1) para listas. ' +
   'Linguagem simples, acessível a quem trabalha na roça. Trabalhe com hipóteses, o que observar no animal ou na lavoura, e próximos passos seguros. ' +
   'Em suspeita de emergência (animal caído, sangramento forte, não come/bebe, gestação com problema, surto rápido no rebanho), diga para buscar MÉDICO VETERINÁRIO ou serviço oficial na hora. ' +
-  'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. Não repita a pergunta do usuário.';
+  'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. Não repita a pergunta do usuário. ' +
+  'Não se apresente de novo em toda mensagem: não diga de novo "sou o AgroAssist" nem replique o texto de boas-vindas. O usuário já está em conversa no WhatsApp — responda direto ao que ele mandou agora, usando o histórico quando fizer sentido para dar continuidade (memória da conversa).';
 
 const IMAGE_ONLY_PROMPT =
   'Analise a imagem (lavoura, animal, instalações ou equipamento rural). Resposta completa em tópicos • — hipóteses, o que observar e próximos passos seguros. Não deixe a resposta cortada.';
@@ -179,7 +180,10 @@ async function fetchMediaAsInlineData(mediaUrl, kind) {
   );
 }
 
-async function generateWithGemini({ text, imageUrl, audioUrl }) {
+/**
+ * @param {{ role: 'user' | 'assistant', text: string }[]} history - turnos anteriores (só texto)
+ */
+async function generateWithGemini({ text, imageUrl, audioUrl, history = [] }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new AppError('GEMINI_API_KEY não configurada.', 500);
@@ -217,8 +221,17 @@ async function generateWithGemini({ text, imageUrl, audioUrl }) {
     }
   }
 
+  /** @type {{ role: string, parts: unknown[] }[]} */
+  const contents = [];
+  for (const h of history) {
+    if (!h?.text?.trim()) continue;
+    const role = h.role === 'assistant' ? 'model' : 'user';
+    contents.push({ role, parts: [{ text: h.text.trim() }] });
+  }
+  contents.push({ role: 'user', parts });
+
   const modelChain = buildGeminiModelChain();
-  console.log('[Gemini] ordem de modelos:', modelChain.join(' → '));
+  console.log('[Gemini] ordem de modelos:', modelChain.join(' → '), '| msgs histórico:', history.length);
 
   // Padrão 1 = uma chamada por modelo, sem fila de retentativas (resposta o mais rápido possível).
   // Para insistir no mesmo modelo após 503: GEMINI_RETRY_ATTEMPTS=3 e GEMINI_RETRY_MS=1200
@@ -236,7 +249,7 @@ async function generateWithGemini({ text, imageUrl, audioUrl }) {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const result = await model.generateContent({
-          contents: [{ role: 'user', parts }],
+          contents,
           generationConfig: {
             maxOutputTokens: maxOut,
             temperature: 0.35,
@@ -309,7 +322,7 @@ function isRetryableGeminiError(message) {
 
 /**
  * Gera resposta rural via Google Gemini (único motor de IA).
- * @param {{ text?: string, imageUrl?: string, audioUrl?: string }} input
+ * @param {{ text?: string, imageUrl?: string, audioUrl?: string, history?: { role: 'user' | 'assistant', text: string }[] }} input
  * @returns {Promise<string>}
  */
 export async function generateAgriculturalReply(input) {

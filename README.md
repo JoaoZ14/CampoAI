@@ -17,9 +17,10 @@ API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto
    - **`ADMIN_EMAILS`** — lista de e-mails (separados por vírgula) que podem acessar o painel; devem ser os mesmos cadastrados no **Supabase Auth**.
    - `GEMINI_API_KEY` (crie em [AI Studio](https://aistudio.google.com/apikey)).
    - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.5-flash` (o `gemini-2.0-flash` deixou de estar disponível para contas novas na API). Para usar **Gemini 3 Flash**, defina o ID que aparecer na [documentação](https://ai.google.dev/gemini-api/docs/models/gemini) ou no AI Studio (ex.: `gemini-3-flash-preview` enquanto preview).
+   - Opcional: **`PAYWALL_URL`** — link (https) incluído na mensagem quando o usuário gratuito **atinge o limite** de análises (ex.: página de planos ou checkout).
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex.: `whatsapp:+14155238886` no sandbox).
 
-2. **Crie a tabela** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase.
+2. **Crie as tabelas** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase (inclui `users` e `chat_messages` para memória da conversa). Se o projeto já existia, rode só o bloco `chat_messages` do arquivo.
 
 3. **Instale dependências** na pasta do projeto:
 
@@ -96,7 +97,7 @@ Corpo JSON (exemplo Postman):
 **Comportamento:**
 
 - Sem `message`, nem `imageUrl` nem `audioUrl` válidos → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
-- Usuário gratuito com `usageCount >= 10` e `isPaid === false` → envia mensagem de **limite** e não chama a IA.
+- Usuário gratuito com `usageCount >= 10` e `isPaid === false` → envia mensagem de **limite** (texto em `MSG_LIMIT_BASE`; se definir **`PAYWALL_URL`** no `.env`, o link é acrescentado na mesma mensagem) e não chama a IA.
 - Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp.
 
 ## Velocidade e Twilio
@@ -107,7 +108,7 @@ Corpo JSON (exemplo Postman):
 
 ## Pagamentos (futuro)
 
-O arquivo `src/services/paymentService.js` reserva o lugar para webhooks e checkout; não há cobrança implementada.
+O arquivo `src/services/paymentService.js` reserva o lugar para webhooks e checkout; não há cobrança automática integrada. Enquanto isso, use **`PAYWALL_URL`** no `.env` com o endereço da sua landing ou página de planos: esse endereço entra na mensagem de **limite gratuito** no WhatsApp para o usuário abrir no navegador.
 
 ## Estrutura
 
@@ -124,3 +125,7 @@ src/
 ## Limite gratuito
 
 Constante `FREE_USAGE_LIMIT` em `src/models/userModel.js` (padrão: **10** interações com IA). Usuários com `is_paid = true` no banco não são bloqueados por esse limite.
+
+## Memória da conversa
+
+Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou o AgroAssist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.

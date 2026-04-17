@@ -7,6 +7,10 @@ import {
 } from '../services/userService.js';
 import { generateAgriculturalReply } from '../services/aiService.js';
 import {
+  getChatHistoryForModel,
+  saveChatTurn,
+} from '../services/chatHistoryService.js';
+import {
   sendWhatsAppMessage,
   sendWhatsAppTypingIndicator,
 } from '../services/whatsappService.js';
@@ -20,11 +24,31 @@ export const MSG_WELCOME =
 export const MSG_UNSUPPORTED_VIDEO =
   'Por enquanto não analiso vídeo por aqui. Pode mandar texto, foto ou áudio de voz?';
 
-export const MSG_LIMIT =
+/** Texto base (sem URL). A mensagem enviada ao usuário inclui PAYWALL_URL quando definida. */
+export const MSG_LIMIT_BASE =
   'Você usou suas análises gratuitas. Quer continuar usando? Planos a partir de R$29.';
+
+/**
+ * Mensagem quando o usuário gratuito atinge o limite. Inclui link se `PAYWALL_URL` estiver no .env.
+ */
+export function getLimitReachedMessage() {
+  const url = process.env.PAYWALL_URL?.trim();
+  if (!url) return MSG_LIMIT_BASE;
+  return `${MSG_LIMIT_BASE}\n\n${url}`;
+}
 
 export const MSG_IA_ERRO =
   'Não consegui gerar a resposta agora. Pode ser instabilidade do serviço de IA ou problema na chave da API — tenta de novo em 1–2 minutos. Se continuar igual, fala com o suporte.';
+
+function buildUserTurnSummary(type, message) {
+  const chunks = [];
+  if (type.hasText && message != null && String(message).trim()) {
+    chunks.push(String(message).trim());
+  }
+  if (type.hasImage) chunks.push('[Foto enviada]');
+  if (type.hasAudio) chunks.push('[Áudio enviado]');
+  return chunks.join(' ').trim() || '[mensagem]';
+}
 
 /**
  * Fluxo único: Postman/JSON e webhook Twilio.
@@ -74,7 +98,7 @@ export async function processIncomingMessage({
   }
 
   if (isUsageBlocked(user)) {
-    await sendWhatsAppMessage(phone, MSG_LIMIT);
+    await sendWhatsAppMessage(phone, getLimitReachedMessage());
     return {
       step: 'limit_reached',
       userId: user.id,
@@ -98,12 +122,15 @@ export async function processIncomingMessage({
     }
   }
 
+  const history = await getChatHistoryForModel(user.id);
+
   let reply;
   try {
     reply = await generateAgriculturalReply({
       text: type.hasText ? String(message).trim() : undefined,
       imageUrl: type.hasImage ? String(imageUrl).trim() : undefined,
       audioUrl: type.hasAudio ? String(audioUrl).trim() : undefined,
+      history,
     });
   } catch (err) {
     console.error('[incoming] Falha na IA:', err);
@@ -123,6 +150,11 @@ export async function processIncomingMessage({
   }
 
   await incrementUsage(user.id);
+  await saveChatTurn(
+    user.id,
+    buildUserTurnSummary(type, message),
+    reply
+  );
   await sendWhatsAppMessage(phone, reply);
 
   const updatedUsage = user.usageCount + 1;
