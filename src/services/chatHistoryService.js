@@ -9,17 +9,13 @@ function maxStoredMessages() {
 }
 
 /**
- * Histórico recente (texto) para o Gemini: alternância user / assistant.
  * @param {string} userId
+ * @param {number} limit
  * @returns {Promise<{ role: 'user' | 'assistant', text: string }[]>}
  */
-export async function getChatHistoryForModel(userId) {
-  if (process.env.CHAT_HISTORY_ENABLED === 'false') {
-    return [];
-  }
-
+async function fetchChatMessages(userId, limit) {
   const supabase = createSupabaseClient();
-  const take = maxStoredMessages();
+  const take = Math.max(2, Math.min(200, limit));
 
   const { data, error } = await supabase
     .from('chat_messages')
@@ -40,6 +36,35 @@ export async function getChatHistoryForModel(userId) {
       role: r.role === 'assistant' ? 'assistant' : 'user',
       text: String(r.content),
     }));
+}
+
+/**
+ * Histórico recente (texto) para o Gemini: alternância user / assistant.
+ * @param {string} userId
+ * @returns {Promise<{ role: 'user' | 'assistant', text: string }[]>}
+ */
+export async function getChatHistoryForModel(userId) {
+  if (process.env.CHAT_HISTORY_ENABLED === 'false') {
+    return [];
+  }
+
+  return fetchChatMessages(userId, maxStoredMessages());
+}
+
+/**
+ * Histórico mais longo para montar relatório PDF (só leitura).
+ * @param {string} userId
+ * @returns {Promise<{ role: 'user' | 'assistant', text: string }[]>}
+ */
+export async function getChatHistoryForReport(userId) {
+  if (process.env.CHAT_HISTORY_ENABLED === 'false') {
+    return [];
+  }
+
+  const n = Number(process.env.REPORT_HISTORY_MAX_MESSAGES);
+  const limit =
+    Number.isFinite(n) && n >= 4 ? Math.min(200, n) : 80;
+  return fetchChatMessages(userId, limit);
 }
 
 /**

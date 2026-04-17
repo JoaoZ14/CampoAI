@@ -136,6 +136,65 @@ export async function sendWhatsAppMessage(toPhone, body) {
 }
 
 /**
+ * Mensagem com anexo (PDF, imagem, etc.). Twilio faz GET em cada URL (ex.: link assinado do Supabase).
+ * @param {string} toPhone E.164
+ * @param {string} body Legenda (recomendado)
+ * @param {string[]} mediaUrls Uma ou mais URLs públicas ou assinadas (https)
+ */
+export async function sendWhatsAppWithMedia(toPhone, body, mediaUrls) {
+  const urls = (Array.isArray(mediaUrls) ? mediaUrls : [])
+    .map((u) => (typeof u === 'string' ? u.trim() : ''))
+    .filter(Boolean);
+  const caption =
+    typeof body === 'string' && body.trim()
+      ? body.trim().slice(0, MAX_WHATSAPP_BODY)
+      : 'Segue o arquivo.';
+
+  if (urls.length === 0) {
+    return sendWhatsAppMessage(toPhone, caption);
+  }
+
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    console.log(
+      `[MOCK_WHATSAPP] Com mídia | Para: ${toPhone} | ${urls.length} URL(s) | ${caption.slice(0, 120)}`
+    );
+    return { sid: 'MOCK_SID', status: 'mocked', parts: 1, media: true };
+  }
+
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_WHATSAPP_FROM;
+
+  if (!sid || !token || !from) {
+    throw new AppError(
+      'Twilio não configurado (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM).',
+      500
+    );
+  }
+
+  const client = twilio(sid, token);
+  const to = toPhone.startsWith('whatsapp:') ? toPhone : `whatsapp:${toPhone}`;
+
+  try {
+    const message = await client.messages.create({
+      from,
+      to,
+      body: caption,
+      mediaUrl: urls,
+    });
+    return {
+      sid: message.sid ?? '',
+      status: message.status ?? '',
+      parts: 1,
+      media: true,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new AppError(`Falha ao enviar WhatsApp com mídia (Twilio): ${msg}`, 502);
+  }
+}
+
+/**
  * Template do Content Template Builder (ex.: botão "Ver planos" abaixo da mensagem no WhatsApp).
  * Não use `body` junto com `contentSid` — o Twilio substitui o conteúdo pelo template.
  * @param {string} toPhone E.164

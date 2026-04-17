@@ -1,6 +1,6 @@
-# AgroAssist — Backend (Node.js)
+# AG Assist — Backend (Node.js)
 
-API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
+API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
 
 ## Pré-requisitos
 
@@ -98,6 +98,7 @@ Corpo JSON (exemplo Postman):
 
 - Sem `message`, nem `imageUrl` nem `audioUrl` válidos → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
 - Usuário gratuito com `usageCount >= 10` e `isPaid === false` → mensagem de **limite**. Com **`PAYWALL_CONTENT_SID`** (template no [Content Template Builder](https://www.twilio.com/docs/content/create-templates-with-the-content-template-builder) do Twilio), o WhatsApp pode mostrar **botões embaixo da bolha**. Sem isso, usa texto + **`PAYWALL_URL`** (duas bolhas ou uma, conforme `PAYWALL_SINGLE_BUBBLE`).
+- Pedido de **relatório/PDF da conversa** (só texto; intenções como “gera um relatório” ou “PDF do que falamos”) → gera PDF, envia pelo WhatsApp, incrementa uso (`REPORTS_ENABLED=false` desativa).
 - Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp.
 
 ## Velocidade e Twilio
@@ -128,4 +129,10 @@ Constante `FREE_USAGE_LIMIT` em `src/models/userModel.js` (padrão: **10** inter
 
 ## Memória da conversa
 
-Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou o AgroAssist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
+Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou o AG Assist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
+
+## Relatório em PDF
+
+Se o usuário pedir um **relatório ou PDF da conversa** (ex.: “gera um relatório”, “quero um PDF do que conversamos”), o backend gera o texto com o **Gemini**, monta o **PDF** no servidor, faz **upload** no **Supabase Storage** e envia pelo **Twilio** como anexo (URL assinada). Exige **histórico** (`CHAT_HISTORY_ENABLED` ativo e pelo menos **2 mensagens** salvas antes do pedido). Desative com `REPORTS_ENABLED=false`.
+
+**Supabase:** crie um bucket privado (nome padrão `reports`, ou defina `SUPABASE_REPORTS_BUCKET`). O cliente usa a **service role** — não é necessário tornar o bucket público; o Twilio recebe uma **URL assinada** válida por `REPORT_PDF_SIGNED_URL_SECONDS` (padrão 3600 s).

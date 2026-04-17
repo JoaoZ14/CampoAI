@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AppError } from '../utils/errors.js';
 
 const SYSTEM_PROMPT =
-  'Você é o AgroAssist: assistente rural no WhatsApp para AGRICULTURA, PECUÁRIA e MEDICINA VETERINÁRIA de campo (orientação geral, não substitui visita de agrônomo ou médico veterinário em casos graves). ' +
+  'Você é o AG Assist: assistente rural no WhatsApp para AGRICULTURA, PECUÁRIA e MEDICINA VETERINÁRIA de campo (orientação geral, não substitui visita de agrônomo ou médico veterinário em casos graves). ' +
   'Abrangência: lavouras (grãos, hortaliças, frutas, café, cana, pastagens cultivadas); solo e adubação em linguagem simples; irrigação e manejo; pragas e doenças de plantas; máquinas e armazenamento básico quando couber. ' +
   'Pecuária: bovinos, ovinos, caprinos, suínos, aves, abelhas, equinos e criações de pequeno porte; nutrição e pastagem; reprodução e manejo de rebanho; instalações, conforto animal e biossegurança em nível produtor. ' +
   'Sanidade animal: sinais clínicos comuns (digestório, respiratório, pele, casco, úbere, nervoso); prevenção de doenças; vacinação e vermifugação apenas como CONCEITOS (sem doses, marcas ou receitas). ' +
@@ -12,7 +12,7 @@ const SYSTEM_PROMPT =
   'Linguagem simples, acessível a quem trabalha na roça. Trabalhe com hipóteses, o que observar no animal ou na lavoura, e próximos passos seguros. ' +
   'Em suspeita de emergência (animal caído, sangramento forte, não come/bebe, gestação com problema, surto rápido no rebanho), diga para buscar MÉDICO VETERINÁRIO ou serviço oficial na hora. ' +
   'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. Não repita a pergunta do usuário. ' +
-  'Não se apresente de novo em toda mensagem: não diga de novo "sou o AgroAssist" nem replique o texto de boas-vindas. O usuário já está em conversa no WhatsApp — responda direto ao que ele mandou agora, usando o histórico quando fizer sentido para dar continuidade (memória da conversa).';
+  'Não se apresente de novo em toda mensagem: não diga de novo "sou o AG Assist" nem o nome antigo "AgroAssist"; não replique o texto de boas-vindas. O usuário já está em conversa no WhatsApp — responda direto ao que ele mandou agora, usando o histórico quando fizer sentido para dar continuidade (memória da conversa).';
 
 const IMAGE_ONLY_PROMPT =
   'Analise a imagem (lavoura, animal, instalações ou equipamento rural). Resposta completa em tópicos • — hipóteses, o que observar e próximos passos seguros. Não deixe a resposta cortada.';
@@ -76,7 +76,7 @@ function mockAgriculturalReply({ text, imageUrl, audioUrl }) {
 }
 
 const DEFAULT_UA =
-  'Mozilla/5.0 (compatible; AgroAssist/1.0; +https://github.com/) AppleWebKit/537.36 (KHTML, like Gecko)';
+  'Mozilla/5.0 (compatible; AG-Assist/1.0; +https://github.com/) AppleWebKit/537.36 (KHTML, like Gecko)';
 
 /**
  * URLs de mídia do Twilio exigem HTTP Basic: Account SID + Auth Token.
@@ -332,10 +332,103 @@ export async function generateAgriculturalReply(input) {
 
   if (!process.env.GEMINI_API_KEY?.trim()) {
     throw new AppError(
-      'GEMINI_API_KEY não configurada. O AgroAssist usa apenas Google Gemini — crie uma chave em https://aistudio.google.com/apikey',
+      'GEMINI_API_KEY não configurada. O AG Assist usa apenas Google Gemini — crie uma chave em https://aistudio.google.com/apikey',
       500
     );
   }
 
   return generateWithGemini(input);
+}
+
+const REPORT_SYSTEM_INSTRUCTION =
+  'Você é o AG Assist. Com base exclusivamente na transcrição da conversa fornecida, redija um RELATÓRIO em português do Brasil para ser salvo em PDF. ' +
+  'Conteúdo: contexto do que foi tratado (lavoura, pecuária ou sanidade animal em nível de orientação geral), resumo fiel, pontos principais acordados ou recomendados, e próximos passos sugeridos na conversa. ' +
+  'Use seções com títulos claros em CAIXA ALTA em linha própria (ex.: CONTEXTO, RESUMO, PONTOS PRINCIPAIS, RECOMENDAÇÕES, AVISO). ' +
+  'Inclua em AVISO que a orientação é geral e não substitui visita presencial de agrônomo ou médico veterinário nem receita de produtos. ' +
+  'Sem Markdown (sem **, #, ```); texto corrido e listas com • quando útil. ' +
+  'Não invente fatos que não apareçam na transcrição; se algo for incerto, deixe explícito.';
+
+/**
+ * Texto longo do relatório (será colocado no PDF).
+ * @param {{ history: { role: 'user' | 'assistant', text: string }[], userInstruction: string }} input
+ */
+export async function generateConversationReportText(input) {
+  if (process.env.MOCK_LLM === 'true') {
+    return (
+      'RELATÓRIO DE CONVERSA — TESTE (MOCK_LLM)\n\n' +
+      'RESUMO\n• Conteúdo simulado para desenvolvimento sem API Gemini.\n\n' +
+      'AVISO\nOrientação geral; não substitui técnico presencial.'
+    );
+  }
+
+  const key = process.env.GEMINI_API_KEY?.trim();
+  if (!key) {
+    throw new AppError(
+      'GEMINI_API_KEY não configurada — necessária para gerar o relatório.',
+      500
+    );
+  }
+
+  const hist = Array.isArray(input.history) ? input.history : [];
+  const transcript = hist
+    .filter((h) => h?.text?.trim())
+    .map((h) => {
+      const who = h.role === 'assistant' ? 'Assistente' : 'Usuário';
+      return `${who}: ${h.text.trim()}`;
+    })
+    .join('\n\n');
+
+  const instruction = String(input.userInstruction ?? '').trim() || 'Relatório da conversa';
+
+  const userPayload =
+    `Pedido do usuário sobre o relatório:\n${instruction}\n\n` +
+    '=== Transcrição da conversa (ordem cronológica) ===\n\n' +
+    (transcript || '(Sem mensagens anteriores.)');
+
+  const genAI = new GoogleGenerativeAI(key);
+  const modelChain = buildGeminiModelChain();
+  const maxOut = Math.min(8192, Math.max(2048, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 6144));
+  const maxAttempts = Math.min(6, Math.max(1, Number(process.env.GEMINI_RETRY_ATTEMPTS) || 1));
+  const baseMs = Math.max(0, Number(process.env.GEMINI_RETRY_MS) || 800);
+
+  for (let mi = 0; mi < modelChain.length; mi++) {
+    const modelName = modelChain[mi];
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      systemInstruction: REPORT_SYSTEM_INSTRUCTION,
+    });
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: userPayload }] }],
+          generationConfig: {
+            maxOutputTokens: maxOut,
+            temperature: 0.25,
+            topP: 0.85,
+          },
+        });
+
+        const reply = result.response.text()?.trim();
+        if (!reply) throw new AppError('Resposta vazia do Gemini ao gerar relatório.', 502);
+        return reply;
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        const lastMsg = err instanceof Error ? err.message : String(err);
+        const retryable = isRetryableGeminiError(lastMsg);
+        if (!retryable) throw new AppError(`Falha ao gerar relatório (Gemini): ${lastMsg}`, 502);
+
+        const lastModel = mi === modelChain.length - 1;
+        const lastTryOnModel = attempt === maxAttempts - 1;
+        if (!lastTryOnModel && maxAttempts > 1) {
+          await sleep(baseMs * (attempt + 1));
+          continue;
+        }
+        if (!lastModel) break;
+        throw new AppError(`Falha ao gerar relatório (Gemini): ${lastMsg}`, 502);
+      }
+    }
+  }
+
+  throw new AppError('Não foi possível gerar o texto do relatório.', 502);
 }

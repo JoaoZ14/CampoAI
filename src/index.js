@@ -5,7 +5,7 @@ const port = Number(process.env.PORT) || 3001;
 const app = createApp();
 
 const server = app.listen(port, () => {
-  console.log(`AgroAssist rodando em http://localhost:${port}`);
+  console.log(`AG Assist rodando em http://localhost:${port}`);
   console.log(`Webhook JSON: POST http://localhost:${port}/webhook/whatsapp`);
   console.log(`Webhook Twilio: POST http://localhost:${port}/webhook/whatsapp/twilio`);
   console.log(`Health:  GET  http://localhost:${port}/health`);

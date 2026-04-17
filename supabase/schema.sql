@@ -10,7 +10,7 @@ create table if not exists public.users (
 
 create index if not exists users_phone_idx on public.users (phone);
 
-comment on table public.users is 'Usuários do AgroAssist identificados pelo telefone WhatsApp';
+comment on table public.users is 'Usuários do AG Assist identificados pelo telefone WhatsApp';
 
 -- Histórico de conversa (texto) para memória multi-turn no Gemini. Rode após criar users.
 create table if not exists public.chat_messages (

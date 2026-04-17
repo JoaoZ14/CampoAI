@@ -8,17 +8,23 @@ import {
 import { generateAgriculturalReply } from '../services/aiService.js';
 import {
   getChatHistoryForModel,
+  getChatHistoryForReport,
   saveChatTurn,
 } from '../services/chatHistoryService.js';
 import {
   sendWhatsAppMessage,
+  sendWhatsAppWithMedia,
   sendWhatsAppContentTemplate,
   sendWhatsAppTypingIndicator,
 } from '../services/whatsappService.js';
+import { wantsConversationPdfReport } from './reportIntent.js';
+import { generateConversationReportText } from './aiService.js';
+import { buildConversationReportPdf } from './reportPdfService.js';
+import { uploadReportPdfAndGetSignedUrl } from './reportStorageService.js';
 import { AppError } from '../utils/errors.js';
 
 export const MSG_WELCOME =
-  'Olá! Sou o AgroAssist — seu parceiro aqui no campo. 👨‍🌾\n\n' +
+  'Olá! Sou o AG Assist — seu parceiro aqui no campo. 👨‍🌾\n\n' +
   'Posso te ajudar com lavoura, pecuária, cuidado com animais e o que estiver pegando na roça.\n\n' +
   'Manda uma foto, um áudio de voz ou descreve o problema em poucas palavras que eu te oriento com calma, passo a passo.';
 
@@ -126,6 +132,9 @@ async function sendLimitReachedMessages(toPhone) {
 export const MSG_IA_ERRO =
   'Não consegui gerar a resposta agora. Pode ser instabilidade do serviço de IA ou problema na chave da API — tenta de novo em 1–2 minutos. Se continuar igual, fala com o suporte.';
 
+export const MSG_REPORT_INSUFFICIENT =
+  'Para montar um relatório em PDF, preciso do histórico da conversa salvo. Ative a memória no servidor (CHAT_HISTORY_ENABLED) e troque pelo menos uma pergunta e uma resposta comigo sobre o assunto antes deste pedido. Depois peça o relatório de novo.';
+
 function buildUserTurnSummary(type, message) {
   const chunks = [];
   if (type.hasText && message != null && String(message).trim()) {
@@ -191,6 +200,77 @@ export async function processIncomingMessage({
       usageCount: user.usageCount,
       isPaid: user.isPaid,
     };
+  }
+
+  const textRaw = type.hasText && message != null ? String(message).trim() : '';
+  const reportRequested =
+    textRaw &&
+    type.hasText &&
+    !type.hasImage &&
+    !type.hasAudio &&
+    wantsConversationPdfReport(textRaw) &&
+    process.env.REPORTS_ENABLED !== 'false';
+
+  if (reportRequested) {
+    const historyForReport = await getChatHistoryForReport(user.id);
+    if (historyForReport.length < 2) {
+      await sendWhatsAppMessage(phone, MSG_REPORT_INSUFFICIENT);
+      return {
+        step: 'report_insufficient_history',
+        userId: user.id,
+        usageCount: user.usageCount,
+      };
+    }
+
+    const sidReport =
+      typeof messageSid === 'string' && messageSid.trim() ? messageSid.trim() : undefined;
+    if (sidReport) {
+      await sendWhatsAppTypingIndicator(sidReport);
+    }
+
+    try {
+      const reportBody = await generateConversationReportText({
+        history: historyForReport,
+        userInstruction: textRaw,
+      });
+      const pdfBuf = await buildConversationReportPdf({
+        title: 'Relatório — AG Assist',
+        body: reportBody,
+      });
+      const signedUrl = await uploadReportPdfAndGetSignedUrl(user.id, pdfBuf);
+      await sendWhatsAppWithMedia(
+        phone,
+        'Segue o relatório em PDF com o resumo da nossa conversa.',
+        [signedUrl]
+      );
+      await incrementUsage(user.id);
+      await saveChatTurn(
+        user.id,
+        buildUserTurnSummary(type, message),
+        'Enviei o relatório em PDF com o resumo da conversa.'
+      );
+      return {
+        step: 'report_pdf_sent',
+        userId: user.id,
+        usageCount: user.usageCount + 1,
+      };
+    } catch (err) {
+      console.error('[incoming] relatório PDF:', err);
+      const fb =
+        process.env.WHATSAPP_REPORT_ERROR_TEXT?.trim() ||
+        'Não consegui gerar o relatório em PDF agora. Verifique o bucket no Supabase e tente de novo em instantes.';
+      try {
+        await sendWhatsAppMessage(phone, fb);
+      } catch (sendErr) {
+        console.error('[incoming] Falha ao enviar erro do relatório:', sendErr);
+      }
+      return {
+        step: 'report_error',
+        userId: user.id,
+        usageCount: user.usageCount,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   const sid =

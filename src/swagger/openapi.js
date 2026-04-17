@@ -4,7 +4,7 @@
 export const openapiSpec = {
   openapi: '3.0.3',
   info: {
-    title: 'AgroAssist API',
+    title: 'AG Assist API',
     description:
       'Backend do assistente agrícola via WhatsApp. Use **Try it out** para testar os endpoints.',
     version: '1.0.0',
@@ -35,7 +35,7 @@ export const openapiSpec = {
                   type: 'object',
                   properties: {
                     ok: { type: 'boolean', example: true },
-                    service: { type: 'string', example: 'AgroAssist API' },
+                    service: { type: 'string', example: 'AG Assist API' },
                   },
                 },
               },
@@ -126,6 +126,9 @@ export const openapiSpec = {
                         'ai_error',
                         'limit_reached',
                         'unsupported_video',
+                        'report_pdf_sent',
+                        'report_insufficient_history',
+                        'report_error',
                       ],
                     },
                     userId: { type: 'string', format: 'uuid' },

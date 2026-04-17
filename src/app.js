@@ -28,13 +28,13 @@ export function createApp() {
     '/api-docs',
     swaggerUi.serve,
     swaggerUi.setup(openapiSpec, {
-      customSiteTitle: 'AgroAssist — API',
+      customSiteTitle: 'AG Assist — API',
       customCss: '.swagger-ui .topbar { display: none }',
     })
   );
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, service: 'AgroAssist API' });
+    res.json({ ok: true, service: 'AG Assist API' });
   });
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
