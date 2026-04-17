@@ -18,7 +18,7 @@ export const MSG_LIMIT =
   'Você usou suas análises gratuitas. Quer continuar usando? Plano mensal R$29.';
 
 /**
- * Fluxo único: Postman/JSON e webhook Twilio.
+ * Fluxo único: Postman/JSON e webhook Z-API.
  * @param {{ phone: string, message?: string, imageUrl?: string }} input
  */
 export async function processIncomingMessage({ phone: rawPhone, message, imageUrl }) {

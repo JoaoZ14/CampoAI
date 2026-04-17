@@ -49,7 +49,7 @@ export const openapiSpec = {
         tags: ['Webhook'],
         summary: 'Receber mensagem (texto e/ou imagem)',
         description:
-          'Busca ou cria o usuário pelo telefone, aplica limite gratuito, chama o Gemini quando aplicável e envia resposta via Twilio (ou mock).',
+          'Busca ou cria o usuário pelo telefone, aplica limite gratuito, chama o Gemini quando aplicável e envia resposta via Z-API (ou mock).',
         operationId: 'postWhatsAppWebhook',
         requestBody: {
           required: true,
@@ -127,47 +127,60 @@ export const openapiSpec = {
           },
           '400': { description: 'Corpo inválido (ex.: telefone ausente)' },
           '500': { description: 'Erro interno ou serviço externo' },
-          '502': { description: 'Falha Gemini ou Twilio' },
+          '502': { description: 'Falha Gemini ou Z-API' },
         },
       },
     },
-    '/webhook/whatsapp/twilio': {
+    '/webhook/whatsapp/z-api': {
       post: {
         tags: ['Webhook'],
-        summary: 'Webhook Twilio (WhatsApp real)',
+        summary: 'Webhook Z-API (Ao receber)',
         description:
-          'URL pública HTTPS para "When a message comes in" no Twilio. Content-Type: application/x-www-form-urlencoded. O Swagger não envia esse formato facilmente — use o WhatsApp ou um cliente HTTP.',
-        operationId: 'postTwilioWhatsappWebhook',
+          'URL HTTPS configurada no painel Z-API → Webhook de recebimento. Corpo JSON igual ao callback `ReceivedCallback` (texto em `text.message`, imagem em `image.imageUrl`).',
+        operationId: 'postZApiWhatsappWebhook',
         requestBody: {
           content: {
-            'application/x-www-form-urlencoded': {
+            'application/json': {
               schema: {
                 type: 'object',
+                description: 'Payload simplificado do webhook Z-API',
                 properties: {
-                  From: {
-                    type: 'string',
-                    example: 'whatsapp:+5511999999999',
-                    description: 'Remetente (WhatsApp)',
+                  type: { type: 'string', example: 'ReceivedCallback' },
+                  fromMe: { type: 'boolean', example: false },
+                  isGroup: { type: 'boolean', example: false },
+                  phone: { type: 'string', example: '5511999999999' },
+                  text: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Minha vaca está mancando' },
+                    },
                   },
-                  Body: { type: 'string', example: 'Minha vaca está mancando' },
-                  NumMedia: { type: 'string', example: '0' },
-                  MediaUrl0: {
-                    type: 'string',
-                    description: 'URL da primeira mídia se NumMedia > 0',
+                  image: {
+                    type: 'object',
+                    properties: {
+                      imageUrl: {
+                        type: 'string',
+                        format: 'uri',
+                        description: 'URL da imagem no armazenamento Z-API',
+                      },
+                      caption: { type: 'string' },
+                    },
                   },
                 },
+              },
+              example: {
+                type: 'ReceivedCallback',
+                fromMe: false,
+                isGroup: false,
+                phone: '5511999999999',
+                text: { message: 'Minha vaca está mancando' },
               },
             },
           },
         },
         responses: {
           '200': {
-            description: 'OK — TwiML vazio',
-            content: {
-              'text/xml': {
-                schema: { type: 'string', example: '<Response></Response>' },
-              },
-            },
+            description: 'OK — corpo vazio',
           },
         },
       },

@@ -1,12 +1,12 @@
 # AgroAssist — Backend (Node.js)
 
-API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
+API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pela **Z-API**.
 
 ## Pré-requisitos
 
 - Node.js 18+
 - Conta [Supabase](https://supabase.com) (Postgres)
-- Conta [Twilio](https://www.twilio.com) com WhatsApp (sandbox ou número aprovado)
+- Conta [Z-API](https://www.z-api.io/) com instância conectada ao WhatsApp (QR Code)
 - Chave **Gemini** (obrigatória): [Google AI Studio](https://aistudio.google.com/apikey)
 
 ## Configuração
@@ -16,7 +16,8 @@ API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto
    - `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (Settings → API no Supabase; use a **service role** só no servidor).
    - `GEMINI_API_KEY` (crie em [AI Studio](https://aistudio.google.com/apikey)).
    - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.0-flash`. Se a API retornar 404 “model not found”, tente `gemini-2.0-flash-001` ou veja modelos na [documentação](https://ai.google.dev/gemini-api/docs/models/gemini).
-   - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex.: `whatsapp:+14155238886` no sandbox).
+   - `ZAPI_INSTANCE_ID` e `ZAPI_INSTANCE_TOKEN` (painel Z-API → Instâncias).
+   - `ZAPI_CLIENT_TOKEN` se você ativou o **Token de segurança da conta** em Segurança no painel (header `Client-Token` nas chamadas à API e recomendado para baixar mídias em URLs `*.z-api.io`).
 
 2. **Crie a tabela** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase.
 
@@ -34,14 +35,14 @@ API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto
 
    Por padrão a API sobe em `http://localhost:3001` (ajuste `PORT` no `.env` se precisar).
 
-5. **Testes sem Twilio** (só log no console, sem enviar WhatsApp real):
+5. **Testes sem Z-API** (só log no console, sem enviar WhatsApp real):
 
    No `.env`, defina `MOCK_WHATSAPP=true`.
 
 6. **Gemini retornou 429 / cota** (free tier esgotado ou limite por minuto):
 
    - Espere **~1 minuto** e tente de novo (RPM limit).
-   - Veja [limites e uso](https://ai.google.dev/gemini-api/docs/rate-limits) e o painel do projeto no Google AI.
+   - Veja [limites e uso](https://ai.google.dev/gemini-api/docs/rate-limits) e o painel do projeto no Google.
    - Para testar **só o backend** (WhatsApp + Supabase + contador) **sem chamar** o Gemini: `MOCK_LLM=true` no `.env`.
 
 ## Endpoints
@@ -52,17 +53,17 @@ API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto
 | GET | `/openapi.json` | Especificação OpenAPI (JSON) |
 | GET | `/health` | Status do serviço |
 | POST | `/webhook/whatsapp` | Teste com JSON (Postman / Swagger) |
-| POST | `/webhook/whatsapp/twilio` | **Webhook do Twilio** — mensagens reais do WhatsApp |
+| POST | `/webhook/whatsapp/z-api` | **Webhook Z-API** (“Ao receber”) — mensagens reais do WhatsApp |
 
-### Twilio (produção / teste com número)
+### Z-API (produção / teste com número)
 
-1. Suba a API com **HTTPS** (Railway, Render, ngrok, etc.).
-2. No [Twilio Console](https://console.twilio.com) → seu número ou **WhatsApp Sandbox** → em **When a message comes in** configure:
-   - **URL:** `https://SEU-DOMINIO/webhook/whatsapp/twilio`
-   - **HTTP:** POST
-3. Salve e envie mensagem pelo WhatsApp para o número do Twilio.
+1. Suba a API com **HTTPS** (Railway, Render, ngrok, etc.). A Z-API **não aceita webhook sem HTTPS**.
+2. No [painel Z-API](https://app.z-api.io/) → **Instâncias** → sua instância → configure o webhook **Ao receber**:
+   - **URL:** `https://SEU-DOMINIO/webhook/whatsapp/z-api`
+   - **Método:** POST, corpo JSON (a Z-API envia o payload descrito na [documentação](https://developer.z-api.io/webhooks/on-message-received)).
+3. O servidor processa apenas mensagens `ReceivedCallback` com `fromMe: false` e **não** grupos (`isGroup`).
 
-O Twilio envia `application/x-www-form-urlencoded` (não JSON). Use `MOCK_WHATSAPP=false` e as mesmas credenciais Twilio do `.env`.
+Use `MOCK_WHATSAPP=false` e as variáveis `ZAPI_*` no `.env`.
 
 ### POST `/webhook/whatsapp`
 
@@ -84,11 +85,11 @@ Corpo JSON (exemplo Postman):
 
 - Sem `message` nem `imageUrl` válida → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
 - Usuário gratuito com `usageCount >= 5` e `isPaid === false` → envia mensagem de **limite** e não chama a IA.
-- Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp.
+- Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp (Z-API).
 
-## Velocidade e Twilio
+## Velocidade e webhook
 
-- **Twilio** (`/webhook/whatsapp/twilio`): por padrão o servidor **só responde 200 depois** de processar a mensagem e enviar o WhatsApp (assim a resposta não “some” por falha em background). Só ative `TWILIO_WEBHOOK_ASYNC_ACK=true` se precisar responder ao Twilio antes (há risco de não entregar a mensagem).
+- **Z-API** (`/webhook/whatsapp/z-api`): por padrão o servidor **só responde 200 depois** de processar e enviar a resposta. Só ative `ZAPI_WEBHOOK_ASYNC_ACK=true` se precisar responder ao webhook antes (há risco de não entregar a mensagem se o processo cair).
 - **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **4096** (evita cortar no meio; até **8192** se precisar). Se no terminal aparecer aviso `MAX_TOKENS`, aumente esse valor no `.env`. Retries em 503/429: 2 tentativas (`GEMINI_RETRY_*`).
 
 ## Pagamentos (futuro)
@@ -100,7 +101,7 @@ O arquivo `src/services/paymentService.js` reserva o lugar para webhooks e check
 ```
 src/
   controllers/   # Orquestração HTTP
-  services/      # Twilio, Gemini, usuários, pagamento (stub)
+  services/      # Z-API, Gemini, usuários, pagamento (stub)
   routes/
   models/        # Cliente Supabase e constantes do domínio
   middleware/
