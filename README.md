@@ -97,7 +97,7 @@ Corpo JSON (exemplo Postman):
 **Comportamento:**
 
 - Sem `message`, nem `imageUrl` nem `audioUrl` válidos → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
-- Usuário gratuito com `usageCount >= 10` e `isPaid === false` → envia mensagem de **limite** (texto em `MSG_LIMIT_BASE`; se definir **`PAYWALL_URL`** no `.env`, o link é acrescentado na mesma mensagem) e não chama a IA.
+- Usuário gratuito com `usageCount >= 10` e `isPaid === false` → envia mensagem de **limite** (`MSG_LIMIT_BASE`; com **`PAYWALL_URL`**, por defeito **duas** mensagens — texto e depois só o link, para o usuário tocar no endereço em destaque). `PAYWALL_SINGLE_BUBBLE=true` une tudo em uma bolha. Botões nativos tipo “Ver planos” exigem **template WhatsApp aprovado** (Meta/Twilio Content API), não só sessão de chat.
 - Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp.
 
 ## Velocidade e Twilio

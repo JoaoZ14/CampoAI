@@ -24,17 +24,68 @@ export const MSG_WELCOME =
 export const MSG_UNSUPPORTED_VIDEO =
   'Por enquanto não analiso vídeo por aqui. Pode mandar texto, foto ou áudio de voz?';
 
-/** Texto base (sem URL). A mensagem enviada ao usuário inclui PAYWALL_URL quando definida. */
+/** Texto base (sem URL). Com `PAYWALL_URL`, o link entra na mesma bolha ou na seguinte — ver `getLimitReachedParts`. */
 export const MSG_LIMIT_BASE =
   'Você usou suas análises gratuitas. Quer continuar usando? Planos a partir de R$29.';
 
 /**
- * Mensagem quando o usuário gratuito atinge o limite. Inclui link se `PAYWALL_URL` estiver no .env.
+ * Normaliza URL para o WhatsApp reconhecer link tocável (evita domínio sem esquema).
+ * @param {string} raw
+ * @returns {string}
+ */
+function normalizePaywallUrl(raw) {
+  const s = String(raw).trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  return `https://agassist.netlify.app/#planos`;
+}
+
+/**
+ * Partes da mensagem de limite (uma ou duas bolhas).
+ * Sem `PAYWALL_URL`: só o texto base.
+ * Com URL e sem `PAYWALL_SINGLE_BUBBLE=true`: duas mensagens — texto explicando + mensagem só com o link (área tocável grande no WhatsApp).
+ * Botões nativos estilo app exigem template aprovado no Meta/Twilio (Content API).
+ * @returns {string[]}
+ */
+export function getLimitReachedParts() {
+  const raw = process.env.PAYWALL_URL?.trim();
+  if (!raw) return [MSG_LIMIT_BASE];
+
+  const url = normalizePaywallUrl(raw);
+  const singleBubble =
+    process.env.PAYWALL_SINGLE_BUBBLE === 'true' ||
+    process.env.PAYWALL_LINK_IN_SAME_MESSAGE === 'true';
+
+  const ctaLine =
+    process.env.PAYWALL_CTA_LINE?.trim() ||
+    'Toque no link para abrir no navegador e ver os planos:';
+
+  if (singleBubble) {
+    return [`${MSG_LIMIT_BASE}\n\n${ctaLine}\n${url}`];
+  }
+
+  const first =
+    process.env.PAYWALL_FIRST_MESSAGE?.trim() ||
+    `${MSG_LIMIT_BASE}\n\n👇 O link para ver os planos vem na mensagem abaixo — toque no endereço em destaque para abrir.`;
+
+  return [first, url];
+}
+
+/**
+ * Texto único (útil para logs ou testes). Junta as partes em um só bloco.
  */
 export function getLimitReachedMessage() {
-  const url = process.env.PAYWALL_URL?.trim();
-  if (!url) return MSG_LIMIT_BASE;
-  return `${MSG_LIMIT_BASE}\n\n${url}`;
+  return getLimitReachedParts().join('\n\n');
+}
+
+async function sendLimitReachedMessages(toPhone) {
+  const parts = getLimitReachedParts();
+  for (let i = 0; i < parts.length; i++) {
+    await sendWhatsAppMessage(toPhone, parts[i]);
+    if (i < parts.length - 1) {
+      await new Promise((r) => setTimeout(r, 450));
+    }
+  }
 }
 
 export const MSG_IA_ERRO =
@@ -98,7 +149,7 @@ export async function processIncomingMessage({
   }
 
   if (isUsageBlocked(user)) {
-    await sendWhatsAppMessage(phone, getLimitReachedMessage());
+    await sendLimitReachedMessages(phone);
     return {
       step: 'limit_reached',
       userId: user.id,
