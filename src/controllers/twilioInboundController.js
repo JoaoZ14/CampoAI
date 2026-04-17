@@ -1,5 +1,39 @@
 import { processIncomingMessage } from '../services/incomingMessageService.js';
 
+/**
+ * Primeira mídia do Twilio: separa imagem vs áudio (WhatsApp voz = áudio/ogg em geral).
+ */
+function classifyTwilioFirstMedia(req) {
+  const numMedia = Number.parseInt(String(req.body?.NumMedia ?? '0'), 10) || 0;
+  if (numMedia < 1 || typeof req.body?.MediaUrl0 !== 'string') {
+    return { imageUrl: undefined, audioUrl: undefined, unsupportedVideo: false };
+  }
+  const url = req.body.MediaUrl0;
+  const ct = String(req.body?.MediaContentType0 ?? '').toLowerCase();
+
+  if (ct.startsWith('audio/')) {
+    return { imageUrl: undefined, audioUrl: url, unsupportedVideo: false };
+  }
+  if (ct.startsWith('image/')) {
+    return { imageUrl: url, audioUrl: undefined, unsupportedVideo: false };
+  }
+  if (ct.startsWith('video/')) {
+    return { imageUrl: undefined, audioUrl: undefined, unsupportedVideo: true };
+  }
+
+  if (/\.(ogg|opus)(\?|$)/i.test(url)) {
+    return { imageUrl: undefined, audioUrl: url, unsupportedVideo: false };
+  }
+  if (/\.(mp3|m4a|aac|wav|webm)(\?|$)/i.test(url)) {
+    return { imageUrl: undefined, audioUrl: url, unsupportedVideo: false };
+  }
+  if (/\.(jpe?g|png|gif|webp|bmp)(\?|$)/i.test(url)) {
+    return { imageUrl: url, audioUrl: undefined, unsupportedVideo: false };
+  }
+
+  return { imageUrl: url, audioUrl: undefined, unsupportedVideo: false };
+}
+
 function digitsOnlyWa(s) {
   return String(s ?? '')
     .replace(/^whatsapp:/i, '')
@@ -52,7 +86,7 @@ function shouldIgnoreTwilioWebhook(req) {
  * Campos usados:
  * - From: ex. whatsapp:+5511999999999
  * - Body: texto da mensagem
- * - NumMedia / MediaUrl0: mídia (foto) enviada pelo usuário
+ * - NumMedia / MediaUrl0 / MediaContentType0: mídia (foto ou áudio de voz)
  *
  * No Twilio Console → número/sandbox → "When a message comes in":
  *   https://SEU-DOMINIO/webhook/whatsapp/twilio  método POST
@@ -71,10 +105,7 @@ export async function handleTwilioInbound(req, res, next) {
     const Body = typeof req.body?.Body === 'string' ? req.body.Body : '';
     const numMedia = Number.parseInt(String(req.body?.NumMedia ?? '0'), 10) || 0;
 
-    let imageUrl;
-    if (numMedia > 0 && typeof req.body?.MediaUrl0 === 'string') {
-      imageUrl = req.body.MediaUrl0;
-    }
+    const { imageUrl, audioUrl, unsupportedVideo } = classifyTwilioFirstMedia(req);
 
     const phoneRaw = String(From).replace(/^whatsapp:/i, '').trim();
 
@@ -82,6 +113,8 @@ export async function handleTwilioInbound(req, res, next) {
       phone: phoneRaw,
       message: Body.trim() || undefined,
       imageUrl: imageUrl || undefined,
+      audioUrl: audioUrl || undefined,
+      unsupportedVideo: unsupportedVideo === true,
       messageSid:
         typeof req.body?.MessageSid === 'string' ? req.body.MessageSid : undefined,
     };
@@ -91,6 +124,9 @@ export async function handleTwilioInbound(req, res, next) {
       NumMedia: numMedia,
       bodyLen: Body.length,
       fromPrefix: String(From).slice(0, 24),
+      mediaContentType0: req.body?.MediaContentType0,
+      hasAudio: Boolean(audioUrl),
+      hasImage: Boolean(imageUrl),
     });
 
     /**

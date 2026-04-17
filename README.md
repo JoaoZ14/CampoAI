@@ -16,7 +16,7 @@ API para o assistente rural **AgroAssist** via WhatsApp: recebe mensagens (texto
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e **`SUPABASE_ANON_KEY`** (Settings → API no Supabase; a **service role** só no servidor; a **anon** é pública e usada pelo login do painel `/admin`).
    - **`ADMIN_EMAILS`** — lista de e-mails (separados por vírgula) que podem acessar o painel; devem ser os mesmos cadastrados no **Supabase Auth**.
    - `GEMINI_API_KEY` (crie em [AI Studio](https://aistudio.google.com/apikey)).
-   - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.0-flash`. Se a API retornar 404 “model not found”, tente `gemini-2.0-flash-001` ou veja modelos na [documentação](https://ai.google.dev/gemini-api/docs/models/gemini).
+   - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.5-flash` (o `gemini-2.0-flash` deixou de estar disponível para contas novas na API). Para usar **Gemini 3 Flash**, defina o ID que aparecer na [documentação](https://ai.google.dev/gemini-api/docs/models/gemini) ou no AI Studio (ex.: `gemini-3-flash-preview` enquanto preview).
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex.: `whatsapp:+14155238886` no sandbox).
 
 2. **Crie a tabela** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase.
@@ -83,24 +83,27 @@ Corpo JSON (exemplo Postman):
 {
   "phone": "+5511999999999",
   "message": "Minha laranjeira está com folhas amareladas",
-  "imageUrl": "https://exemplo.com/foto.jpg"
+  "imageUrl": "https://exemplo.com/foto.jpg",
+  "audioUrl": "https://exemplo.com/audio.ogg"
 }
 ```
 
 - `phone` — obrigatório (será normalizado para formato `+` e dígitos).
 - `message` — texto opcional.
-- `imageUrl` — URL pública `http`/`https` opcional (o servidor baixa e envia ao Gemini).
+- `imageUrl` — URL pública `http`/`https` opcional (o servidor baixa e envia ao Gemini como imagem).
+- `audioUrl` — URL pública de **áudio** opcional (ogg, mp3, etc.; o Gemini processa o áudio multimodal).
 
 **Comportamento:**
 
-- Sem `message` nem `imageUrl` válida → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
+- Sem `message`, nem `imageUrl` nem `audioUrl` válidos → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
 - Usuário gratuito com `usageCount >= 10` e `isPaid === false` → envia mensagem de **limite** e não chama a IA.
 - Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp.
 
 ## Velocidade e Twilio
 
 - **Twilio** (`/webhook/whatsapp/twilio`): por padrão o servidor **responde 200 ao Twilio na hora** e processa a mensagem em background — assim o Twilio **não corta** a conexão por timeout (~15s) enquanto o Gemini gera a resposta. Para depurar com o 200 só após o processamento completo, use `TWILIO_WEBHOOK_SYNC=true`. Há indicador de digitação (quando a API da Twilio aceitar) e mensagem opcional `WHATSAPP_IA_ACK_TEXT` antes da IA; se a IA falhar, o usuário recebe um texto de erro no WhatsApp em vez de silêncio.
-- **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **4096** (evita cortar no meio; até **8192** se precisar). Se no terminal aparecer aviso `MAX_TOKENS`, aumente esse valor no `.env`. Por padrão **não há retentativas no mesmo modelo** (`GEMINI_RETRY_ATTEMPTS=1`) para responder o mais rápido possível; use `GEMINI_MODEL_FALLBACK` (ex.: `gemini-2.0-flash`) para tentar outro modelo na hora se o principal der 503. Para insistir no mesmo modelo após 503, aumente `GEMINI_RETRY_ATTEMPTS` e `GEMINI_RETRY_MS`.
+- **Áudio (WhatsApp)**: mensagens de voz chegam como mídia `audio/*` no Twilio; o servidor baixa o arquivo e envia ao Gemini como entrada multimodal. **Vídeo** ainda não é analisado — o usuário recebe uma mensagem pedindo texto, foto ou áudio.
+- **Gemini**: `LLM_MAX_OUTPUT_TOKENS` padrão **4096** (evita cortar no meio; até **8192** se precisar). Se no terminal aparecer aviso `MAX_TOKENS`, aumente esse valor no `.env`. Por padrão **não há retentativas no mesmo modelo** (`GEMINI_RETRY_ATTEMPTS=1`). Se o principal der **503**, o backend tenta em seguida **`gemini-2.5-flash-lite`** (ou `GEMINI_AUTO_FALLBACK_MODEL`). Opcional: `GEMINI_MODEL_FALLBACK` para um modelo extra na cadeia. `GEMINI_DISABLE_AUTO_FALLBACK=true` desliga o fallback automático. Para insistir no mesmo modelo após 503, aumente `GEMINI_RETRY_ATTEMPTS` e `GEMINI_RETRY_MS`.
 
 ## Pagamentos (futuro)
 

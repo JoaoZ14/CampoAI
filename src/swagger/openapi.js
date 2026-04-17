@@ -47,9 +47,9 @@ export const openapiSpec = {
     '/webhook/whatsapp': {
       post: {
         tags: ['Webhook'],
-        summary: 'Receber mensagem (texto e/ou imagem)',
+        summary: 'Receber mensagem (texto, imagem e/ou áudio por URL)',
         description:
-          'Busca ou cria o usuário pelo telefone, aplica limite gratuito, chama o Gemini quando aplicável e envia resposta via Twilio (ou mock).',
+          'Busca ou cria o usuário pelo telefone, aplica limite gratuito, chama o Gemini quando aplicável e envia resposta via Twilio (ou mock). Áudio: URL http(s) acessível (no WhatsApp real o Twilio envia MediaUrl).',
         operationId: 'postWhatsAppWebhook',
         requestBody: {
           required: true,
@@ -66,7 +66,7 @@ export const openapiSpec = {
                   },
                   message: {
                     type: 'string',
-                    description: 'Texto da mensagem (opcional se houver imageUrl)',
+                    description: 'Texto da mensagem (opcional se houver mídia)',
                     example: 'Minha laranjeira está com folhas amarelas',
                   },
                   imageUrl: {
@@ -75,6 +75,12 @@ export const openapiSpec = {
                     description: 'URL pública http(s) da imagem',
                     example:
                       'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Leaf.jpg/320px-Leaf.jpg',
+                  },
+                  audioUrl: {
+                    type: 'string',
+                    format: 'uri',
+                    description:
+                      'URL http(s) de áudio (ogg, mp3, etc.) — no Twilio use a URL da mídia recebida',
                   },
                 },
               },
@@ -114,7 +120,13 @@ export const openapiSpec = {
                     ok: { type: 'boolean' },
                     step: {
                       type: 'string',
-                      enum: ['welcome', 'ai_reply', 'limit_reached'],
+                      enum: [
+                        'welcome',
+                        'ai_reply',
+                        'ai_error',
+                        'limit_reached',
+                        'unsupported_video',
+                      ],
                     },
                     userId: { type: 'string', format: 'uuid' },
                     usageCount: { type: 'integer' },

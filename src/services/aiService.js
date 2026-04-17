@@ -13,6 +13,15 @@ const SYSTEM_PROMPT =
   'Em suspeita de emergência (animal caído, sangramento forte, não come/bebe, gestação com problema, surto rápido no rebanho), diga para buscar MÉDICO VETERINÁRIO ou serviço oficial na hora. ' +
   'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. Não repita a pergunta do usuário.';
 
+const IMAGE_ONLY_PROMPT =
+  'Analise a imagem (lavoura, animal, instalações ou equipamento rural). Resposta completa em tópicos • — hipóteses, o que observar e próximos passos seguros. Não deixe a resposta cortada.';
+
+const AUDIO_ONLY_PROMPT =
+  'Escute o áudio. O produtor fala em português do Brasil (às vezes com gírias rurais). Entenda a dúvida ou situação e responda com orientação agrícola ou pecuária em tópicos • — hipóteses, o que observar e próximos passos seguros. Não diga que está "ouvindo um áudio"; responda como no WhatsApp.';
+
+const IMAGE_AND_AUDIO_PROMPT =
+  'Há uma imagem e um áudio do produtor. Use os dois para responder em tópicos • com orientação prática no campo.';
+
 /**
  * Tokens de saída do Gemini. Padrão alto para não cortar resposta no meio da frase.
  * Se quiser respostas mais curtas e rápidas, reduza no .env (ex.: 2048).
@@ -20,10 +29,37 @@ const SYSTEM_PROMPT =
 const DEFAULT_MAX_OUTPUT_TOKENS = () =>
   Math.min(8192, Math.max(512, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 4096));
 
+/** Padrão para contas novas: gemini-2.0-flash foi descontinuado (404) na API pública. */
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+
+/** Segundo modelo na cadeia se o principal falhar (ex.: 503) — outro ID, não o 2.0-flash antigo. */
+const DEFAULT_AUTO_FALLBACK_MODEL = 'gemini-2.5-flash-lite';
+
+/**
+ * Principal + opcional GEMINI_MODEL_FALLBACK + modelo automático (GEMINI_AUTO_FALLBACK_MODEL ou lite).
+ * GEMINI_DISABLE_AUTO_FALLBACK=true remove o passo automático.
+ */
+function buildGeminiModelChain() {
+  const primary = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+  const explicit = process.env.GEMINI_MODEL_FALLBACK?.trim();
+  const disableAuto = process.env.GEMINI_DISABLE_AUTO_FALLBACK === 'true';
+  const autoModel =
+    process.env.GEMINI_AUTO_FALLBACK_MODEL?.trim() || DEFAULT_AUTO_FALLBACK_MODEL;
+
+  const chain = [primary];
+  if (explicit && explicit !== primary && !chain.includes(explicit)) {
+    chain.push(explicit);
+  }
+  if (!disableAuto && autoModel && !chain.includes(autoModel)) {
+    chain.push(autoModel);
+  }
+  return chain;
+}
+
 /**
  * Resposta fixa para desenvolvimento quando MOCK_LLM=true (sem chamar API externa).
  */
-function mockAgriculturalReply({ text, imageUrl }) {
+function mockAgriculturalReply({ text, imageUrl, audioUrl }) {
   const excerpt = text?.trim()
     ? text.trim().slice(0, 120) + (text.trim().length > 120 ? '…' : '')
     : '(sem texto)';
@@ -33,27 +69,28 @@ function mockAgriculturalReply({ text, imageUrl }) {
     '• Veja manchas, bichos e se a planta melhora com rega moderada.\n' +
     '• Se piorar, leve amostra a um técnico. Sem produto sem orientação.\n' +
     (imageUrl ? '\n(Imagem recebida — em produção a IA analisaria a foto.)\n' : '') +
+    (audioUrl ? '\n(Áudio recebido — em produção a IA transcreveria e responderia.)\n' : '') +
     `\nContexto: ${excerpt}`
   );
 }
 
-/** Cabeçalhos que reduzem 403/429 em CDNs (ex.: Wikimedia) ao não parecer “bot sem User-Agent”. */
-const IMAGE_FETCH_HEADERS = {
-  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-  'User-Agent':
-    'Mozilla/5.0 (compatible; AgroAssist/1.0; +https://github.com/) AppleWebKit/537.36 (KHTML, like Gecko)',
-};
+const DEFAULT_UA =
+  'Mozilla/5.0 (compatible; AgroAssist/1.0; +https://github.com/) AppleWebKit/537.36 (KHTML, like Gecko)';
 
 /**
- * URLs de mídia do Twilio (MediaUrl0 no webhook) exigem HTTP Basic: Account SID + Auth Token.
- * @param {string} imageUrl
- * @returns {Record<string, string>}
+ * URLs de mídia do Twilio exigem HTTP Basic: Account SID + Auth Token.
+ * @param {string} mediaUrl
+ * @param {{ accept?: string }} [opts]
  */
-function buildImageFetchHeaders(imageUrl) {
-  const headers = { ...IMAGE_FETCH_HEADERS };
+function buildMediaFetchHeaders(mediaUrl, opts = {}) {
+  const accept = opts.accept ?? '*/*';
+  const headers = {
+    Accept: accept,
+    'User-Agent': DEFAULT_UA,
+  };
   let host = '';
   try {
-    host = new URL(imageUrl).hostname.toLowerCase();
+    host = new URL(mediaUrl).hostname.toLowerCase();
   } catch {
     return headers;
   }
@@ -64,7 +101,7 @@ function buildImageFetchHeaders(imageUrl) {
   const token = process.env.TWILIO_AUTH_TOKEN?.trim();
   if (!sid || !token) {
     throw new AppError(
-      'Mídia do WhatsApp (Twilio): defina TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN no .env para baixar a foto.',
+      'Mídia do WhatsApp (Twilio): defina TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN no .env para baixar foto ou áudio.',
       500
     );
   }
@@ -74,19 +111,23 @@ function buildImageFetchHeaders(imageUrl) {
 }
 
 /**
- * Baixa imagem (URL pública ou mídia Twilio com Basic Auth) e retorna base64 + mime (para Gemini).
- * Repete 1x em 429 (rate limit) após pequena espera.
+ * Baixa imagem ou áudio (URL pública ou Twilio) e retorna base64 + mime para o Gemini.
+ * @param {'image' | 'audio'} kind
  */
-async function fetchImageAsInlineData(imageUrl) {
+async function fetchMediaAsInlineData(mediaUrl, kind) {
   const maxAttempts = 2;
   let lastStatus = 0;
+  const accept =
+    kind === 'image'
+      ? 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+      : 'audio/*,*/*;q=0.8';
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 25_000);
+    const t = setTimeout(() => controller.abort(), 60_000);
     try {
-      const headers = buildImageFetchHeaders(imageUrl);
-      const res = await fetch(imageUrl, {
+      const headers = buildMediaFetchHeaders(mediaUrl, { accept });
+      const res = await fetch(mediaUrl, {
         signal: controller.signal,
         headers,
       });
@@ -99,35 +140,46 @@ async function fetchImageAsInlineData(imageUrl) {
 
       if (!res.ok) {
         throw new AppError(
-          `Não foi possível baixar a imagem (HTTP ${res.status}). ` +
-            `Dica: Wikimedia e outros sites limitam robôs — use uma URL direta estável (ex.: seu storage) ou tente outro link.`,
+          `Não foi possível baixar a mídia (HTTP ${res.status}).`,
           400
         );
       }
 
       const buf = Buffer.from(await res.arrayBuffer());
-      const rawMime = res.headers.get('content-type') || 'image/jpeg';
-      const mimeType = rawMime.split(';')[0].trim() || 'image/jpeg';
-      if (!mimeType.startsWith('image/')) {
+      const rawMime = res.headers.get('content-type') || (kind === 'image' ? 'image/jpeg' : 'audio/ogg');
+      let mimeType = rawMime.split(';')[0].trim() || (kind === 'image' ? 'image/jpeg' : 'audio/ogg');
+
+      if (kind === 'image' && !mimeType.startsWith('image/')) {
         throw new AppError('A URL não parece ser uma imagem válida.', 400);
       }
+      if (kind === 'audio' && !mimeType.startsWith('audio/')) {
+        if (mimeType === 'application/ogg' || /\.(ogg|opus)(\?|$)/i.test(mediaUrl)) {
+          mimeType = 'audio/ogg';
+        } else {
+          throw new AppError(
+            'A URL não parece ser um áudio válido (esperado audio/*).',
+            400
+          );
+        }
+      }
+
       return { mimeType, data: buf.toString('base64') };
     } catch (err) {
       if (err instanceof AppError) throw err;
       const msg = err instanceof Error ? err.message : String(err);
-      throw new AppError(`Erro ao obter imagem: ${msg}`, 400);
+      throw new AppError(`Erro ao obter mídia: ${msg}`, 400);
     } finally {
       clearTimeout(t);
     }
   }
 
   throw new AppError(
-    `Não foi possível baixar a imagem (HTTP ${lastStatus}). Tente outra URL ou envie a foto por um host (Supabase Storage, Imgur, etc.).`,
+    `Não foi possível baixar a mídia (HTTP ${lastStatus}).`,
     400
   );
 }
 
-async function generateWithGemini({ text, imageUrl }) {
+async function generateWithGemini({ text, imageUrl, audioUrl }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new AppError('GEMINI_API_KEY não configurada.', 500);
@@ -142,7 +194,12 @@ async function generateWithGemini({ text, imageUrl }) {
   }
 
   if (imageUrl?.trim()) {
-    const { mimeType, data } = await fetchImageAsInlineData(imageUrl.trim());
+    const { mimeType, data } = await fetchMediaAsInlineData(imageUrl.trim(), 'image');
+    parts.push({ inlineData: { mimeType, data } });
+  }
+
+  if (audioUrl?.trim()) {
+    const { mimeType, data } = await fetchMediaAsInlineData(audioUrl.trim(), 'audio');
     parts.push({ inlineData: { mimeType, data } });
   }
 
@@ -150,19 +207,18 @@ async function generateWithGemini({ text, imageUrl }) {
     throw new AppError('Nenhum conteúdo para enviar à IA.', 400);
   }
 
-  if (!text?.trim() && imageUrl?.trim()) {
-    parts.unshift({
-      text: 'Analise a imagem (lavoura, animal, instalações ou equipamento rural). Resposta completa em tópicos • — hipóteses, o que observar e próximos passos seguros. Não deixe a resposta cortada.',
-    });
+  if (!text?.trim()) {
+    if (imageUrl?.trim() && !audioUrl?.trim()) {
+      parts.unshift({ text: IMAGE_ONLY_PROMPT });
+    } else if (audioUrl?.trim() && !imageUrl?.trim()) {
+      parts.unshift({ text: AUDIO_ONLY_PROMPT });
+    } else if (imageUrl?.trim() && audioUrl?.trim()) {
+      parts.unshift({ text: IMAGE_AND_AUDIO_PROMPT });
+    }
   }
 
-  // Modelo principal + opcional fallback (503 no 2.5 → chama o 2.0 na sequência, sem espera entre modelos).
-  const primary = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
-  const fallback = process.env.GEMINI_MODEL_FALLBACK?.trim();
-  const modelChain = [primary];
-  if (fallback && fallback !== primary) {
-    modelChain.push(fallback);
-  }
+  const modelChain = buildGeminiModelChain();
+  console.log('[Gemini] ordem de modelos:', modelChain.join(' → '));
 
   // Padrão 1 = uma chamada por modelo, sem fila de retentativas (resposta o mais rápido possível).
   // Para insistir no mesmo modelo após 503: GEMINI_RETRY_ATTEMPTS=3 e GEMINI_RETRY_MS=1200
@@ -253,7 +309,7 @@ function isRetryableGeminiError(message) {
 
 /**
  * Gera resposta rural via Google Gemini (único motor de IA).
- * @param {{ text?: string, imageUrl?: string }} input
+ * @param {{ text?: string, imageUrl?: string, audioUrl?: string }} input
  * @returns {Promise<string>}
  */
 export async function generateAgriculturalReply(input) {

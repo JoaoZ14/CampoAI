@@ -3,11 +3,11 @@ import { AppError } from '../utils/errors.js';
 
 /**
  * POST /webhook/whatsapp
- * Body JSON: { phone, message?, imageUrl? }
+ * Body JSON: { phone, message?, imageUrl?, audioUrl? }
  */
 export async function handleWhatsAppWebhook(req, res, next) {
   try {
-    const { phone: rawPhone, message, imageUrl } = req.body ?? {};
+    const { phone: rawPhone, message, imageUrl, audioUrl } = req.body ?? {};
     if (
       rawPhone === undefined ||
       rawPhone === null ||
@@ -20,6 +20,7 @@ export async function handleWhatsAppWebhook(req, res, next) {
       phone: rawPhone,
       message: typeof message === 'string' ? message : undefined,
       imageUrl: typeof imageUrl === 'string' ? imageUrl : undefined,
+      audioUrl: typeof audioUrl === 'string' ? audioUrl : undefined,
     });
 
     return res.status(200).json({
