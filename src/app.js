@@ -9,6 +9,8 @@ export function createApp() {
   const app = express();
 
   app.use(cors());
+  // urlencoded antes de json — Twilio WhatsApp manda application/x-www-form-urlencoded
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
   app.use(express.json({ limit: '2mb' }));
 
   app.get('/openapi.json', (_req, res) => {
