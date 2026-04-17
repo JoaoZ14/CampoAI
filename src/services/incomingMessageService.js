@@ -12,6 +12,7 @@ import {
 } from '../services/chatHistoryService.js';
 import {
   sendWhatsAppMessage,
+  sendWhatsAppContentTemplate,
   sendWhatsAppTypingIndicator,
 } from '../services/whatsappService.js';
 import { AppError } from '../utils/errors.js';
@@ -37,7 +38,7 @@ function normalizePaywallUrl(raw) {
   const s = String(raw).trim();
   if (!s) return '';
   if (/^https?:\/\//i.test(s)) return s;
-  return `https://agassist.netlify.app/#planos`;
+  return `https://${s}`;
 }
 
 /**
@@ -78,7 +79,41 @@ export function getLimitReachedMessage() {
   return getLimitReachedParts().join('\n\n');
 }
 
+/**
+ * Botões embaixo da bolha no WhatsApp vêm do Content Template Builder (`contentSid`).
+ * Só mensagem com `body` não gera esses botões.
+ */
 async function sendLimitReachedMessages(toPhone) {
+  const contentSid = process.env.PAYWALL_CONTENT_SID?.trim();
+  if (contentSid) {
+    let variables;
+    const custom = process.env.PAYWALL_CONTENT_VARIABLES_JSON?.trim();
+    if (custom) {
+      try {
+        variables = JSON.parse(custom);
+      } catch {
+        console.warn(
+          '[paywall] PAYWALL_CONTENT_VARIABLES_JSON não é JSON válido; usando {{1}} e {{2}} automáticos.'
+        );
+      }
+    }
+    if (!variables) {
+      const urlRaw = process.env.PAYWALL_URL?.trim();
+      const bodyForTemplate =
+        process.env.PAYWALL_FIRST_MESSAGE?.trim() || MSG_LIMIT_BASE;
+      if (!urlRaw) {
+        variables = { 1: bodyForTemplate };
+      } else {
+        variables = {
+          1: bodyForTemplate,
+          2: normalizePaywallUrl(urlRaw),
+        };
+      }
+    }
+    await sendWhatsAppContentTemplate(toPhone, contentSid, variables);
+    return;
+  }
+
   const parts = getLimitReachedParts();
   for (let i = 0; i < parts.length; i++) {
     await sendWhatsAppMessage(toPhone, parts[i]);

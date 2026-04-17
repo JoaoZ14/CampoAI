@@ -134,3 +134,68 @@ export async function sendWhatsAppMessage(toPhone, body) {
     throw new AppError(`Falha ao enviar WhatsApp (Twilio): ${msg}`, 502);
   }
 }
+
+/**
+ * Template do Content Template Builder (ex.: botão "Ver planos" abaixo da mensagem no WhatsApp).
+ * Não use `body` junto com `contentSid` — o Twilio substitui o conteúdo pelo template.
+ * @param {string} toPhone E.164
+ * @param {string} contentSid Ex.: HXxxxx… do console Twilio
+ * @param {Record<string, string | number>} variables Placeholders {{1}}, {{2}}, etc.
+ * @see https://www.twilio.com/docs/content/send-templates-created-with-the-content-template-builder
+ */
+export async function sendWhatsAppContentTemplate(
+  toPhone,
+  contentSid,
+  variables = {}
+) {
+  const sidTemplate = typeof contentSid === 'string' ? contentSid.trim() : '';
+  if (!sidTemplate || !/^H[a-z0-9]{20,64}$/i.test(sidTemplate)) {
+    throw new AppError('ContentSid inválido (copie o SID H… do Content Template Builder no Twilio).', 500);
+  }
+
+  /** @type {Record<string, string>} */
+  const flat = {};
+  for (const [k, v] of Object.entries(variables)) {
+    flat[String(k)] = v == null ? '' : String(v);
+  }
+  const contentVariables = JSON.stringify(flat);
+
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    console.log(
+      `[MOCK_WHATSAPP] Content template | Para: ${toPhone} | contentSid=${sidTemplate} | vars=${contentVariables}`
+    );
+    return { sid: 'MOCK_SID', status: 'mocked', content: true };
+  }
+
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_WHATSAPP_FROM;
+
+  if (!sid || !token || !from) {
+    throw new AppError(
+      'Twilio não configurado (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM).',
+      500
+    );
+  }
+
+  const client = twilio(sid, token);
+  const to = toPhone.startsWith('whatsapp:') ? toPhone : `whatsapp:${toPhone}`;
+
+  try {
+    const message = await client.messages.create({
+      from,
+      to,
+      contentSid: sidTemplate,
+      contentVariables,
+    });
+    return {
+      sid: message.sid ?? '',
+      status: message.status ?? '',
+      parts: 1,
+      content: true,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new AppError(`Falha ao enviar template WhatsApp (Twilio): ${msg}`, 502);
+  }
+}

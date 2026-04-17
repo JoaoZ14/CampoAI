@@ -97,7 +97,7 @@ Corpo JSON (exemplo Postman):
 **Comportamento:**
 
 - Sem `message`, nem `imageUrl` nem `audioUrl` válidos → envia a **mensagem inicial** de boas-vindas (não consome análise gratuita).
-- Usuário gratuito com `usageCount >= 10` e `isPaid === false` → envia mensagem de **limite** (`MSG_LIMIT_BASE`; com **`PAYWALL_URL`**, por defeito **duas** mensagens — texto e depois só o link, para o usuário tocar no endereço em destaque). `PAYWALL_SINGLE_BUBBLE=true` une tudo em uma bolha. Botões nativos tipo “Ver planos” exigem **template WhatsApp aprovado** (Meta/Twilio Content API), não só sessão de chat.
+- Usuário gratuito com `usageCount >= 10` e `isPaid === false` → mensagem de **limite**. Com **`PAYWALL_CONTENT_SID`** (template no [Content Template Builder](https://www.twilio.com/docs/content/create-templates-with-the-content-template-builder) do Twilio), o WhatsApp pode mostrar **botões embaixo da bolha**. Sem isso, usa texto + **`PAYWALL_URL`** (duas bolhas ou uma, conforme `PAYWALL_SINGLE_BUBBLE`).
 - Caso contrário → chama a IA, incrementa `usage_count`, envia a resposta pelo WhatsApp.
 
 ## Velocidade e Twilio
@@ -108,7 +108,7 @@ Corpo JSON (exemplo Postman):
 
 ## Pagamentos (futuro)
 
-O arquivo `src/services/paymentService.js` reserva o lugar para webhooks e checkout; não há cobrança automática integrada. Enquanto isso, use **`PAYWALL_URL`** no `.env` com o endereço da sua landing ou página de planos: esse endereço entra na mensagem de **limite gratuito** no WhatsApp para o usuário abrir no navegador.
+O arquivo `src/services/paymentService.js` reserva o lugar para webhooks e checkout; não há cobrança automática integrada. Para o **botão de URL embaixo da mensagem** (não só link azul no texto): no Twilio, **Messaging → Content Template Builder**, crie um conteúdo WhatsApp com botão do tipo **URL** (texto com `{{1}}`, URL com `{{2}}`), publique e copie o **Content SID** (`H…`) para **`PAYWALL_CONTENT_SID`**. Defina **`PAYWALL_URL`** para o endereço real; o backend envia `{{2}}` automaticamente (ou use **`PAYWALL_CONTENT_VARIABLES_JSON`** se o template tiver outros placeholders). Só `body` na API **não** gera esses botões.
 
 ## Estrutura
 
