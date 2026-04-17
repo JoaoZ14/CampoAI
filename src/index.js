@@ -7,7 +7,7 @@ const app = createApp();
 const server = app.listen(port, () => {
   console.log(`AgroAssist rodando em http://localhost:${port}`);
   console.log(`Webhook JSON: POST http://localhost:${port}/webhook/whatsapp`);
-  console.log(`Webhook Z-API: POST http://localhost:${port}/webhook/whatsapp/z-api`);
+  console.log(`Webhook Twilio: POST http://localhost:${port}/webhook/whatsapp/twilio`);
   console.log(`Health:  GET  http://localhost:${port}/health`);
   console.log(`Swagger: GET  http://localhost:${port}/api-docs`);
 });

@@ -1,7 +1,7 @@
 {
   "name": "agroassist-backend",
   "version": "1.0.0",
-  "description": "Backend AgroAssist — assistente rural via WhatsApp (Z-API + Gemini + Supabase)",
+  "description": "Backend AgroAssist — assistente rural via WhatsApp (Twilio + Gemini + Supabase)",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -15,7 +15,7 @@
     "whatsapp",
     "agriculture",
     "gemini",
-    "z-api",
+    "twilio",
     "supabase"
   ],
   "license": "MIT",
@@ -25,6 +25,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "twilio": "^5.4.5"
   }
 }

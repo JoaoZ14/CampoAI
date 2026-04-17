@@ -45,7 +45,7 @@ const IMAGE_FETCH_HEADERS = {
 };
 
 /**
- * Cabeçalhos extras para baixar mídia de provedores que exigem auth na URL.
+ * URLs de mídia do Twilio (MediaUrl0 no webhook) exigem HTTP Basic: Account SID + Auth Token.
  * @param {string} imageUrl
  * @returns {Record<string, string>}
  */
@@ -57,31 +57,24 @@ function buildImageFetchHeaders(imageUrl) {
   } catch {
     return headers;
   }
-
-  if (host === 'api.twilio.com') {
-    const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
-    const token = process.env.TWILIO_AUTH_TOKEN?.trim();
-    if (!sid || !token) {
-      throw new AppError(
-        'Mídia (Twilio): defina TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN no .env para baixar esta URL.',
-        500
-      );
-    }
-    const basic = Buffer.from(`${sid}:${token}`, 'utf8').toString('base64');
-    headers.Authorization = `Basic ${basic}`;
+  if (host !== 'api.twilio.com') {
     return headers;
   }
-
-  const zapiClient = process.env.ZAPI_CLIENT_TOKEN?.trim();
-  if (zapiClient && (host === 'z-api.io' || host.endsWith('.z-api.io'))) {
-    headers['Client-Token'] = zapiClient;
+  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+  if (!sid || !token) {
+    throw new AppError(
+      'Mídia do WhatsApp (Twilio): defina TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN no .env para baixar a foto.',
+      500
+    );
   }
-
+  const basic = Buffer.from(`${sid}:${token}`, 'utf8').toString('base64');
+  headers.Authorization = `Basic ${basic}`;
   return headers;
 }
 
 /**
- * Baixa imagem (URL pública ou com auth Twilio/Z-API) e retorna base64 + mime (para Gemini).
+ * Baixa imagem (URL pública ou mídia Twilio com Basic Auth) e retorna base64 + mime (para Gemini).
  * Repete 1x em 429 (rate limit) após pequena espera.
  */
 async function fetchImageAsInlineData(imageUrl) {
