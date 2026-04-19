@@ -21,17 +21,24 @@ function clipTitle(title) {
   return `${t.slice(0, max - 1).trimEnd()}…`;
 }
 
+/** Marcador antes de cada título (sem números — mais leve no WhatsApp). */
+function itemMarker() {
+  const m = process.env.WEEKLY_NEWS_ITEM_MARKER?.trim();
+  if (!m) return '•';
+  return m.length > 12 ? m.slice(0, 12) : m;
+}
+
 /**
  * @param {{ title: string, url: string, sourceName?: string }[]} articles
  */
 function formatGNewsBlocks(articles) {
-  return articles.map((a, i) => {
-    const n = i + 1;
+  const mark = itemMarker();
+  return articles.map((a) => {
     const src =
       a.sourceName && process.env.WEEKLY_NEWS_SHOW_SOURCE !== 'false'
         ? ` · ${a.sourceName}`
         : '';
-    const line1 = `${n}) ${clipTitle(a.title)}${src}`;
+    const line1 = `${mark} ${clipTitle(a.title)}${src}`;
     return `${line1}\n${a.url}`;
   });
 }
