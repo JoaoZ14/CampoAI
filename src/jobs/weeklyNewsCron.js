@@ -1,7 +1,24 @@
 import cron from 'node-cron';
-import { sendWhatsAppMessage } from '../services/whatsappService.js';
+import { sendWhatsAppMessage, sendWhatsAppWithMedia } from '../services/whatsappService.js';
 import { buildWeeklyNewsWhatsAppBody } from '../services/weeklyNewsContentService.js';
 import { normalizePhone } from '../utils/phone.js';
+
+/** URL HTTPS pública do banner (Twilio faz GET na imagem). */
+function weeklyNewsBannerImageUrl() {
+  const raw = process.env.WEEKLY_NEWS_BANNER_IMAGE_URL?.trim() ?? '';
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:') {
+      console.warn('[weekly-news] WEEKLY_NEWS_BANNER_IMAGE_URL precisa ser HTTPS.');
+      return '';
+    }
+    return raw;
+  } catch {
+    console.warn('[weekly-news] WEEKLY_NEWS_BANNER_IMAGE_URL inválida.');
+    return '';
+  }
+}
 
 /**
  * Segunda-feira às 12:00 no fuso configurável (padrão America/Sao_Paulo).
@@ -41,12 +58,32 @@ export async function runWeeklyNewsSend(opts = {}) {
     return { ok: false, reason: 'empty_body' };
   }
 
+  const bannerUrl = weeklyNewsBannerImageUrl();
+
   try {
+    if (bannerUrl) {
+      try {
+        await sendWhatsAppWithMedia(phone, body, [bannerUrl]);
+        console.log(
+          `[weekly-news] Enviado (imagem + legenda) para ${phone} (${body.length} caracteres)${override ? ' [destino via argumento]' : ''}.`
+        );
+        return { ok: true, phone, testOverride: Boolean(override), media: true };
+      } catch (mediaErr) {
+        const m = mediaErr instanceof Error ? mediaErr.message : String(mediaErr);
+        console.warn('[weekly-news] Falha no envio com banner; tentando só texto:', m);
+        await sendWhatsAppMessage(phone, body);
+        console.log(
+          `[weekly-news] Enviado (só texto) para ${phone} (${body.length} caracteres)${override ? ' [destino via argumento]' : ''}.`
+        );
+        return { ok: true, phone, testOverride: Boolean(override), media: false, mediaFallback: true };
+      }
+    }
+
     await sendWhatsAppMessage(phone, body);
     console.log(
       `[weekly-news] Enviado para ${phone} (${body.length} caracteres)${override ? ' [destino via argumento]' : ''}.`
     );
-    return { ok: true, phone, testOverride: Boolean(override) };
+    return { ok: true, phone, testOverride: Boolean(override), media: false };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[weekly-news] Falha ao enviar WhatsApp:', msg);
