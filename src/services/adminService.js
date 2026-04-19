@@ -1,6 +1,8 @@
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { mapUserRow, FREE_USAGE_LIMIT } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
+import { hasActiveTeamSeatForPhone } from './organizationService.js';
+import { getUserById, updateUserById } from './userService.js';
 
 function getClient() {
   return createSupabaseClient();
@@ -88,4 +90,54 @@ export async function listAdminUsers({ limit, offset }) {
     rows: data.map((row) => mapUserRow(row)),
     total: count ?? data.length,
   };
+}
+
+const BILLING_KINDS = new Set(['free', 'personal', 'team']);
+
+/**
+ * Atualiza cobrança individual (plano pessoal). Não use para quem está em plano equipe.
+ * @param {string} userId
+ * @param {{ isPaid: boolean, billingKind?: string }} body
+ */
+export async function patchAdminUserBilling(userId, body) {
+  if (typeof body.isPaid !== 'boolean') {
+    throw new AppError('Informe isPaid (boolean).', 400);
+  }
+
+  const user = await getUserById(userId);
+  const hasTeam = await hasActiveTeamSeatForPhone(user.phone);
+
+  if (hasTeam) {
+    throw new AppError(
+      'Este número está em um plano equipe. Remova o assento na organização antes de alterar o plano individual.',
+      409
+    );
+  }
+
+  const billingKind =
+    typeof body.billingKind === 'string' ? body.billingKind.trim() : undefined;
+  if (billingKind && !BILLING_KINDS.has(billingKind)) {
+    throw new AppError('billingKind inválido (free, personal ou team).', 400);
+  }
+
+  if (body.isPaid === false) {
+    return updateUserById(userId, {
+      isPaid: false,
+      billingKind: 'free',
+      organizationId: null,
+    });
+  }
+
+  if (billingKind && billingKind !== 'personal') {
+    throw new AppError(
+      'Para liberar o plano pessoal use isPaid true e billingKind personal (ou omita billingKind).',
+      400
+    );
+  }
+
+  return updateUserById(userId, {
+    isPaid: true,
+    billingKind: 'personal',
+    organizationId: null,
+  });
 }

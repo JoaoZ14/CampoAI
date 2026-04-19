@@ -6,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 import webhookRoutes from './routes/whatsappRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { getPublicPlanCatalogPayload } from './services/planCatalogService.js';
 import { openapiSpec } from './swagger/openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -35,6 +36,15 @@ export function createApp() {
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, service: 'AG Assist API' });
+  });
+
+  /** Catálogo de planos (público) — lê `plan_catalog` no Supabase; fallback em `src/config/plans.js`. */
+  app.get('/api/plans', async (_req, res, next) => {
+    try {
+      res.json(await getPublicPlanCatalogPayload());
+    } catch (e) {
+      next(e);
+    }
   });
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy

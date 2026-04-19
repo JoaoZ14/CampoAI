@@ -29,7 +29,7 @@ export async function findOrCreateUser(phone) {
 
   const { data: created, error: insertErr } = await supabase
     .from('users')
-    .insert({ phone, usage_count: 0, is_paid: false })
+    .insert({ phone, usage_count: 0, is_paid: false, billing_kind: 'free' })
     .select('*')
     .single();
 
@@ -76,4 +76,41 @@ export async function incrementUsage(userId) {
 export function isUsageBlocked(user) {
   if (user.isPaid) return false;
   return user.usageCount >= FREE_USAGE_LIMIT;
+}
+
+/**
+ * @param {string} userId
+ */
+export async function getUserById(userId) {
+  const supabase = getClient();
+  const { data, error } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+  if (error) {
+    throw new AppError(`Erro ao buscar usuário: ${error.message}`, 500);
+  }
+  if (!data) {
+    throw new AppError('Usuário não encontrado.', 404);
+  }
+  return mapUserRow(data);
+}
+
+/**
+ * @param {string} userId
+ * @param {{ isPaid?: boolean, billingKind?: string, organizationId?: string|null }} patch
+ */
+export async function updateUserById(userId, patch) {
+  const supabase = getClient();
+  const row = {};
+  if (typeof patch.isPaid === 'boolean') row.is_paid = patch.isPaid;
+  if (patch.billingKind !== undefined) row.billing_kind = patch.billingKind;
+  if (patch.organizationId !== undefined) row.organization_id = patch.organizationId;
+
+  if (Object.keys(row).length === 0) {
+    throw new AppError('Nenhum campo para atualizar.', 400);
+  }
+
+  const { data, error } = await supabase.from('users').update(row).eq('id', userId).select('*').single();
+  if (error) {
+    throw new AppError(`Erro ao atualizar usuário: ${error.message}`, 500);
+  }
+  return mapUserRow(data);
 }

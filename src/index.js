@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
+import { startWeeklyNewsCron, stopWeeklyNewsCron } from './jobs/weeklyNewsCron.js';
 
 const port = Number(process.env.PORT) || 3001;
 const app = createApp();
@@ -11,7 +12,16 @@ const server = app.listen(port, () => {
   console.log(`Health:  GET  http://localhost:${port}/health`);
   console.log(`Swagger: GET  http://localhost:${port}/api-docs`);
   console.log(`Painel dev: http://localhost:${port}/admin/`);
+  startWeeklyNewsCron();
 });
+
+function shutdown() {
+  stopWeeklyNewsCron();
+  server.close(() => process.exit(0));
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

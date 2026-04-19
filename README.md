@@ -19,8 +19,9 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
    - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.5-flash` (o `gemini-2.0-flash` deixou de estar disponível para contas novas na API). Para usar **Gemini 3 Flash**, defina o ID que aparecer na [documentação](https://ai.google.dev/gemini-api/docs/models/gemini) ou no AI Studio (ex.: `gemini-3-flash-preview` enquanto preview).
    - Opcional: **`PAYWALL_URL`** — link (https) incluído na mensagem quando o usuário gratuito **atinge o limite** de análises (ex.: página de planos ou checkout).
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex.: `whatsapp:+14155238886` no sandbox).
+   - O catálogo de planos (landing e `GET /api/plans`) fica na tabela **`plan_catalog`** no Postgres (Supabase), não no `.env`. Rode `supabase/migration_003_plan_catalog.sql` se ainda não estiver no seu banco; edite pelo painel `/admin` (seção Planos) ou pelo SQL Editor.
 
-2. **Crie as tabelas** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase (inclui `users` e `chat_messages` para memória da conversa). Se o projeto já existia, rode só o bloco `chat_messages` do arquivo.
+2. **Crie as tabelas** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase (inclui `users`, `chat_messages`, organizações, assentos e `plan_catalog`). Se o projeto **já existia** antes dessa versão, rode também `supabase/migration_002_organizations.sql` e `supabase/migration_003_plan_catalog.sql` conforme o que ainda não tiver aplicado.
 
 3. **Instale dependências** na pasta do projeto:
 
@@ -55,16 +56,23 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
 | GET | `/health` | Status do serviço |
 | POST | `/webhook/whatsapp` | Teste com JSON (Postman / Swagger) |
 | POST | `/webhook/whatsapp/twilio` | **Webhook do Twilio** — mensagens reais do WhatsApp |
-| GET | `/admin/` | **Painel do desenvolvedor** — login Supabase (e-mail/senha) e visão de usuários |
+| GET | `/admin/` | **Painel do proprietário** — dashboard, BI, usuários, organizações e histórico de mensagens |
+| GET | `/api/plans` | Catálogo público de planos (JSON, sem login) |
+| GET | `/admin/api/dashboard` | Resumo agregado (overview + analytics + organizações + avisos) — **recomendado** para o painel |
+| GET | `/admin/api/analytics` | Métricas de BI (pagamento, mensagens, cadastros, top uso) |
+| GET | `/admin/api/chat-messages` | Histórico paginado de `chat_messages` (com telefone) |
 
-### Painel `/admin/` (gestão)
+### Painel `/admin/` (gestão completa)
 
 1. No **Supabase** → **Authentication** → **Providers**, mantenha **Email** ativo e crie um usuário (e-mail + senha) para você.
 2. No `.env`, defina `ADMIN_EMAILS` com **o mesmo e-mail** (minúsculas; pode listar vários separados por vírgula).
 3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** a URL do painel, por exemplo `http://localhost:3001/admin/` e, em produção, `https://SEU-DOMINIO/admin/`.
-4. Acesse `http://localhost:PORT/admin/` (ou `/admin` — redireciona para `/admin/`).
+4. Opcional: `PUBLIC_APP_URL` — URL pública do app (redirect do Supabase Auth, links no WhatsApp, etc.). O painel `/admin` **sempre** chama a API no **mesmo host** da página; não use `PUBLIC_APP_URL` para apontar o painel a outro servidor.
+5. Acesse `http://localhost:PORT/admin/` (ou `/admin` — redireciona para `/admin/`).
 
-A API do painel (`GET /admin/api/overview`, `GET /admin/api/users`) exige header `Authorization: Bearer <access_token>` do Supabase; o navegador envia isso automaticamente após o login na página.
+As rotas `/admin/api/*` (exceto `/admin/api/config`) exigem header `Authorization: Bearer <access_token>` do Supabase; o navegador envia isso automaticamente após o login.
+
+**Se o painel vier vazio ou der erro de coluna/tabela:** confira `SUPABASE_SERVICE_ROLE_KEY` no servidor, rode a migração SQL acima e confira se `ADMIN_EMAILS` inclui o e-mail com que você faz login.
 
 ### Twilio (produção / teste com número)
 
