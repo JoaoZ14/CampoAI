@@ -15,16 +15,18 @@ function weeklyNewsTimezone() {
 }
 
 /**
- * Dispara o envio do resumo semanal (corpo em WEEKLY_NEWS_BODY).
- * Exportado para testes manuais ou endpoint futuro.
+ * Dispara o envio do resumo semanal (GNews e/ou WEEKLY_NEWS_BODY).
+ * @param {{ toPhone?: string }} [opts] — `toPhone` sobrescreve WEEKLY_NEWS_TO_PHONE (ex.: teste manual).
  */
-export async function runWeeklyNewsSend() {
+export async function runWeeklyNewsSend(opts = {}) {
   if (process.env.WEEKLY_NEWS_ENABLED !== 'true') {
     console.warn('[weekly-news] Ignorado: WEEKLY_NEWS_ENABLED não é true.');
     return { ok: false, reason: 'disabled' };
   }
 
-  const rawPhone = process.env.WEEKLY_NEWS_TO_PHONE?.trim() ?? '';
+  const override =
+    typeof opts.toPhone === 'string' && opts.toPhone.trim() ? opts.toPhone.trim() : '';
+  const rawPhone = override || (process.env.WEEKLY_NEWS_TO_PHONE?.trim() ?? '');
   const phone = normalizePhone(rawPhone);
   if (!phone || phone.length < 10) {
     console.error('[weekly-news] WEEKLY_NEWS_TO_PHONE inválido ou vazio.');
@@ -41,8 +43,10 @@ export async function runWeeklyNewsSend() {
 
   try {
     await sendWhatsAppMessage(phone, body);
-    console.log(`[weekly-news] Enviado para ${phone} (${body.length} caracteres).`);
-    return { ok: true, phone };
+    console.log(
+      `[weekly-news] Enviado para ${phone} (${body.length} caracteres)${override ? ' [destino via argumento]' : ''}.`
+    );
+    return { ok: true, phone, testOverride: Boolean(override) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[weekly-news] Falha ao enviar WhatsApp:', msg);

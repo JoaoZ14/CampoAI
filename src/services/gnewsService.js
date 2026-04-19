@@ -15,7 +15,7 @@ const DEFAULT_QUERY = 'agronegocio OR agricultura OR pecuaria OR safra';
  *   fromIso?: string,
  *   inFields?: string,
  * }} [opts]
- * @returns {Promise<{ title: string, url: string }[]>}
+ * @returns {Promise<{ title: string, url: string, sourceName?: string }[]>}
  */
 export async function fetchGNewsArticles(apiKey, opts = {}) {
   const key = typeof apiKey === 'string' ? apiKey.trim() : '';
@@ -27,7 +27,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
   const lang = (opts.lang ?? process.env.WEEKLY_NEWS_GNEWS_LANG?.trim()) || 'pt';
   const country = (opts.country ?? process.env.WEEKLY_NEWS_GNEWS_COUNTRY?.trim()) || 'br';
   const rawMax = opts.max ?? Number(process.env.WEEKLY_NEWS_GNEWS_MAX);
-  const max = Math.min(100, Math.max(1, Number.isFinite(rawMax) ? rawMax : 7));
+  const max = Math.min(100, Math.max(1, Number.isFinite(rawMax) ? rawMax : 4));
 
   const daysRaw = Number(process.env.WEEKLY_NEWS_GNEWS_DAYS);
   const days = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 30) : 7;
@@ -74,7 +74,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
   }
 
   const articles = Array.isArray(data.articles) ? data.articles : [];
-  /** @type {Map<string, { title: string, url: string }>} */
+  /** @type {Map<string, { title: string, url: string, sourceName?: string }>} */
   const byUrl = new Map();
 
   for (const a of articles) {
@@ -82,9 +82,17 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
       .trim()
       .replace(/\s+/g, ' ');
     const urlOne = String(a.url ?? '').trim();
+    const sourceName = String(a.source?.name ?? '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .slice(0, 40);
     if (!title || !urlOne) continue;
     if (!byUrl.has(urlOne)) {
-      byUrl.set(urlOne, { title, url: urlOne });
+      byUrl.set(urlOne, {
+        title,
+        url: urlOne,
+        ...(sourceName ? { sourceName } : {}),
+      });
     }
   }
 
