@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { sendWhatsAppMessage } from '../services/whatsappService.js';
+import { buildWeeklyNewsWhatsAppBody } from '../services/weeklyNewsContentService.js';
 import { normalizePhone } from '../utils/phone.js';
 
 /**
@@ -30,9 +31,11 @@ export async function runWeeklyNewsSend() {
     return { ok: false, reason: 'bad_phone' };
   }
 
-  const body = process.env.WEEKLY_NEWS_BODY?.trim() ?? '';
+  const body = (await buildWeeklyNewsWhatsAppBody()).trim();
   if (!body) {
-    console.error('[weekly-news] WEEKLY_NEWS_BODY vazio — nada foi enviado.');
+    console.error(
+      '[weekly-news] Corpo vazio: defina GNEWS_API_KEY e/ou WEEKLY_NEWS_BODY no .env.'
+    );
     return { ok: false, reason: 'empty_body' };
   }
 
