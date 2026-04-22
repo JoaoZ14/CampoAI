@@ -11,6 +11,8 @@
  * @property {boolean} is_paid
  * @property {string|null} [organization_id]
  * @property {string} [billing_kind]
+ * @property {string|null} [subscription_plan_code]
+ * @property {string|null} [asaas_subscription_status]
  * @property {string} created_at
  */
 
@@ -25,6 +27,8 @@ export function mapUserRow(row) {
     isPaid: row.is_paid,
     organizationId: row.organization_id ?? null,
     billingKind: row.billing_kind ?? 'free',
+    subscriptionPlanCode: row.subscription_plan_code ?? null,
+    asaasSubscriptionStatus: row.asaas_subscription_status ?? null,
     createdAt: row.created_at,
   };
 }

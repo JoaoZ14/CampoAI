@@ -8,6 +8,9 @@ let cachedCatalogPlans = null;
 /** @type {'personal'|'company'} */
 let activeSegmentTab = 'personal';
 
+/** Evita cliques repetidos (planos, OTP, finalizar). */
+let flowInteractionLock = false;
+
 /** Fallback se /api/plans falhar (só personal). */
 const PLAN_CONTENT = {
   basic: {
@@ -312,7 +315,9 @@ const PLAN_SUMMARY_EMPTY =
 function enterCheckout() {
   const merch = byId('plans-merchandise');
   const panel = byId('checkout-panel');
+  const success = byId('subscription-success');
   if (!merch || !panel) return;
+  if (success) success.hidden = true;
   merch.hidden = true;
   panel.hidden = false;
   document.body.classList.add('checkout-flow-active');
@@ -321,10 +326,71 @@ function enterCheckout() {
 function exitCheckout() {
   const merch = byId('plans-merchandise');
   const panel = byId('checkout-panel');
+  const success = byId('subscription-success');
   if (!merch || !panel) return;
   merch.hidden = false;
   panel.hidden = true;
+  if (success) success.hidden = true;
   document.body.classList.remove('checkout-flow-active');
+}
+
+function setFlowInteractionLock(locked) {
+  flowInteractionLock = locked;
+  const form = byId('flow-form');
+  if (form) {
+    form.querySelectorAll('button').forEach((b) => {
+      b.disabled = locked;
+    });
+  }
+  const back = byId('back-to-plans');
+  if (back) back.disabled = locked;
+  syncPlanCtasLocked();
+}
+
+function syncPlanCtasLocked() {
+  document.querySelectorAll('.plan-cta').forEach((b) => {
+    b.disabled = flowInteractionLock;
+  });
+  const toggle = byId('billing-toggle-btn');
+  if (toggle) toggle.disabled = flowInteractionLock;
+  document.querySelectorAll('.segment-tab').forEach((t) => {
+    t.disabled = flowInteractionLock;
+  });
+}
+
+/**
+ * @param {Record<string, unknown>} out resposta de /api/billing/checkout
+ */
+function showSubscriptionSuccess(out) {
+  const checkout = byId('checkout-panel');
+  const panel = byId('subscription-success');
+  const detail = byId('success-plan-detail');
+  if (checkout) checkout.hidden = true;
+  if (panel) {
+    panel.hidden = false;
+    const name =
+      String(out.planName != null ? out.planName : out.planCode != null ? out.planCode : '')
+        .trim() || 'AG Assist';
+    const status = String(out.status != null ? out.status : '').trim();
+    const due = String(out.nextDueDate != null ? out.nextDueDate : '').trim();
+    if (detail) {
+      detail.textContent = `Plano: ${name} — status ${status}. Próximo vencimento (referência): ${due}.`;
+    }
+    requestAnimationFrame(() =>
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    );
+  }
+  document.body.classList.add('checkout-flow-active');
+}
+
+function dismissSubscriptionSuccess() {
+  const panel = byId('subscription-success');
+  if (panel) panel.hidden = true;
+  showFeedback();
+  const form = byId('flow-form');
+  form?.reset();
+  applySelectedPlan('', '');
+  setStep(null);
 }
 
 function highlightPlanCard(code, segment) {
@@ -355,6 +421,7 @@ function planLabelFromCache(code, segment) {
  */
 function applySelectedPlan(code, segment, opts = {}) {
   const { silent = false, fromUserClick = false } = opts;
+  if (fromUserClick && flowInteractionLock) return;
   const planInput = byId('planCode');
   const typeInput = byId('customerType');
   const summary = byId('plan-selected-summary');
@@ -452,6 +519,7 @@ function renderPlans() {
   if (prevCode && prevSeg) {
     applySelectedPlan(prevCode, prevSeg, { silent: true });
   }
+  syncPlanCtasLocked();
 }
 
 function setStep(step) {
@@ -492,6 +560,7 @@ function bindFlow() {
   refreshCompanyFields();
 
   byId('back-to-plans')?.addEventListener('click', () => {
+    if (flowInteractionLock) return;
     state.verificationToken = '';
     form.reset();
     applySelectedPlan('', '');
@@ -499,8 +568,16 @@ function bindFlow() {
     showFeedback();
   });
 
+  byId('success-done-btn')?.addEventListener('click', () => {
+    state.verificationToken = '';
+    dismissSubscriptionSuccess();
+    refreshCompanyFields();
+  });
+
   byId('send-otp').addEventListener('click', async () => {
+    if (flowInteractionLock) return;
     const fd = new FormData(form);
+    setFlowInteractionLock(true);
     try {
       const out = await apiPost('/api/billing/otp/send', {
         phone: onlyDigits(getText(fd, 'phone')),
@@ -511,11 +588,15 @@ function bindFlow() {
       setStep(3);
     } catch (e) {
       showFeedback(e.message || String(e), true);
+    } finally {
+      setFlowInteractionLock(false);
     }
   });
 
   byId('verify-otp').addEventListener('click', async () => {
+    if (flowInteractionLock) return;
     const fd = new FormData(form);
+    setFlowInteractionLock(true);
     try {
       const out = await apiPost('/api/billing/otp/verify', {
         phone: onlyDigits(getText(fd, 'phone')),
@@ -529,12 +610,22 @@ function bindFlow() {
       setStep(4);
     } catch (e) {
       showFeedback(e.message || String(e), true);
+    } finally {
+      setFlowInteractionLock(false);
     }
   });
 
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    if (flowInteractionLock) return;
     const fd = new FormData(form);
+    const submitBtn = byId('submit-subscribe');
+    const submitLabel = submitBtn?.textContent?.trim() || 'Finalizar assinatura';
+    setFlowInteractionLock(true);
+    if (submitBtn) {
+      submitBtn.textContent = 'Processando…';
+      submitBtn.disabled = true;
+    }
     try {
       if (!state.verificationToken) {
         throw new Error('Valide o código do WhatsApp antes de pagar.');
@@ -579,18 +670,24 @@ function bindFlow() {
         },
       });
 
-      showFeedback(
-        `Assinatura criada com sucesso (status: ${out.status}). A confirmação foi enviada no seu WhatsApp.`
-      );
-      form.reset();
       state.verificationToken = '';
-      applySelectedPlan('', '');
+      form.reset();
+      showFeedback();
+      showSubscriptionSuccess(out);
       refreshCompanyFields();
       setStep(null);
     } catch (e) {
       showFeedback(e.message || String(e), true);
+    } finally {
+      setFlowInteractionLock(false);
+      if (submitBtn) {
+        submitBtn.textContent = submitLabel;
+        submitBtn.disabled = false;
+      }
     }
   });
+
+  syncPlanCtasLocked();
 }
 
 async function init() {

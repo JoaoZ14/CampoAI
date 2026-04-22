@@ -136,11 +136,18 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       remoteIp: ip,
     });
 
+    const planLabel = result.planName || String(result.planCode || '').toUpperCase() || 'AG Assist';
+    const welcomeMsg =
+      `Parabéns — você agora faz parte do AG Assist.\n\n` +
+      `Plano: ${planLabel}\n` +
+      `Status: ${result.status}\n` +
+      `Próximo vencimento (referência): ${result.nextDueDate}\n\n` +
+      `Continue neste WhatsApp para análises no campo, notícias do agro e suporte no dia a dia. ` +
+      `A cobrança mensal segue no cartão que você cadastrou.\n\n` +
+      `Bem-vindo e bom trabalho na roça.`;
+
     try {
-      await sendWhatsAppMessage(
-        body.phone,
-        `Assinatura confirmada: plano ${String(body.planCode || '').toUpperCase()}.\nStatus: ${result.status}.`
-      );
+      await sendWhatsAppMessage(body.phone, welcomeMsg);
     } catch (e) {
       console.warn('[billing] falha ao enviar confirmação no WhatsApp:', e);
     }

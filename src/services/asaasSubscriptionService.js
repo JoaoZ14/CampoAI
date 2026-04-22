@@ -1,7 +1,12 @@
 import { asaasRequest } from './asaasClient.js';
 import { getProductPlanPriceByCode } from './productPlanRepository.js';
 import { normalizePhone } from '../utils/phone.js';
-import { findOrCreateUser, updateUserById } from './userService.js';
+import {
+  findOrCreateUser,
+  updateUserById,
+  claimAsaasCheckoutLock,
+  releaseAsaasCheckoutClaim,
+} from './userService.js';
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { AppError } from '../utils/errors.js';
 
@@ -100,81 +105,107 @@ export async function subscribeUserWithCreditCardMonthly(input) {
     throw new AppError('creditCardHolderInfo.addressNumber é obrigatório.', 400);
   }
 
-  const remoteIp = String(input.remoteIp || '').trim() || '127.0.0.1';
+  const claimed = await claimAsaasCheckoutLock(row.id);
+  if (!claimed) {
+    throw new AppError(
+      'Este número já possui assinatura ativa ou há um pagamento em andamento. Aguarde alguns minutos e tente novamente.',
+      409
+    );
+  }
 
-  let customerId = row.asaas_customer_id?.trim() || '';
-  if (!customerId) {
-    const customerBody = {
-      name: cust.name.trim(),
-      email: cust.email.trim().toLowerCase(),
-      cpfCnpj: digits(cust.cpfCnpj),
-      mobilePhone: digits(cust.mobilePhone || phone),
-      externalReference: row.id,
-      notificationDisabled: false,
-    };
-    const created = await asaasRequest('/customers', { method: 'POST', body: customerBody });
-    customerId = String(created.id || '').trim();
-    if (!customerId) {
-      throw new AppError('Asaas não retornou o id do cliente.', 502);
+  try {
+    const rowFresh = await loadUserBillingRow(phone);
+    if (rowFresh?.asaas_subscription_id) {
+      throw new AppError(
+        'Este número já possui assinatura Asaas cadastrada. Use o painel Asaas ou suporte para alterar.',
+        409
+      );
     }
-    await updateUserById(row.id, { asaasCustomerId: customerId });
+
+    const remoteIp = String(input.remoteIp || '').trim() || '127.0.0.1';
+    const userId = row.id;
+
+    let customerId =
+      rowFresh?.asaas_customer_id?.trim() || row.asaas_customer_id?.trim() || '';
+    if (!customerId) {
+      const customerBody = {
+        name: cust.name.trim(),
+        email: cust.email.trim().toLowerCase(),
+        cpfCnpj: digits(cust.cpfCnpj),
+        mobilePhone: digits(cust.mobilePhone || phone),
+        externalReference: userId,
+        notificationDisabled: false,
+      };
+      const created = await asaasRequest('/customers', { method: 'POST', body: customerBody });
+      customerId = String(created.id || '').trim();
+      if (!customerId) {
+        throw new AppError('Asaas não retornou o id do cliente.', 502);
+      }
+      await updateUserById(userId, { asaasCustomerId: customerId });
+    }
+
+    const nextDue =
+      process.env.ASAAS_FIRST_CHARGE_DATE?.trim() || brazilTodayYmd();
+
+    const subBody = {
+      customer: customerId,
+      billingType: 'CREDIT_CARD',
+      value: plan.priceBrl,
+      nextDueDate: nextDue,
+      cycle: 'MONTHLY',
+      description: `AG Assist — ${plan.name}`.slice(0, 500),
+      externalReference: userId,
+      creditCard: {
+        holderName: String(cc.holderName).trim(),
+        number: digits(cc.number),
+        expiryMonth: String(cc.expiryMonth).trim(),
+        expiryYear: String(cc.expiryYear).trim(),
+        ccv: String(cc.ccv).trim(),
+      },
+      creditCardHolderInfo: {
+        ...holder,
+        cpfCnpj: digits(holder.cpfCnpj || cust.cpfCnpj),
+        email: String(holder.email || cust.email)
+          .trim()
+          .toLowerCase(),
+        name: String(holder.name || cust.name).trim(),
+      },
+      remoteIp,
+    };
+
+    const sub = await asaasRequest('/subscriptions', { method: 'POST', body: subBody });
+    const subId = String(sub.id || '').trim();
+    const status = String(sub.status || 'ACTIVE').trim();
+
+    if (!subId) {
+      throw new AppError('Asaas não retornou o id da assinatura.', 502);
+    }
+
+    await updateUserById(userId, {
+      isPaid: true,
+      billingKind: customerType === 'company' ? 'team' : 'personal',
+      asaasCustomerId: customerId,
+      asaasSubscriptionId: subId,
+      subscriptionPlanCode: planCode,
+      asaasSubscriptionStatus: status,
+      asaasCheckoutStartedAt: null,
+    });
+
+    return {
+      subscriptionId: subId,
+      customerId,
+      status,
+      planCode,
+      planName: plan.name,
+      customerType,
+      value: plan.priceBrl,
+      nextDueDate: nextDue,
+      userId,
+    };
+  } catch (e) {
+    await releaseAsaasCheckoutClaim(row.id);
+    throw e;
   }
-
-  const nextDue =
-    process.env.ASAAS_FIRST_CHARGE_DATE?.trim() || brazilTodayYmd();
-
-  const subBody = {
-    customer: customerId,
-    billingType: 'CREDIT_CARD',
-    value: plan.priceBrl,
-    nextDueDate: nextDue,
-    cycle: 'MONTHLY',
-    description: `AG Assist — ${plan.name}`.slice(0, 500),
-    externalReference: row.id,
-    creditCard: {
-      holderName: String(cc.holderName).trim(),
-      number: digits(cc.number),
-      expiryMonth: String(cc.expiryMonth).trim(),
-      expiryYear: String(cc.expiryYear).trim(),
-      ccv: String(cc.ccv).trim(),
-    },
-    creditCardHolderInfo: {
-      ...holder,
-      cpfCnpj: digits(holder.cpfCnpj || cust.cpfCnpj),
-      email: String(holder.email || cust.email)
-        .trim()
-        .toLowerCase(),
-      name: String(holder.name || cust.name).trim(),
-    },
-    remoteIp,
-  };
-
-  const sub = await asaasRequest('/subscriptions', { method: 'POST', body: subBody });
-  const subId = String(sub.id || '').trim();
-  const status = String(sub.status || 'ACTIVE').trim();
-
-  if (!subId) {
-    throw new AppError('Asaas não retornou o id da assinatura.', 502);
-  }
-
-  await updateUserById(row.id, {
-    isPaid: true,
-    billingKind: customerType === 'company' ? 'team' : 'personal',
-    asaasCustomerId: customerId,
-    asaasSubscriptionId: subId,
-    subscriptionPlanCode: planCode,
-    asaasSubscriptionStatus: status,
-  });
-
-  return {
-    subscriptionId: subId,
-    customerId,
-    status,
-    planCode,
-    value: plan.priceBrl,
-    nextDueDate: nextDue,
-    userId: row.id,
-  };
 }
 
 /**

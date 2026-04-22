@@ -145,6 +145,7 @@ export async function getUserById(userId) {
  *   asaasSubscriptionId?: string|null,
  *   subscriptionPlanCode?: string|null,
  *   asaasSubscriptionStatus?: string|null,
+ *   asaasCheckoutStartedAt?: string|null,
  * }} patch
  */
 export async function updateUserById(userId, patch) {
@@ -157,6 +158,9 @@ export async function updateUserById(userId, patch) {
   if (patch.asaasSubscriptionId !== undefined) row.asaas_subscription_id = patch.asaasSubscriptionId;
   if (patch.subscriptionPlanCode !== undefined) row.subscription_plan_code = patch.subscriptionPlanCode;
   if (patch.asaasSubscriptionStatus !== undefined) row.asaas_subscription_status = patch.asaasSubscriptionStatus;
+  if (patch.asaasCheckoutStartedAt !== undefined) {
+    row.asaas_checkout_started_at = patch.asaasCheckoutStartedAt;
+  }
 
   if (Object.keys(row).length === 0) {
     throw new AppError('Nenhum campo para atualizar.', 400);
@@ -167,4 +171,34 @@ export async function updateUserById(userId, patch) {
     throw new AppError(`Erro ao atualizar usuário: ${error.message}`, 500);
   }
   return mapUserRow(data);
+}
+
+/**
+ * Reserva exclusiva para criar assinatura Asaas (uma linha por vez; stale libera retry).
+ * @param {string} userId UUID do usuário
+ * @returns {Promise<boolean>} true se obteve a reserva
+ */
+export async function claimAsaasCheckoutLock(userId) {
+  const supabase = getClient();
+  const staleBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const { data, error } = await supabase.rpc('claim_asaas_checkout', {
+    p_user_id: userId,
+    p_stale_before: staleBefore,
+  });
+  if (error) {
+    throw new AppError(`Erro ao reservar checkout: ${error.message}`, 500);
+  }
+  return Boolean(data);
+}
+
+/**
+ * Libera reserva de checkout após falha (assinatura ainda não gravada no usuário).
+ * @param {string} userId
+ */
+export async function releaseAsaasCheckoutClaim(userId) {
+  const supabase = getClient();
+  const { error } = await supabase.rpc('release_asaas_checkout_claim', { p_user_id: userId });
+  if (error) {
+    console.warn('[billing] release_asaas_checkout_claim:', error.message);
+  }
 }

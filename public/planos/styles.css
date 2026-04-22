@@ -663,6 +663,77 @@ button:not(.toggle-btn):not(.segment-tab):not(.link-back-plans):hover {
   color: var(--text);
 }
 
+.subscription-success {
+  margin-top: 1.5rem;
+  border: 1px solid rgba(61, 79, 61, 0.2);
+  background: linear-gradient(165deg, #fffefb 0%, #f3f7f2 100%);
+  box-shadow: var(--shadow-md);
+}
+
+.success-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green-light);
+  margin-bottom: 0.35rem;
+}
+
+.success-title {
+  margin-bottom: 0.75rem;
+  color: var(--green-dark);
+}
+
+.success-lead {
+  font-size: 1.02rem;
+  margin-bottom: 1rem;
+  max-width: 52ch;
+}
+
+.success-plan-detail {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.success-whatsapp {
+  font-size: 0.9rem;
+  margin-bottom: 1.25rem;
+  max-width: 52ch;
+}
+
+.success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.success-primary-btn {
+  appearance: none;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.65rem 1.25rem;
+  color: #fffefb;
+  background: var(--green-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.success-primary-btn:hover {
+  background: var(--green-light);
+}
+
+.success-primary-btn:focus-visible {
+  outline: 2px solid var(--field);
+  outline-offset: 3px;
+}
+
+.success-primary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .guarantee {
   margin-top: 1.5rem;
   text-align: center;

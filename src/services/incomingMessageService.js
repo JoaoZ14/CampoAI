@@ -29,6 +29,7 @@ export const MSG_WELCOME =
   `Você tem ${FREE_USAGE_LIMIT} análises grátis para testar — sem pagar nada na entrada.\n\n` +
   'Sou o AG Assist, seu parceiro no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
   'Objetivo: te ajudar a decidir melhor, evitar erro bobo e ganhar tempo (sem ficar caçando informação solta).\n\n' +
+  'Para ver *plano*, *uso* e *status da assinatura*, mande: *plano* ou *meu plano* (não gasta análise).\n\n' +
   'Para contas de área, semente, tanque, vazão etc.: envie uma linha começando com calc ajuda\n\n' +
   'Manda foto, áudio ou texto que eu respondo direto ao ponto.';
 
@@ -109,6 +110,94 @@ export function getLimitReachedParts(toPhone = '') {
  */
 export function getLimitReachedMessage() {
   return getLimitReachedParts().join('\n\n');
+}
+
+const PLAN_DISPLAY = {
+  basic: 'Básico',
+  pro: 'PRO',
+  premium: 'Premium',
+};
+
+/**
+ * Mensagem curta só com texto: usuário quer ver plano / assinatura / uso (não gasta análise).
+ * @param {string} text
+ */
+export function wantsPlanInquiry(text) {
+  const raw = String(text ?? '').trim();
+  if (!raw || raw.length > 72) return false;
+  const t = raw.toLowerCase().replaceAll(/\s+/g, ' ');
+  const exact = new Set([
+    'plano',
+    'planos',
+    'meu plano',
+    'meu plano atual',
+    'qual meu plano',
+    'qual é meu plano',
+    'qual e meu plano',
+    'assinatura',
+    'minha assinatura',
+    'status assinatura',
+    'status da assinatura',
+    'consultar plano',
+    'ver plano',
+    'ver meu plano',
+    'meu plano agora',
+    'uso',
+    'meu uso',
+    'consumo',
+  ]);
+  if (exact.has(t)) return true;
+  if (/^qual\b.*\bplano/.test(t) && t.length < 56) return true;
+  if (/^status\b.*\b(assinatura|plano)/.test(t) && t.length < 56) return true;
+  return false;
+}
+
+/**
+ * @param {{ isPaid: boolean, usageCount: number, billingKind?: string, subscriptionPlanCode?: string|null, asaasSubscriptionStatus?: string|null }} user
+ * @param {string} phone E.164 (para link /planos)
+ */
+export function formatPlanInquiryMessage(user, phone) {
+  const payUrl = withPhonePrefill(
+    normalizePaywallUrl(process.env.PAYWALL_URL?.trim() || ''),
+    phone
+  );
+  const linkLine = payUrl
+    ? `\n\n📎 *Ver ou mudar plano no site:*\n${payUrl}`
+    : '\n\nPara assinar ou mudar de plano, fale com o suporte.';
+
+  if (user.isPaid) {
+    const code = String(user.subscriptionPlanCode || '').toLowerCase();
+    const planName = PLAN_DISPLAY[code] || (code ? code.toUpperCase() : 'assinante');
+    const status = String(user.asaasSubscriptionStatus || 'ativo').trim() || 'ativo';
+    const kind =
+      user.billingKind === 'team'
+        ? 'contrato equipe / CNPJ'
+        : user.billingKind === 'personal'
+          ? 'titularidade CPF (individual)'
+          : 'ativo';
+    return (
+      `📋 *Seu plano AG Assist*\n\n` +
+      `*Plano:* ${planName}\n` +
+      `*Titularidade:* ${kind}\n` +
+      `*Status (Asaas):* ${status}\n\n` +
+      'As análises com a IA seguem as regras do seu plano. Para cancelamento, troca de cartão ou dúvida de cobrança, use o link abaixo ou o suporte.' +
+      linkLine
+    );
+  }
+
+  const used = Number(user.usageCount) || 0;
+  const lim = FREE_USAGE_LIMIT;
+  const blocked = used >= lim;
+  const head = blocked
+    ? `📋 *Seu uso (teste grátis)*\n\nVocê já usou *${used}* de *${lim}* análises gratuitas — o limite do teste acabou.`
+    : `📋 *Seu uso (teste grátis)*\n\nVocê já usou *${used}* de *${lim}* análises gratuitas neste número.`;
+
+  return (
+    `${head}\n\n` +
+    'Assinando um plano, o limite passa a ser o do contrato (veja valores no site).' +
+    linkLine +
+    '\n\nDica: mande *plano* de novo quando quiser ver este resumo.'
+  );
 }
 
 /**
@@ -215,6 +304,23 @@ export async function processIncomingMessage({
       step: 'welcome',
       userId: user.id,
       usageCount: user.usageCount,
+    };
+  }
+
+  const planInquiryText =
+    type.hasText && message != null ? String(message).trim() : '';
+  if (
+    planInquiryText &&
+    !type.hasImage &&
+    !type.hasAudio &&
+    wantsPlanInquiry(planInquiryText)
+  ) {
+    await sendWhatsAppMessage(phone, formatPlanInquiryMessage(user, phone));
+    return {
+      step: 'plan_inquiry',
+      userId: user.id,
+      usageCount: user.usageCount,
+      isPaid: user.isPaid,
     };
   }
 

@@ -337,10 +337,29 @@
                 />
               </label>
 
-              <button type="submit">Finalizar assinatura</button>
+              <button type="submit" id="submit-subscribe">Finalizar assinatura</button>
             </fieldset>
           </form>
         </div>
+        </div>
+
+        <div id="subscription-success" class="subscription-success card flow-card" hidden>
+          <p class="success-eyebrow" aria-hidden="true">Tudo certo</p>
+          <h2 class="section-heading success-title">Parabéns — você faz parte do AG Assist</h2>
+          <p class="success-lead">
+            Sua assinatura foi registrada. Daqui pra frente você conta com orientação no WhatsApp para a
+            lavoura e a pecuária, com limites claros de uso e cobrança mensal no cartão cadastrado.
+          </p>
+          <p id="success-plan-detail" class="success-plan-detail muted" aria-live="polite"></p>
+          <p class="success-whatsapp muted">
+            Enviamos também uma mensagem de boas-vindas neste WhatsApp com o resumo do plano e o status da
+            assinatura.
+          </p>
+          <div class="success-actions">
+            <button type="button" id="success-done-btn" class="success-primary-btn">
+              Concluir e voltar aos planos
+            </button>
+          </div>
         </div>
       </section>
 
