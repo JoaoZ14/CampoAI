@@ -510,3 +510,21 @@ code {
   flex: 1;
   min-width: 140px;
 }
+
+/* Pré-visualização do catálogo: destaque do plano PRO */
+.plan-ref-card {
+  margin: 0.35rem 0;
+}
+
+.plan-ref-card--featured {
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.7rem;
+  margin: 0.5rem 0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #fff 55%);
+  box-shadow: var(--shadow);
+}
+
+.plan-ref-card--featured p {
+  margin: 0;
+}

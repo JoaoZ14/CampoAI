@@ -1,24 +1,32 @@
-/**
- * Camada preparada para integração futura de pagamentos (Stripe, Pagar.me, etc.).
- * Por enquanto não há implementação — apenas contratos e comentários de referência.
- */
+import { activateUserByAsaasSubscriptionId } from './asaasSubscriptionService.js';
+import { AppError } from '../utils/errors.js';
 
 /**
- * Quando houver gateway, marcar usuário como pago após webhook de confirmação.
+ * Confirmação de pagamento (ex.: encaminhada a partir de outro webhook ou job).
  * @param {string} _userId
- * @param {object} _paymentPayload
- * @returns {Promise<void>}
+ * @param {{ subscription?: string }} paymentPayload
  */
-export async function handlePaymentConfirmed(_userId, _paymentPayload) {
-  // TODO: atualizar is_paid no Supabase e registrar assinatura
-  throw new Error('Pagamento ainda não implementado.');
+export async function handlePaymentConfirmed(_userId, paymentPayload) {
+  const subId =
+    paymentPayload &&
+    typeof paymentPayload.subscription === 'string' &&
+    paymentPayload.subscription.trim()
+      ? paymentPayload.subscription.trim()
+      : '';
+  if (!subId) {
+    throw new AppError('Payload sem subscription do Asaas.', 400);
+  }
+  const r = await activateUserByAsaasSubscriptionId(subId);
+  if (!r.ok) {
+    throw new AppError('Não foi possível associar a assinatura a um usuário.', 404);
+  }
 }
 
 /**
+ * Checkout hospedado no provedor (não usado com fluxo cartão via API Asaas).
  * @param {string} _userId
  * @returns {Promise<{ checkoutUrl?: string }>}
  */
 export async function createCheckoutSession(_userId) {
-  // TODO: retornar URL de checkout do provedor escolhido
   return {};
 }

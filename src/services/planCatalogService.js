@@ -7,6 +7,65 @@ import {
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { AppError } from '../utils/errors.js';
 
+/**
+ * Sobrescreve preço/nome/resumo com `product_plans` e define `customerSegment` por linha.
+ * @param {import('../config/plans.js').PublicPlan[]} catalogPlans
+ */
+async function mergePlansWithProductRows(catalogPlans) {
+  try {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+      .from('product_plans')
+      .select(
+        'code, customer_segment, name, price_brl, summary, max_whatsapp_seats, highlight, sort_order, active'
+      )
+      .eq('active', true)
+      .order('sort_order', { ascending: true });
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      return catalogPlans.map((p) => ({ ...p, customerSegment: 'personal' }));
+    }
+
+    return data.map((row) => {
+      const code = String(row.code ?? '').trim();
+      const cat =
+        catalogPlans.find((p) => p.code === code) || DEFAULT_PLANS.find((p) => p.code === code);
+      const segment = row.customer_segment === 'company' ? 'company' : 'personal';
+      if (!cat) {
+        return {
+          code,
+          name: String(row.name || code),
+          priceBrl: Number(row.price_brl),
+          period: 'mês',
+          summary: String(row.summary || ''),
+          bullets: ['Detalhes no checkout.'],
+          customerSegment: segment,
+          highlight: Boolean(row.highlight),
+          seats:
+            row.max_whatsapp_seats != null && row.max_whatsapp_seats !== ''
+              ? Number(row.max_whatsapp_seats)
+              : undefined,
+        };
+      }
+      return {
+        ...cat,
+        code,
+        customerSegment: segment,
+        name: String(row.name || cat.name),
+        priceBrl: Number(row.price_brl),
+        summary: row.summary ? String(row.summary) : cat.summary,
+        highlight: Boolean(row.highlight),
+        seats:
+          row.max_whatsapp_seats != null && row.max_whatsapp_seats !== ''
+            ? Number(row.max_whatsapp_seats)
+            : cat.seats,
+      };
+    });
+  } catch {
+    return catalogPlans.map((p) => ({ ...p, customerSegment: 'personal' }));
+  }
+}
+
 const ROW_ID = 'default';
 
 function getClient() {
@@ -44,10 +103,12 @@ export async function getPublicPlanCatalogPayload() {
 
     if (error) {
       console.warn('[plan_catalog] select:', error.message);
-      return buildPayload(DEFAULT_VERSION, DEFAULT_PLANS, DEFAULT_NOTES, 'fallback');
+      const fb = await mergePlansWithProductRows(DEFAULT_PLANS);
+      return buildPayload(DEFAULT_VERSION, fb, DEFAULT_NOTES, 'fallback');
     }
     if (!data || data.plans == null) {
-      return buildPayload(DEFAULT_VERSION, DEFAULT_PLANS, DEFAULT_NOTES, 'fallback');
+      const fb = await mergePlansWithProductRows(DEFAULT_PLANS);
+      return buildPayload(DEFAULT_VERSION, fb, DEFAULT_NOTES, 'fallback');
     }
 
     const validated = parseAndValidateCatalog({
@@ -55,11 +116,13 @@ export async function getPublicPlanCatalogPayload() {
       notes: data.notes ?? DEFAULT_NOTES,
       version: data.version,
     });
-    return buildPayload(validated.version, validated.plans, validated.notes, 'database');
+    const mergedPlans = await mergePlansWithProductRows(validated.plans);
+    return buildPayload(validated.version, mergedPlans, validated.notes, 'database');
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn('[plan_catalog] validação do banco:', msg);
-    return buildPayload(DEFAULT_VERSION, DEFAULT_PLANS, DEFAULT_NOTES, 'fallback');
+    const fb = await mergePlansWithProductRows(DEFAULT_PLANS);
+    return buildPayload(DEFAULT_VERSION, fb, DEFAULT_NOTES, 'fallback');
   }
 }
 

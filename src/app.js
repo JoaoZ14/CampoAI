@@ -4,6 +4,8 @@ import express from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import webhookRoutes from './routes/whatsappRoutes.js';
+import asaasWebhookRoutes from './routes/asaasWebhookRoutes.js';
+import billingRoutes from './routes/billingRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { getPublicPlanCatalogPayload } from './services/planCatalogService.js';
@@ -11,6 +13,7 @@ import { openapiSpec } from './swagger/openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const adminDir = path.join(__dirname, '../public/admin');
+const plansDir = path.join(__dirname, '../public/planos');
 
 export function createApp() {
   const app = express();
@@ -47,8 +50,21 @@ export function createApp() {
     }
   });
 
+  app.use('/api/billing', billingRoutes);
+
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
   // remover a barra final).
+  app.get(['/planos', '/planos/'], (_req, res) => {
+    res.sendFile(path.join(plansDir, 'index.html'));
+  });
+  app.use(
+    '/planos',
+    express.static(plansDir, {
+      index: false,
+      redirect: false,
+    })
+  );
+
   app.use('/admin', adminRoutes);
   app.get(['/admin', '/admin/'], (_req, res) => {
     res.sendFile(path.join(adminDir, 'index.html'));
@@ -62,6 +78,7 @@ export function createApp() {
   );
 
   app.use('/webhook', webhookRoutes);
+  app.use('/webhook', asaasWebhookRoutes);
 
   app.use((_req, res) => {
     res.status(404).json({ ok: false, error: 'Rota não encontrada.' });

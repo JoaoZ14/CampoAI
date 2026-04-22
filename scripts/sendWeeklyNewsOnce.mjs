@@ -5,7 +5,8 @@ import { runWeeklyNewsSend } from '../src/jobs/weeklyNewsCron.js';
  * Uso:
  *   npm run weekly-news -- +5524988123456
  *   npm run weekly-news -- --phone +5524988123456
- * Sem argumento: usa WEEKLY_NEWS_TO_PHONE do .env (cron idem).
+ * Sem argumento: envia para todos em public.users (cron idem), salvo se
+ * WEEKLY_NEWS_TO_PHONE estiver definido — aí só esse número (teste legado).
  */
 function parseTestPhone(argv) {
   const args = argv.slice(2);

@@ -17,23 +17,49 @@ import {
   sendWhatsAppContentTemplate,
   sendWhatsAppTypingIndicator,
 } from '../services/whatsappService.js';
+import { tryResolveFieldCalcMessage } from './fieldCalcService.js';
 import { wantsConversationPdfReport } from './reportIntent.js';
 import { generateConversationReportText } from './aiService.js';
 import { buildConversationReportPdf } from './reportPdfService.js';
 import { uploadReportPdfAndGetSignedUrl } from './reportStorageService.js';
+import { FREE_USAGE_LIMIT } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
 
 export const MSG_WELCOME =
-  'Olá! Sou o AG Assist — seu parceiro aqui no campo. 👨‍🌾\n\n' +
-  'Posso te ajudar com lavoura, pecuária, cuidado com animais e o que estiver pegando na roça.\n\n' +
-  'Manda uma foto, um áudio de voz ou descreve o problema em poucas palavras que eu te oriento com calma, passo a passo.';
+  `Você tem ${FREE_USAGE_LIMIT} análises grátis para testar — sem pagar nada na entrada.\n\n` +
+  'Sou o AG Assist, seu parceiro no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
+  'Objetivo: te ajudar a decidir melhor, evitar erro bobo e ganhar tempo (sem ficar caçando informação solta).\n\n' +
+  'Para contas de área, semente, tanque, vazão etc.: envie uma linha começando com calc ajuda\n\n' +
+  'Manda foto, áudio ou texto que eu respondo direto ao ponto.';
 
 export const MSG_UNSUPPORTED_VIDEO =
   'Por enquanto não analiso vídeo por aqui. Pode mandar texto, foto ou áudio de voz?';
 
 /** Texto base (sem URL). Com `PAYWALL_URL`, o link entra na mesma bolha ou na seguinte — ver `getLimitReachedParts`. */
 export const MSG_LIMIT_BASE =
-  'Você usou suas análises gratuitas. Quer continuar usando? Planos a partir de R$29.';
+  'Você usou suas análises gratuitas 👨‍🌾\n\n' +
+  'Para continuar recebendo recomendações no campo, escolha um plano:';
+
+/**
+ * Gera URL de planos com telefone no querystring (prefill da página /planos).
+ * @param {string} baseUrl
+ * @param {string} phone
+ */
+function withPhonePrefill(baseUrl, phone) {
+  const base = String(baseUrl || '').trim();
+  if (!base) return '';
+  try {
+    const u = new URL(base);
+    const digits = String(phone || '').replaceAll(/\D/g, '');
+    if (digits) {
+      u.searchParams.set('phone', digits.startsWith('55') ? `+${digits}` : `+55${digits}`);
+      u.searchParams.set('origin', 'whatsapp_limit');
+    }
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
 
 /**
  * Normaliza URL para o WhatsApp reconhecer link tocável (evita domínio sem esquema).
@@ -54,11 +80,11 @@ function normalizePaywallUrl(raw) {
  * Botões nativos estilo app exigem template aprovado no Meta/Twilio (Content API).
  * @returns {string[]}
  */
-export function getLimitReachedParts() {
+export function getLimitReachedParts(toPhone = '') {
   const raw = process.env.PAYWALL_URL?.trim();
   if (!raw) return [MSG_LIMIT_BASE];
 
-  const url = normalizePaywallUrl(raw);
+  const url = withPhonePrefill(normalizePaywallUrl(raw), toPhone);
   const singleBubble =
     process.env.PAYWALL_SINGLE_BUBBLE === 'true' ||
     process.env.PAYWALL_LINK_IN_SAME_MESSAGE === 'true';
@@ -112,7 +138,7 @@ async function sendLimitReachedMessages(toPhone) {
       } else {
         variables = {
           1: bodyForTemplate,
-          2: normalizePaywallUrl(urlRaw),
+          2: withPhonePrefill(normalizePaywallUrl(urlRaw), toPhone),
         };
       }
     }
@@ -120,7 +146,7 @@ async function sendLimitReachedMessages(toPhone) {
     return;
   }
 
-  const parts = getLimitReachedParts();
+  const parts = getLimitReachedParts(toPhone);
   for (let i = 0; i < parts.length; i++) {
     await sendWhatsAppMessage(toPhone, parts[i]);
     if (i < parts.length - 1) {
@@ -269,6 +295,21 @@ export async function processIncomingMessage({
         userId: user.id,
         usageCount: user.usageCount,
         error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  if (textRaw && type.hasText && !type.hasImage && !type.hasAudio) {
+    const calcReply = tryResolveFieldCalcMessage(textRaw);
+    if (calcReply) {
+      await incrementUsage(user.id);
+      await saveChatTurn(user.id, buildUserTurnSummary(type, message), calcReply);
+      await sendWhatsAppMessage(phone, calcReply);
+      return {
+        step: 'field_calc',
+        userId: user.id,
+        usageCount: user.usageCount + 1,
+        replyPreview: calcReply.slice(0, 280),
       };
     }
   }

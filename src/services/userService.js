@@ -1,9 +1,51 @@
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { mapUserRow, FREE_USAGE_LIMIT } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
+import { normalizePhone } from '../utils/phone.js';
 
 function getClient() {
   return createSupabaseClient();
+}
+
+async function fetchUserPhonesPage(supabase, from, pageSize) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('phone')
+    .range(from, from + pageSize - 1);
+
+  if (error) {
+    throw new AppError(`Erro ao listar telefones de usuários: ${error.message}`, 500);
+  }
+  return data ?? [];
+}
+
+/**
+ * Telefones distintos da tabela `users` (E.164 após normalização), para broadcast (ex.: resumo semanal).
+ */
+export async function listDistinctUserPhones() {
+  const supabase = getClient();
+  const pageSize = 1000;
+  const seen = new Set();
+  let from = 0;
+
+  for (;;) {
+    const rows = await fetchUserPhonesPage(supabase, from, pageSize);
+    if (!rows.length) break;
+
+    for (const row of rows) {
+      const raw = typeof row.phone === 'string' ? row.phone.trim() : '';
+      if (!raw) continue;
+      const p = normalizePhone(raw);
+      if (p && p.replaceAll(/\D/g, '').length >= 10) {
+        seen.add(p);
+      }
+    }
+
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return [...seen];
 }
 
 /**
@@ -95,7 +137,15 @@ export async function getUserById(userId) {
 
 /**
  * @param {string} userId
- * @param {{ isPaid?: boolean, billingKind?: string, organizationId?: string|null }} patch
+ * @param {{
+ *   isPaid?: boolean,
+ *   billingKind?: string,
+ *   organizationId?: string|null,
+ *   asaasCustomerId?: string|null,
+ *   asaasSubscriptionId?: string|null,
+ *   subscriptionPlanCode?: string|null,
+ *   asaasSubscriptionStatus?: string|null,
+ * }} patch
  */
 export async function updateUserById(userId, patch) {
   const supabase = getClient();
@@ -103,6 +153,10 @@ export async function updateUserById(userId, patch) {
   if (typeof patch.isPaid === 'boolean') row.is_paid = patch.isPaid;
   if (patch.billingKind !== undefined) row.billing_kind = patch.billingKind;
   if (patch.organizationId !== undefined) row.organization_id = patch.organizationId;
+  if (patch.asaasCustomerId !== undefined) row.asaas_customer_id = patch.asaasCustomerId;
+  if (patch.asaasSubscriptionId !== undefined) row.asaas_subscription_id = patch.asaasSubscriptionId;
+  if (patch.subscriptionPlanCode !== undefined) row.subscription_plan_code = patch.subscriptionPlanCode;
+  if (patch.asaasSubscriptionStatus !== undefined) row.asaas_subscription_status = patch.asaasSubscriptionStatus;
 
   if (Object.keys(row).length === 0) {
     throw new AppError('Nenhum campo para atualizar.', 400);

@@ -5,53 +5,67 @@
 
 export const DEFAULT_VERSION = '2026-04';
 
-/** @typedef {{ code: string, name: string, priceBrl: number, period: string, summary: string, bullets: string[], seats?: number }} PublicPlan */
+/**
+ * @typedef {{
+ *   code: string,
+ *   name: string,
+ *   priceBrl: number,
+ *   period: string,
+ *   summary: string,
+ *   bullets: string[],
+ *   seats?: number,
+ *   customerSegment?: 'personal'|'company',
+ *   highlight?: boolean,
+ * }} PublicPlan
+ */
 
 /** @type {PublicPlan[]} */
 export const DEFAULT_PLANS = [
   {
-    code: 'personal',
-    name: 'Pessoal',
+    code: 'basic',
+    name: 'Básico',
+    priceBrl: 29,
+    period: 'mês',
+    summary:
+      'Orientação no dia a dia da roça: menos pesquisa solta, mais clareza para decidir sem enrolação.',
+    bullets: [
+      'Um número de WhatsApp com análises ilimitadas (uso razoável no campo)',
+      'Lavoura, pecuária e sanidade em linguagem simples; calculadora integrada (calc ajuda)',
+      'Memória da conversa conforme a configuração do servidor',
+    ],
+  },
+  {
+    code: 'pro',
+    name: 'PRO — melhor custo-benefício',
     priceBrl: 59,
     period: 'mês',
-    summary: 'Um número de WhatsApp com acesso ilimitado à IA (uso razoável no campo).',
+    summary:
+      'O plano que a gente quer que a maioria escolha: menos risco de erro, decisão melhor e tempo sobrando.',
     bullets: [
-      'Só o seu WhatsApp; sem cadastro de empresa',
-      'Após o checkout (quando integrar pagamento), o número liberado automaticamente',
-      'Memória da conversa e relatório em PDF conforme configuração do servidor',
+      'Tudo do Básico + foco em resposta boa quando você mais precisa',
+      'Você não compra “IA”: compra tranquilidade para não errar na hora H',
+      'Relatório em PDF da conversa quando estiver ativo no servidor',
     ],
   },
   {
-    code: 'family_team',
-    name: 'Família ou equipe',
-    priceBrl: 139,
+    code: 'premium',
+    name: 'Premium',
+    priceBrl: 119,
     period: 'mês',
     seats: 3,
-    summary: 'Até 3 números de WhatsApp no mesmo plano (fazenda, família ou time pequeno).',
+    summary:
+      'Para fazenda, família ou time: mais de um celular no mesmo plano, com o mesmo padrão de resposta.',
     bullets: [
-      'Um responsável contrata; você cadastra os 3 números que podem usar',
-      'Cada número com o mesmo tipo de acesso à IA',
-      'Gestão dos números pelo painel administrativo (AG Assist)',
-    ],
-  },
-  {
-    code: 'business_team',
-    name: 'Empresa',
-    priceBrl: 379,
-    period: 'mês',
-    seats: 10,
-    summary: 'Até 10 números de WhatsApp para cooperativa, empresa rural ou consultoria.',
-    bullets: [
-      'Até 10 números cadastrados pelo administrador do plano',
-      'Ideal para equipes que falam com produtores ou uso interno',
-      'Suporte à gestão de assentos pelo painel administrativo',
+      'Tudo do PRO para até 3 números de WhatsApp no mesmo plano',
+      'Um responsável contrata; você define quem usa (painel administrativo)',
+      'Ideal quando várias pessoas mandam foto e áudio do mesmo talhão ou rebanho',
     ],
   },
 ];
 
 export const DEFAULT_NOTES = [
-  'Plano pessoal: o produtor usa só o WhatsApp; não precisa criar conta de empresa.',
-  'Planos equipe: a organização é só para gestão de números e cobrança — cada pessoa continua no próprio WhatsApp.',
+  'Posicionamento: o produtor compra menos prejuízo por decisão mal informada e menos tempo perdido pesquisando — não compra “tecnologia por tecnologia”.',
+  'Na página de planos, destaque visual no PRO (R$59): é o melhor custo-benefício para a maior parte dos produtores.',
 ];
 
 /**

@@ -366,14 +366,14 @@ function renderPlanRef(data) {
   box.innerHTML =
     src +
     plans
-      .map(
-        (p) =>
-          `<p style="margin:0.35rem 0"><strong>${escapeHtml(p.name)}</strong> — R$ ${Number(
-            p.priceBrl
-          ).toFixed(0)}/${escapeHtml(p.period)}${
-            p.seats ? ` · até ${p.seats} números` : ''
-          }. ${escapeHtml(p.summary)}</p>`
-      )
+      .map((p) => {
+        const feat = p.code === 'pro' ? ' plan-ref-card--featured' : '';
+        return `<div class="plan-ref-card${feat}"><p style="margin:0"><strong>${escapeHtml(
+          p.name
+        )}</strong> — R$ ${Number(p.priceBrl).toFixed(0)}/${escapeHtml(p.period)}${
+          p.seats ? ` · até ${p.seats} números` : ''
+        }. ${escapeHtml(p.summary)}</p></div>`;
+      })
       .join('') +
     notes;
 }

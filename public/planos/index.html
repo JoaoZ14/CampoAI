@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#2a382a" />
+    <meta
+      name="description"
+      content="Planos AG Assist — lavoura e pecuária no WhatsApp. CPF ou CNPJ, confirmação por código e preços claros."
+    />
+    <title>Planos — AG Assist</title>
+    <link
+      rel="icon"
+      href="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
+      type="image/png"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/planos/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="site-logo" href="https://agassist.netlify.app/">
+          <img
+            src="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
+            alt="AG Assist"
+            width="200"
+            height="54"
+            decoding="async"
+          />
+        </a>
+        <nav class="site-nav" aria-label="Principal">
+          <a class="site-nav-link" href="https://agassist.netlify.app/">Início</a>
+          <a class="site-nav-link is-current" href="/planos" aria-current="page">Planos</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <div class="container">
+      <header class="hero">
+        <div class="hero-inner">
+        <p class="eyebrow">Planos</p>
+        <h1>Limite e preço na mesa — para decidir com mais confiança no talhão</h1>
+        <p class="subtitle">
+          Da lavoura ao curral, orientação no <strong>WhatsApp</strong> em português que aguenta a
+          correria do dia — técnica quando a dúvida pede, clara quando o relógio aperta.
+          <strong>10 análises grátis</strong> para você sentir o serviço no bolso antes de pagar
+          nada. Ao assinar, <strong>preço e limite de uso</strong> estão no card: nada de letrinha
+          miúda nem promessa de “crédito infinito” que some na hora H.
+          <strong>Código no seu número</strong> antes de qualquer cobrança no cartão; na vitrine
+          você já escolhe <strong>Pessoal ou Empresa</strong> (CPF ou CNPJ) — contrato alinhado ao
+          jeito que você fatura, sem gambiarra no cadastro.
+        </p>
+        </div>
+      </header>
+
+      <section class="value-strip" aria-labelledby="value-strip-title">
+        <h2 id="value-strip-title" class="value-strip-title">Por que o AG Assist se destaca</h2>
+        <ul class="value-grid">
+          <li>
+            <strong>Foco no que importa na roça</strong>
+            <span>Orientação técnica em planta e animal, calculadora de campo (<code>calc</code>),
+              notícias do agro no Brasil e relatório em PDF da conversa quando o servidor oferece —
+              sem empilhar dezenas de funções que desviam do trabalho.</span>
+          </li>
+          <li>
+            <strong>Transparência de uso e cobrança</strong>
+            <span>Limite gratuito claro; nos planos, faixas de análises definidas. Checkout com OTP
+              no seu número: ninguém assina por engano no teclado.</span>
+          </li>
+          <li>
+            <strong>CPF e CNPJ na mesma página</strong>
+            <span>Abas Pessoal e Empresa com preços e textos alinhados ao tipo de contrato — menos
+              surpresa na hora de preencher dados e nota fiscal.</span>
+          </li>
+          <li>
+            <strong>Seriedade técnica</strong>
+            <span>O assistente deixa claro que orientação não substitui visita de agrônomo ou médico
+              veterinário em casos graves — parceiro da decisão, não substituto do profissional.</span>
+          </li>
+        </ul>
+      </section>
+
+      <div id="plans-merchandise" class="plans-merchandise">
+        <section class="billing-toggle">
+          <span>Mensal</span>
+          <button id="billing-toggle-btn" type="button" class="toggle-btn" aria-pressed="false">
+            <span class="dot"></span>
+          </button>
+          <span>Anual</span>
+          <small>(economize 20%)</small>
+        </section>
+
+        <nav class="segment-tabs" role="tablist" aria-label="Tipo de contratação">
+          <button type="button" class="segment-tab is-active" id="tab-personal" role="tab" aria-selected="true">
+            Pessoal
+          </button>
+          <button type="button" class="segment-tab" id="tab-company" role="tab" aria-selected="false">
+            Empresa
+          </button>
+        </nav>
+
+        <section class="plan-grid" id="plan-grid"></section>
+      </div>
+
+      <section class="forms">
+        <div id="checkout-panel" class="checkout-panel" hidden>
+        <div class="card flow-card">
+          <button type="button" id="back-to-plans" class="link-back-plans">
+            ← Escolher outro plano
+          </button>
+          <h2 class="section-heading">Assinar pelo WhatsApp</h2>
+          <p id="plan-selected-summary" class="plan-picked checkout-summary muted" aria-live="polite"></p>
+          <p class="muted flow-intro">
+            Telefone → código no WhatsApp → dados e cartão. Sem etapa extra: o plano você já escolheu nos
+            cards.
+          </p>
+
+          <form id="flow-form">
+            <input type="hidden" name="planCode" id="planCode" value="" />
+            <input type="hidden" name="customerType" id="customerType" value="" />
+
+            <fieldset data-step="2" hidden>
+              <legend>1) Seu WhatsApp</legend>
+              <label>Telefone (WhatsApp)
+                <input type="tel" name="phone" id="phone" required placeholder="+55..." />
+              </label>
+              <button type="button" id="send-otp">Enviar código no WhatsApp</button>
+            </fieldset>
+
+            <fieldset data-step="3" hidden>
+              <legend>2) Código recebido</legend>
+              <label>Código (6 dígitos)
+                <input type="text" name="otpCode" id="otpCode" inputmode="numeric" maxlength="6" />
+              </label>
+              <button type="button" id="verify-otp">Validar código</button>
+            </fieldset>
+
+            <fieldset data-step="4" hidden>
+              <legend>3) Dados e pagamento</legend>
+              <div class="company-only" hidden>
+                <label>Nome da empresa
+                  <input type="text" name="companyName" id="companyName" />
+                </label>
+                <label>CNPJ
+                  <input type="text" name="cnpj" id="cnpj" />
+                </label>
+                <label>Responsável
+                  <input type="text" name="contactName" id="contactName" />
+                </label>
+              </div>
+
+              <label>Nome completo
+                <input type="text" name="name" id="name" required minlength="3" />
+              </label>
+              <label>E-mail
+                <input type="email" name="email" id="email" required />
+              </label>
+              <label>CPF
+                <input type="text" name="cpfCnpj" id="cpfCnpj" required />
+              </label>
+              <label>Senha da conta
+                <input type="password" name="password" id="password" required minlength="4" />
+              </label>
+
+              <h3>Cartão</h3>
+              <label>Nome no cartão
+                <input type="text" name="ccHolder" id="ccHolder" required />
+              </label>
+              <label>Número do cartão
+                <input type="text" name="ccNumber" id="ccNumber" required />
+              </label>
+              <div class="row2">
+                <label>Mês
+                  <input type="text" name="ccExpMonth" id="ccExpMonth" required />
+                </label>
+                <label>Ano
+                  <input type="text" name="ccExpYear" id="ccExpYear" required />
+                </label>
+                <label>CVV
+                  <input type="text" name="ccCvv" id="ccCvv" required />
+                </label>
+              </div>
+
+              <h3>Endereço de cobrança</h3>
+              <div class="row2">
+                <label>CEP
+                  <input type="text" name="postalCode" id="postalCode" required />
+                </label>
+                <label>Número
+                  <input type="text" name="addressNumber" id="addressNumber" required />
+                </label>
+              </div>
+              <label>Complemento (opcional)
+                <input type="text" name="addressComplement" id="addressComplement" />
+              </label>
+
+              <button type="submit">Finalizar assinatura</button>
+            </fieldset>
+          </form>
+        </div>
+        </div>
+      </section>
+
+      <section class="guarantee">
+        <p>Cancele quando quiser</p>
+      </section>
+
+      <p id="feedback" class="feedback" hidden></p>
+      </div>
+    </main>
+
+    <script type="module" src="/planos/app.js"></script>
+  </body>
+</html>

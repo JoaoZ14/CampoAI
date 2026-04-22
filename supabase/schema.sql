@@ -47,6 +47,16 @@ create index if not exists users_organization_id_idx on public.users (organizati
 comment on table public.users is 'Usuários do AG Assist identificados pelo telefone WhatsApp';
 comment on column public.users.billing_kind is 'free | personal (assinante individual) | team (assento de organização)';
 
+alter table public.users
+  add column if not exists asaas_customer_id text,
+  add column if not exists asaas_subscription_id text,
+  add column if not exists subscription_plan_code text,
+  add column if not exists asaas_subscription_status text;
+
+create unique index if not exists users_asaas_subscription_id_uidx
+  on public.users (asaas_subscription_id)
+  where asaas_subscription_id is not null;
+
 -- Histórico de conversa (texto) para memória multi-turn no Gemini.
 create table if not exists public.chat_messages (
   id uuid primary key default gen_random_uuid(),
@@ -80,7 +90,173 @@ insert into public.plan_catalog (id, version, plans, notes)
 values (
   'default',
   '2026-04',
-  $plan$[{"code":"personal","name":"Pessoal","priceBrl":59,"period":"mês","summary":"Um número de WhatsApp com acesso ilimitado à IA (uso razoável no campo).","bullets":["Só o seu WhatsApp; sem cadastro de empresa","Após o checkout (quando integrar pagamento), o número liberado automaticamente","Memória da conversa e relatório em PDF conforme configuração do servidor"]},{"code":"family_team","name":"Família ou equipe","priceBrl":139,"period":"mês","seats":3,"summary":"Até 3 números de WhatsApp no mesmo plano (fazenda, família ou time pequeno).","bullets":["Um responsável contrata; você cadastra os 3 números que podem usar","Cada número com o mesmo tipo de acesso à IA","Gestão dos números pelo painel administrativo (AG Assist)"]},{"code":"business_team","name":"Empresa","priceBrl":379,"period":"mês","seats":10,"summary":"Até 10 números de WhatsApp para cooperativa, empresa rural ou consultoria.","bullets":["Até 10 números cadastrados pelo administrador do plano","Ideal para equipes que falam com produtores ou uso interno","Suporte à gestão de assentos pelo painel administrativo"]}]$plan$::jsonb,
-  $notes$["Plano pessoal: o produtor usa só o WhatsApp; não precisa criar conta de empresa.","Planos equipe: a organização é só para gestão de números e cobrança — cada pessoa continua no próprio WhatsApp."]$notes$::jsonb
+  $plan$[{"code":"basic","name":"Básico","priceBrl":29,"period":"mês","summary":"Orientação no dia a dia da roça: menos pesquisa solta, mais clareza para decidir sem enrolação.","bullets":["Um número de WhatsApp com análises ilimitadas (uso razoável no campo)","Lavoura, pecuária e sanidade em linguagem simples; calculadora integrada (calc ajuda)","Memória da conversa conforme a configuração do servidor"]},{"code":"pro","name":"PRO — melhor custo-benefício","priceBrl":59,"period":"mês","summary":"O plano que a gente quer que a maioria escolha: menos risco de erro, decisão melhor e tempo sobrando.","bullets":["Tudo do Básico + foco em resposta boa quando você mais precisa","Você não compra \"IA\": compra tranquilidade para não errar na hora H","Relatório em PDF da conversa quando estiver ativo no servidor"]},{"code":"premium","name":"Premium","priceBrl":119,"period":"mês","seats":3,"summary":"Para fazenda, família ou time: mais de um celular no mesmo plano, com o mesmo padrão de resposta.","bullets":["Tudo do PRO para até 3 números de WhatsApp no mesmo plano","Um responsável contrata; você define quem usa (painel administrativo)","Ideal quando várias pessoas mandam foto e áudio do mesmo talhão ou rebanho"]}]$plan$::jsonb,
+  $notes$["Posicionamento: o produtor compra menos prejuízo por decisão mal informada e menos tempo perdido pesquisando — não compra \"tecnologia por tecnologia\".","Na página de planos, destaque visual no PRO (R$59): é o melhor custo-benefício para a maior parte dos produtores."]$notes$::jsonb
 )
 on conflict (id) do nothing;
+
+-- Planos em colunas (preço, SKU, Stripe); copy/marketing em bullets segue em plan_catalog.
+create table if not exists public.product_plans (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  customer_segment text not null default 'personal' check (customer_segment in ('personal', 'company')),
+  name text not null,
+  price_brl numeric(12, 2) not null check (price_brl >= 0 and price_brl <= 999999.99),
+  currency text not null default 'BRL' check (currency in ('BRL')),
+  billing_period_label text not null default 'mês',
+  summary text,
+  max_whatsapp_seats integer check (max_whatsapp_seats is null or (max_whatsapp_seats >= 1 and max_whatsapp_seats <= 500)),
+  external_sku text,
+  stripe_product_id text,
+  stripe_price_id text,
+  highlight boolean not null default false,
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (code, customer_segment)
+);
+
+comment on table public.product_plans is 'Planos SaaS: colunas tipadas para preço e IDs externos; bullets/copy longos continuam em plan_catalog.plans (JSON)';
+comment on column public.product_plans.customer_segment is 'personal = CPF; company = CNPJ';
+
+create index if not exists product_plans_active_sort_idx
+  on public.product_plans (active, sort_order);
+
+alter table public.product_plans enable row level security;
+
+insert into public.product_plans (
+  code,
+  customer_segment,
+  name,
+  price_brl,
+  billing_period_label,
+  summary,
+  max_whatsapp_seats,
+  external_sku,
+  highlight,
+  sort_order
+)
+values
+  (
+    'basic',
+    'personal',
+    'Básico — produtor (CPF)',
+    29.00,
+    'mês',
+    'Para quem decide no campo com um WhatsApp: análises no ritmo do dia a dia, sem complicação de contrato empresarial.',
+    1,
+    'AG-BASIC-PF-MONTH',
+    false,
+    1
+  ),
+  (
+    'pro',
+    'personal',
+    'PRO — produtor (CPF)',
+    59.00,
+    'mês',
+    'Melhor custo-benefício para quem já usa toda semana: respostas mais completas, histórico e foco em decisão rápida no talhão.',
+    1,
+    'AG-PRO-PF-MONTH',
+    true,
+    2
+  ),
+  (
+    'premium',
+    'personal',
+    'Premium — família ou time (CPF)',
+    119.00,
+    'mês',
+    'Até 3 números no mesmo plano: fazenda ou família com o mesmo padrão de resposta, um responsável paga no CPF.',
+    3,
+    'AG-PREMIUM-PF-MONTH',
+    false,
+    3
+  ),
+  (
+    'pro',
+    'company',
+    'PRO — empresa (CNPJ)',
+    59.00,
+    'mês',
+    'Nota fiscal em nome da empresa, uso profissional e governança: um WhatsApp corporativo com o mesmo núcleo do PRO para produtor.',
+    1,
+    'AG-PRO-PJ-MONTH',
+    false,
+    4
+  ),
+  (
+    'premium',
+    'company',
+    'Premium — empresa (CNPJ)',
+    119.00,
+    'mês',
+    'Contrato empresarial com até 3 linhas WhatsApp: equipe técnica, consultoria ou operações que precisam de NF e rastreabilidade.',
+    3,
+    'AG-PREMIUM-PJ-MONTH',
+    false,
+    5
+  )
+on conflict (code, customer_segment) do update set
+  name = excluded.name,
+  price_brl = excluded.price_brl,
+  billing_period_label = excluded.billing_period_label,
+  summary = excluded.summary,
+  max_whatsapp_seats = excluded.max_whatsapp_seats,
+  external_sku = excluded.external_sku,
+  highlight = excluded.highlight,
+  sort_order = excluded.sort_order,
+  updated_at = now();
+
+-- Solicitações vindas da página /planos (cadastro simplificado).
+create table if not exists public.subscription_requests (
+  id uuid primary key default gen_random_uuid(),
+  customer_type text not null check (customer_type in ('personal', 'company')),
+  plan_code text not null check (plan_code in ('basic', 'pro', 'premium')),
+  name text not null,
+  phone text not null,
+  password_hash text not null,
+  company_name text,
+  cnpj text,
+  contact_name text,
+  email text,
+  notes text,
+  status text not null default 'new' check (status in ('new', 'contacted', 'converted', 'cancelled')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists subscription_requests_status_idx
+  on public.subscription_requests (status, created_at desc);
+
+create index if not exists subscription_requests_phone_idx
+  on public.subscription_requests (phone);
+
+alter table public.subscription_requests enable row level security;
+
+-- OTP de confirmação de telefone para checkout em /planos.
+create table if not exists public.billing_phone_otp (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null,
+  plan_code text not null check (plan_code in ('basic', 'pro', 'premium')),
+  customer_segment text not null default 'personal' check (customer_segment in ('personal', 'company')),
+  code_hash text not null,
+  attempt_count integer not null default 0 check (attempt_count >= 0),
+  expires_at timestamptz not null,
+  verified_at timestamptz,
+  verification_token text,
+  token_expires_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists billing_phone_otp_phone_idx
+  on public.billing_phone_otp (phone, created_at desc);
+
+create index if not exists billing_phone_otp_phone_plan_segment_idx
+  on public.billing_phone_otp (phone, plan_code, customer_segment, created_at desc);
+
+create unique index if not exists billing_phone_otp_token_uidx
+  on public.billing_phone_otp (verification_token)
+  where verification_token is not null;
+
+alter table public.billing_phone_otp enable row level security;
