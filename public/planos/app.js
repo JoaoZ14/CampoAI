@@ -102,6 +102,165 @@ function getText(fd, key) {
   return typeof v === 'string' ? v : '';
 }
 
+function onlyDigits(s) {
+  return String(s ?? '').replaceAll(/\D/g, '');
+}
+
+/** Espaços colapsados e bordas limpas (nomes, endereço). */
+function normalizeSpaces(s) {
+  return String(s ?? '')
+    .replaceAll(/\s+/g, ' ')
+    .trim();
+}
+
+function formatPhoneDisplay(raw) {
+  let d = onlyDigits(raw);
+  if (d.startsWith('55') && d.length > 11) d = d.slice(2);
+  d = d.slice(0, 11);
+  if (!d) return '';
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function formatCpfDisplay(raw) {
+  const d = onlyDigits(raw).slice(0, 11);
+  if (!d) return '';
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function formatCnpjDisplay(raw) {
+  const d = onlyDigits(raw).slice(0, 14);
+  if (!d) return '';
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
+function formatCepDisplay(raw) {
+  const d = onlyDigits(raw).slice(0, 8);
+  if (!d) return '';
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+function formatCardNumberDisplay(raw) {
+  const d = onlyDigits(raw).slice(0, 19);
+  if (!d) return '';
+  const parts = [];
+  for (let i = 0; i < d.length; i += 4) parts.push(d.slice(i, i + 4));
+  return parts.join(' ');
+}
+
+function formatOtpDisplay(raw) {
+  return onlyDigits(raw).slice(0, 6);
+}
+
+function formatExpMonthDigits(raw) {
+  return onlyDigits(raw).slice(0, 2);
+}
+
+function formatExpYearDigits(raw) {
+  return onlyDigits(raw).slice(0, 4);
+}
+
+function formatCvvDigits(raw) {
+  return onlyDigits(raw).slice(0, 4);
+}
+
+function clampMonthStr(raw) {
+  const d = onlyDigits(raw).slice(0, 2);
+  if (!d) return '';
+  let m = Number.parseInt(d, 10);
+  if (!Number.isFinite(m) || m < 1) m = 1;
+  if (m > 12) m = 12;
+  return String(m).padStart(2, '0');
+}
+
+function padExpMonthForSubmit(s) {
+  const d = onlyDigits(s).slice(0, 2);
+  if (!d) return '';
+  return d.length === 1 ? `0${d}` : d;
+}
+
+function normalizeExpYearForSubmit(s) {
+  const d = onlyDigits(s);
+  if (d.length === 2) return `20${d}`;
+  return d.slice(0, 4);
+}
+
+function wireInputMask(id, formatFn) {
+  const el = byId(id);
+  if (!el) return;
+  el.addEventListener('input', () => {
+    const next = formatFn(el.value);
+    if (el.value !== next) el.value = next;
+  });
+}
+
+function wireBlurNormalize(id, fn) {
+  const el = byId(id);
+  if (!el) return;
+  el.addEventListener('blur', () => {
+    el.value = fn(el.value);
+  });
+}
+
+function wireSubscriptionFormatting() {
+  wireInputMask('phone', formatPhoneDisplay);
+  wireInputMask('otpCode', formatOtpDisplay);
+  wireInputMask('cpfCnpj', formatCpfDisplay);
+  wireInputMask('cnpj', formatCnpjDisplay);
+  wireInputMask('ccNumber', formatCardNumberDisplay);
+  wireInputMask('postalCode', formatCepDisplay);
+
+  const ccMonth = byId('ccExpMonth');
+  if (ccMonth) {
+    ccMonth.addEventListener('input', () => {
+      const next = formatExpMonthDigits(ccMonth.value);
+      if (ccMonth.value !== next) ccMonth.value = next;
+    });
+    ccMonth.addEventListener('blur', () => {
+      if (!onlyDigits(ccMonth.value)) return;
+      ccMonth.value = clampMonthStr(ccMonth.value);
+    });
+  }
+
+  const ccYear = byId('ccExpYear');
+  if (ccYear) {
+    ccYear.addEventListener('input', () => {
+      const next = formatExpYearDigits(ccYear.value);
+      if (ccYear.value !== next) ccYear.value = next;
+    });
+    ccYear.addEventListener('blur', () => {
+      const d = onlyDigits(ccYear.value);
+      if (d.length === 2) ccYear.value = `20${d}`;
+    });
+  }
+
+  wireInputMask('ccCvv', formatCvvDigits);
+
+  wireBlurNormalize('name', normalizeSpaces);
+  wireBlurNormalize('companyName', normalizeSpaces);
+  wireBlurNormalize('contactName', normalizeSpaces);
+  wireBlurNormalize('ccHolder', normalizeSpaces);
+  wireBlurNormalize('addressNumber', normalizeSpaces);
+  wireBlurNormalize('addressComplement', normalizeSpaces);
+
+  const emailEl = byId('email');
+  if (emailEl) {
+    emailEl.addEventListener('blur', () => {
+      emailEl.value = emailEl.value.trim().toLowerCase();
+    });
+  }
+}
+
 function showFeedback(msg, isError = false) {
   const el = byId('feedback');
   if (!msg) {
@@ -318,6 +477,8 @@ function bindFlow() {
   const toggleBtn = byId('billing-toggle-btn');
   const state = { verificationToken: '' };
 
+  wireSubscriptionFormatting();
+
   byId('tab-personal')?.addEventListener('click', () => setSegmentTab('personal'));
   byId('tab-company')?.addEventListener('click', () => setSegmentTab('company'));
   syncSegmentTabs();
@@ -342,7 +503,7 @@ function bindFlow() {
     const fd = new FormData(form);
     try {
       const out = await apiPost('/api/billing/otp/send', {
-        phone: getText(fd, 'phone'),
+        phone: onlyDigits(getText(fd, 'phone')),
         planCode: getText(fd, 'planCode'),
         customerType: getText(fd, 'customerType'),
       });
@@ -357,10 +518,10 @@ function bindFlow() {
     const fd = new FormData(form);
     try {
       const out = await apiPost('/api/billing/otp/verify', {
-        phone: getText(fd, 'phone'),
+        phone: onlyDigits(getText(fd, 'phone')),
         planCode: getText(fd, 'planCode'),
         customerType: getText(fd, 'customerType'),
-        code: getText(fd, 'otpCode'),
+        code: onlyDigits(getText(fd, 'otpCode')),
       });
       state.verificationToken = out.verificationToken;
       showFeedback('Telefone validado com sucesso. Agora finalize o pagamento.');
@@ -382,13 +543,13 @@ function bindFlow() {
       await apiPost('/api/billing/requests', {
         customerType: getText(fd, 'customerType'),
         planCode: getText(fd, 'planCode'),
-        name: getText(fd, 'name'),
-        phone: getText(fd, 'phone'),
+        name: normalizeSpaces(getText(fd, 'name')),
+        phone: onlyDigits(getText(fd, 'phone')),
         password: getText(fd, 'password'),
-        companyName: getText(fd, 'companyName'),
-        cnpj: getText(fd, 'cnpj'),
-        contactName: getText(fd, 'contactName'),
-        email: getText(fd, 'email'),
+        companyName: normalizeSpaces(getText(fd, 'companyName')),
+        cnpj: onlyDigits(getText(fd, 'cnpj')),
+        contactName: normalizeSpaces(getText(fd, 'contactName')),
+        email: getText(fd, 'email').trim().toLowerCase(),
         notes: '',
       });
 
@@ -396,25 +557,25 @@ function bindFlow() {
         verificationToken: state.verificationToken,
         planCode: getText(fd, 'planCode'),
         customerType: getText(fd, 'customerType'),
-        phone: getText(fd, 'phone'),
-        name: getText(fd, 'name'),
-        email: getText(fd, 'email'),
-        cpfCnpj: getText(fd, 'cpfCnpj'),
+        phone: onlyDigits(getText(fd, 'phone')),
+        name: normalizeSpaces(getText(fd, 'name')),
+        email: getText(fd, 'email').trim().toLowerCase(),
+        cpfCnpj: onlyDigits(getText(fd, 'cpfCnpj')),
         creditCard: {
-          holderName: getText(fd, 'ccHolder'),
-          number: getText(fd, 'ccNumber'),
-          expiryMonth: getText(fd, 'ccExpMonth'),
-          expiryYear: getText(fd, 'ccExpYear'),
-          ccv: getText(fd, 'ccCvv'),
+          holderName: normalizeSpaces(getText(fd, 'ccHolder')),
+          number: onlyDigits(getText(fd, 'ccNumber')),
+          expiryMonth: clampMonthStr(padExpMonthForSubmit(getText(fd, 'ccExpMonth'))),
+          expiryYear: normalizeExpYearForSubmit(getText(fd, 'ccExpYear')),
+          ccv: onlyDigits(getText(fd, 'ccCvv')),
         },
         creditCardHolderInfo: {
-          name: getText(fd, 'name'),
-          email: getText(fd, 'email'),
-          cpfCnpj: getText(fd, 'cpfCnpj'),
-          postalCode: getText(fd, 'postalCode'),
-          addressNumber: getText(fd, 'addressNumber'),
-          addressComplement: getText(fd, 'addressComplement'),
-          mobilePhone: getText(fd, 'phone'),
+          name: normalizeSpaces(getText(fd, 'name')),
+          email: getText(fd, 'email').trim().toLowerCase(),
+          cpfCnpj: onlyDigits(getText(fd, 'cpfCnpj')),
+          postalCode: onlyDigits(getText(fd, 'postalCode')),
+          addressNumber: normalizeSpaces(getText(fd, 'addressNumber')),
+          addressComplement: normalizeSpaces(getText(fd, 'addressComplement')),
+          mobilePhone: onlyDigits(getText(fd, 'phone')),
         },
       });
 
@@ -447,7 +608,7 @@ async function init() {
 
   const qs = new URLSearchParams(globalThis.location.search);
   const prePhone = qs.get('phone');
-  if (prePhone) byId('phone').value = prePhone;
+  if (prePhone) byId('phone').value = formatPhoneDisplay(prePhone);
 }
 
 await init();
