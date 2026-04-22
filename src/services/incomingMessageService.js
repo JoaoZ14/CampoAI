@@ -118,6 +118,15 @@ const PLAN_DISPLAY = {
   premium: 'Premium',
 };
 
+function getSupportLine() {
+  const support =
+    process.env.WHATSAPP_SUPPORT_URL?.trim() ||
+    process.env.WHATSAPP_SUPPORT_CONTACT?.trim() ||
+    process.env.SUPPORT_WHATSAPP_URL?.trim() ||
+    process.env.SUPPORT_CONTACT?.trim();
+  return support ? `\n\n🛟 *Suporte:*\n${support}` : '';
+}
+
 /**
  * Mensagem curta só com texto: usuário quer ver plano / assinatura / uso (não gasta análise).
  * @param {string} text
@@ -161,6 +170,7 @@ export function formatPlanInquiryMessage(user, phone) {
     normalizePaywallUrl(process.env.PAYWALL_URL?.trim() || ''),
     phone
   );
+  const supportLine = getSupportLine();
   const linkLine = payUrl
     ? `\n\n📎 *Ver ou mudar plano no site:*\n${payUrl}`
     : '\n\nPara assinar ou mudar de plano, fale com o suporte.';
@@ -181,7 +191,8 @@ export function formatPlanInquiryMessage(user, phone) {
       `*Titularidade:* ${kind}\n` +
       `*Status (Asaas):* ${status}\n\n` +
       'As análises com a IA seguem as regras do seu plano. Para cancelamento, troca de cartão ou dúvida de cobrança, use o link abaixo ou o suporte.' +
-      linkLine
+      linkLine +
+      supportLine
     );
   }
 
@@ -196,8 +207,52 @@ export function formatPlanInquiryMessage(user, phone) {
     `${head}\n\n` +
     'Assinando um plano, o limite passa a ser o do contrato (veja valores no site).' +
     linkLine +
+    supportLine +
     '\n\nDica: mande *plano* de novo quando quiser ver este resumo.'
   );
+}
+
+/**
+ * Para botões na consulta de plano, use template dedicado com 2 CTAs:
+ * 1) Assinar/Trocar plano
+ * 2) Falar com suporte
+ *
+ * Placeholder sugerido do template:
+ * - {{1}}: corpo da mensagem (resumo do plano)
+ * - {{2}}: URL de assinar/trocar plano
+ * - {{3}}: URL/contato de suporte
+ */
+async function sendPlanInquiryResponse(phone, user) {
+  const body = formatPlanInquiryMessage(user, phone);
+  const contentSid = process.env.PLAN_INQUIRY_CONTENT_SID?.trim();
+  if (!contentSid) {
+    await sendWhatsAppMessage(phone, body);
+    return;
+  }
+
+  const planUrl = withPhonePrefill(
+    normalizePaywallUrl(process.env.PAYWALL_URL?.trim() || ''),
+    phone
+  );
+  const support =
+    process.env.WHATSAPP_SUPPORT_URL?.trim() ||
+    process.env.WHATSAPP_SUPPORT_CONTACT?.trim() ||
+    process.env.SUPPORT_WHATSAPP_URL?.trim() ||
+    process.env.SUPPORT_CONTACT?.trim();
+
+  if (!planUrl || !support) {
+    console.warn(
+      '[plan_inquiry] PLAN_INQUIRY_CONTENT_SID definido, mas falta PAYWALL_URL ou contato de suporte. Enviando texto.'
+    );
+    await sendWhatsAppMessage(phone, body);
+    return;
+  }
+
+  await sendWhatsAppContentTemplate(phone, contentSid, {
+    1: body,
+    2: planUrl,
+    3: support,
+  });
 }
 
 /**
@@ -315,7 +370,7 @@ export async function processIncomingMessage({
     !type.hasAudio &&
     wantsPlanInquiry(planInquiryText)
   ) {
-    await sendWhatsAppMessage(phone, formatPlanInquiryMessage(user, phone));
+    await sendPlanInquiryResponse(phone, user);
     return {
       step: 'plan_inquiry',
       userId: user.id,
