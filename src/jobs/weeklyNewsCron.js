@@ -1,8 +1,52 @@
 import cron from 'node-cron';
-import { sendWhatsAppMessage, sendWhatsAppWithMedia } from '../services/whatsappService.js';
+import {
+  sendWhatsAppContentTemplate,
+  sendWhatsAppMessage,
+  sendWhatsAppWithMedia,
+} from '../services/whatsappService.js';
 import { buildWeeklyNewsWhatsAppBody } from '../services/weeklyNewsContentService.js';
 import { listDistinctUserPhones } from '../services/userService.js';
 import { normalizePhone } from '../utils/phone.js';
+
+/** SID do Content Template aprovado (WhatsApp business initiated), ex.: HX… no Twilio. */
+function weeklyNewsWhatsAppContentSid() {
+  const raw = process.env.WEEKLY_NEWS_WHATSAPP_CONTENT_SID?.trim() ?? '';
+  if (!raw) return '';
+  if (!/^H[a-z0-9]{20,64}$/i.test(raw)) {
+    console.warn(
+      '[weekly-news] WEEKLY_NEWS_WHATSAPP_CONTENT_SID com formato inválido (esperado SID H… do Twilio); ignorando template.'
+    );
+    return '';
+  }
+  return raw;
+}
+
+/** Chave da variável do template que recebe o texto do resumo ({{1}} → "1"). Padrão: 1 */
+function weeklyNewsTemplateBodyVarKey() {
+  const k = process.env.WEEKLY_NEWS_TEMPLATE_BODY_VAR_KEY?.trim();
+  if (k && /^\d+$/.test(k)) return k;
+  return '1';
+}
+
+/**
+ * Monta `contentVariables` para o Content Template ({{1}}, {{2}}, …).
+ * Texto completo do resumo (sem truncar no app — use menos matérias via WEEKLY_NEWS_GNEWS_MAX se precisar caber no template).
+ * @param {string} body
+ * @param {string} bannerUrl
+ * @returns {Record<string, string>}
+ */
+function buildWeeklyNewsTemplateVariables(body, bannerUrl) {
+  const bodyKey = weeklyNewsTemplateBodyVarKey();
+  /** @type {Record<string, string>} */
+  const vars = { [bodyKey]: body };
+
+  const mediaVar = process.env.WEEKLY_NEWS_TEMPLATE_BANNER_VAR_KEY?.trim() ?? '';
+  if (mediaVar && /^\d+$/.test(mediaVar) && bannerUrl) {
+    vars[mediaVar] = bannerUrl;
+  }
+
+  return vars;
+}
 
 /** URL HTTPS pública do banner (Twilio faz GET na imagem). */
 function weeklyNewsBannerImageUrl() {
@@ -56,22 +100,33 @@ function weeklyNewsSendDelayMs() {
  * @param {string} phone E.164
  * @param {string} body
  * @param {string} bannerUrl
- * @returns {Promise<{ media: boolean, mediaFallback?: boolean }>}
+ * @returns {Promise<{ kind: string, twilioSid?: string, twilioStatus?: string, media?: boolean, mediaFallback?: boolean }>}
  */
 async function sendWeeklyNewsToPhone(phone, body, bannerUrl) {
+  const contentSid = weeklyNewsWhatsAppContentSid();
+  if (contentSid) {
+    const vars = buildWeeklyNewsTemplateVariables(body, bannerUrl);
+    const result = await sendWhatsAppContentTemplate(phone, contentSid, vars);
+    return {
+      kind: 'template',
+      twilioSid: result.sid,
+      twilioStatus: result.status,
+    };
+  }
+
   if (bannerUrl) {
     try {
       await sendWhatsAppWithMedia(phone, body, [bannerUrl]);
-      return { media: true };
+      return { kind: 'imagem+legenda', media: true };
     } catch (mediaErr) {
       const m = mediaErr instanceof Error ? mediaErr.message : String(mediaErr);
       console.warn(`[weekly-news] Falha no envio com banner para ${phone}; tentando só texto:`, m);
       await sendWhatsAppMessage(phone, body);
-      return { media: false, mediaFallback: true };
+      return { kind: 'só texto (fallback banner)', media: false, mediaFallback: true };
     }
   }
   await sendWhatsAppMessage(phone, body);
-  return { media: false };
+  return { kind: 'só texto', media: false };
 }
 
 /**
@@ -157,9 +212,14 @@ export async function runWeeklyNewsSend(opts = {}) {
     try {
       const r = await sendWeeklyNewsToPhone(phone, body, bannerUrl);
       sent += 1;
-      const mediaNote = r.media ? 'imagem + legenda' : r.mediaFallback ? 'só texto (fallback banner)' : 'só texto';
+      const twilioNote =
+        r.twilioSid && r.twilioStatus !== undefined
+          ? ` twilioSid=${r.twilioSid} status=${r.twilioStatus}`
+          : r.twilioSid
+            ? ` twilioSid=${r.twilioSid}`
+            : '';
       console.log(
-        `[weekly-news] Enviado (${mediaNote}) para ${phone} (${body.length} caracteres) [${i + 1}/${phones.length}]`
+        `[weekly-news] Enviado (${r.kind}) para ${phone} (${body.length} caracteres) [${i + 1}/${phones.length}]${twilioNote}`
       );
     } catch (err) {
       failed += 1;
@@ -211,7 +271,9 @@ export function startWeeklyNewsCron() {
   const hint = process.env.WEEKLY_NEWS_TO_PHONE?.trim()
     ? `destino único (WEEKLY_NEWS_TO_PHONE)`
     : `todos os telefones em public.users`;
-  console.log(`[weekly-news] Agendado: cron "${cronExpr}" (${tz}) → ${hint}`);
+  const tpl = weeklyNewsWhatsAppContentSid();
+  const modeHint = tpl ? ` | envio: Content Template (${tpl.slice(0, 8)}…)` : ` | envio: sessão (texto/mídia)`;
+  console.log(`[weekly-news] Agendado: cron "${cronExpr}" (${tz}) → ${hint}${modeHint}`);
 }
 
 export function stopWeeklyNewsCron() {

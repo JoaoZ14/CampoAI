@@ -1,0 +1,140 @@
+/* Páginas legais — tokens alinhados ao /planos */
+:root {
+  --green-dark: #2a382a;
+  --green-light: #3d4f3d;
+  --bg-page: #fdfcfa;
+  --text: #3a3a38;
+  --text-muted: #5c5c58;
+  --field: #a97440;
+  --radius: 6px;
+  --border: rgba(42, 56, 42, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--text);
+  line-height: 1.65;
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  padding-bottom: 3rem;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+
+.site-header-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0.75rem clamp(1.25rem, 4vw, 2rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.legal-doc-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.legal-doc-nav a {
+  color: var(--green-dark);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.legal-doc-nav a:hover {
+  text-decoration: underline;
+  color: var(--field);
+}
+
+.legal-doc-nav .is-current {
+  color: var(--text-muted);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.back-link {
+  color: var(--green-dark);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+  color: var(--field);
+}
+
+.doc-title {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: clamp(1.5rem, 4vw, 1.85rem);
+  color: var(--green-dark);
+  margin: 0 0 0.5rem;
+  line-height: 1.25;
+}
+
+.doc-meta {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 1.75rem;
+}
+
+.notice-box {
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--field);
+  border-radius: var(--radius);
+  background: rgba(169, 116, 64, 0.08);
+  font-size: 0.9rem;
+  margin-bottom: 2rem;
+}
+
+.notice-box strong {
+  color: var(--green-dark);
+}
+
+.doc h2 {
+  font-size: 1.05rem;
+  color: var(--green-dark);
+  margin: 2rem 0 0.65rem;
+}
+
+.doc h2:first-of-type {
+  margin-top: 0;
+}
+
+.doc p,
+.doc li {
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem;
+}
+
+.doc ul {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.doc a {
+  color: var(--green-light);
+  word-break: break-word;
+}
+
+.doc a:hover {
+  color: var(--field);
+}

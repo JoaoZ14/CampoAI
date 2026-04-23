@@ -38,6 +38,8 @@
         <nav class="site-nav" aria-label="Principal">
           <a class="site-nav-link" href="https://agassist.netlify.app/">Início</a>
           <a class="site-nav-link is-current" href="/planos" aria-current="page">Planos</a>
+          <a class="site-nav-link" href="/legal/termos-de-uso">Termos</a>
+          <a class="site-nav-link" href="/legal/politica-de-privacidade">Privacidade</a>
         </nav>
       </div>
     </header>
@@ -337,6 +339,18 @@
                 />
               </label>
 
+              <div class="legal-accept-wrap">
+                <label class="legal-accept">
+                  <input type="checkbox" id="accept-terms" name="acceptTerms" required />
+                  <span
+                    >Li e aceito os
+                    <a href="/legal/termos-de-uso" target="_blank" rel="noopener noreferrer">Termos de uso</a>
+                    e a
+                    <a href="/legal/politica-de-privacidade" target="_blank" rel="noopener noreferrer">Política de privacidade</a>
+                    do AG Assist.</span>
+                </label>
+              </div>
+
               <button type="submit" id="submit-subscribe">Finalizar assinatura</button>
             </fieldset>
           </form>
@@ -366,6 +380,15 @@
       <section class="guarantee">
         <p>Cancele quando quiser</p>
       </section>
+
+      <footer class="site-legal-footer muted">
+        <p>
+          <a href="/legal/termos-de-uso">Termos de uso</a>
+          ·
+          <a href="/legal/politica-de-privacidade">Política de privacidade</a>
+          · Serviço de apoio à decisão — não substitui profissional no campo.
+        </p>
+      </footer>
 
       <p id="feedback" class="feedback" hidden></p>
       </div>

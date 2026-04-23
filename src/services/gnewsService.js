@@ -27,7 +27,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
   const lang = (opts.lang ?? process.env.WEEKLY_NEWS_GNEWS_LANG?.trim()) || 'pt';
   const country = (opts.country ?? process.env.WEEKLY_NEWS_GNEWS_COUNTRY?.trim()) || 'br';
   const rawMax = opts.max ?? Number(process.env.WEEKLY_NEWS_GNEWS_MAX);
-  const max = Math.min(100, Math.max(1, Number.isFinite(rawMax) ? rawMax : 4));
+  const max = Math.min(100, Math.max(1, Number.isFinite(rawMax) ? rawMax : 3));
 
   const daysRaw = Number(process.env.WEEKLY_NEWS_GNEWS_DAYS);
   const days = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 30) : 7;

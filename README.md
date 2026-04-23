@@ -62,12 +62,19 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
 | GET | `/admin/api/analytics` | Métricas de BI (pagamento, mensagens, cadastros, top uso) |
 | GET | `/admin/api/chat-messages` | Histórico paginado de `chat_messages` (com telefone) |
 
+### Documentos legais (público)
+
+- **`/legal/termos-de-uso`** — Termos de uso do AG Assist (HTML em `public/legal/termos-de-uso.html`).
+- **`/legal/politica-de-privacidade`** — Política de privacidade / LGPD (HTML em `public/legal/politica-de-privacidade.html`).
+
+Substitua os placeholders `[RAZÃO SOCIAL]`, `[CNPJ]`, etc. antes de divulgar em produção. Com **`PUBLIC_APP_URL`** definido no `.env`, a **mensagem de boas-vindas** no WhatsApp acrescenta links para esses documentos.
+
 ### Painel `/admin/` (gestão completa)
 
 1. No **Supabase** → **Authentication** → **Providers**, mantenha **Email** ativo e crie um usuário (e-mail + senha) para você.
 2. No `.env`, defina `ADMIN_EMAILS` com **o mesmo e-mail** (minúsculas; pode listar vários separados por vírgula).
 3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** a URL do painel, por exemplo `http://localhost:3001/admin/` e, em produção, `https://SEU-DOMINIO/admin/`.
-4. Opcional: `PUBLIC_APP_URL` — URL pública do app (redirect do Supabase Auth, links no WhatsApp, etc.). O painel `/admin` **sempre** chama a API no **mesmo host** da página; não use `PUBLIC_APP_URL` para apontar o painel a outro servidor.
+4. Opcional: `PUBLIC_APP_URL` — URL pública do app (redirect do Supabase Auth, **links de Termos e Privacidade na boas-vindas do WhatsApp**, etc.). O painel `/admin` **sempre** chama a API no **mesmo host** da página; não use `PUBLIC_APP_URL` para apontar o painel a outro servidor.
 5. Acesse `http://localhost:PORT/admin/` (ou `/admin` — redireciona para `/admin/`).
 
 As rotas `/admin/api/*` (exceto `/admin/api/config`) exigem header `Authorization: Bearer <access_token>` do Supabase; o navegador envia isso automaticamente após o login.

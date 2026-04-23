@@ -796,3 +796,48 @@ button:not(.toggle-btn):not(.segment-tab):not(.link-back-plans):hover {
     padding-inline: 0.45rem;
   }
 }
+
+/* Termos de uso — aceite no checkout */
+.legal-accept-wrap {
+  margin: 1.25rem 0 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+  background: rgba(169, 116, 64, 0.06);
+}
+
+.legal-accept {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.legal-accept input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--field);
+}
+
+.legal-accept a {
+  color: var(--field-dark);
+  font-weight: 600;
+}
+
+.site-legal-footer {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.site-legal-footer a {
+  color: var(--field-dark);
+  font-weight: 600;
+}

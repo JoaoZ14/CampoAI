@@ -25,13 +25,28 @@ import { uploadReportPdfAndGetSignedUrl } from './reportStorageService.js';
 import { FREE_USAGE_LIMIT } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
 
-export const MSG_WELCOME =
+const MSG_WELCOME_CORE =
   `Você tem ${FREE_USAGE_LIMIT} análises grátis para testar — sem pagar nada na entrada.\n\n` +
   'Sou o AG Assist, seu parceiro no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
   'Objetivo: te ajudar a decidir melhor, evitar erro bobo e ganhar tempo (sem ficar caçando informação solta).\n\n' +
   'Para ver *plano*, *uso* e *status da assinatura*, mande: *plano* ou *meu plano* (não gasta análise).\n\n' +
   'Para contas de área, semente, tanque, vazão etc.: envie uma linha começando com calc ajuda\n\n' +
   'Manda foto, áudio ou texto que eu respondo direto ao ponto.';
+
+/** Texto de boas-vindas; com `PUBLIC_APP_URL` no .env, acrescenta links de Termos e Privacidade. */
+export function buildWelcomeMessage() {
+  const base = process.env.PUBLIC_APP_URL?.trim()?.replace(/\/$/, '');
+  if (!base) return MSG_WELCOME_CORE;
+  return (
+    MSG_WELCOME_CORE +
+    '\n\n' +
+    `Termos: ${base}/legal/termos-de-uso\n` +
+    `Privacidade: ${base}/legal/politica-de-privacidade`
+  );
+}
+
+/** @deprecated Preferir `buildWelcomeMessage()` para incluir links quando houver URL pública. */
+export const MSG_WELCOME = MSG_WELCOME_CORE;
 
 export const MSG_UNSUPPORTED_VIDEO =
   'Por enquanto não analiso vídeo por aqui. Pode mandar texto, foto ou áudio de voz?';
@@ -354,7 +369,7 @@ export async function processIncomingMessage({
   );
 
   if (type.isEmpty) {
-    await sendWhatsAppMessage(phone, MSG_WELCOME);
+    await sendWhatsAppMessage(phone, buildWelcomeMessage());
     return {
       step: 'welcome',
       userId: user.id,

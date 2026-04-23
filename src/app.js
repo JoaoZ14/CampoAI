@@ -14,6 +14,7 @@ import { openapiSpec } from './swagger/openapi.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const adminDir = path.join(__dirname, '../public/admin');
 const plansDir = path.join(__dirname, '../public/planos');
+const legalDir = path.join(__dirname, '../public/legal');
 
 export function createApp() {
   const app = express();
@@ -60,6 +61,23 @@ export function createApp() {
   app.use(
     '/planos',
     express.static(plansDir, {
+      index: false,
+      redirect: false,
+    })
+  );
+
+  app.get(['/legal/termos-de-uso', '/legal/termos-de-uso/'], (_req, res) => {
+    res.sendFile(path.join(legalDir, 'termos-de-uso.html'));
+  });
+  app.get(
+    ['/legal/politica-de-privacidade', '/legal/politica-de-privacidade/'],
+    (_req, res) => {
+      res.sendFile(path.join(legalDir, 'politica-de-privacidade.html'));
+    }
+  );
+  app.use(
+    '/legal',
+    express.static(legalDir, {
       index: false,
       redirect: false,
     })

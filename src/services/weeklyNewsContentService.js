@@ -1,5 +1,26 @@
 import { fetchGNewsArticles } from './gnewsService.js';
 
+const DEFAULT_MORE_NEWS_URL = 'https://agassist.netlify.app/#noticias';
+
+function moreNewsUrl() {
+  const u = process.env.WEEKLY_NEWS_MORE_URL?.trim();
+  return u || DEFAULT_MORE_NEWS_URL;
+}
+
+/** Rodapé fixo com link para a página de notícias do site. */
+function moreNewsBlock() {
+  return `\n\nVer mais notícias do agro:\n${moreNewsUrl()}`;
+}
+
+/**
+ * @param {string} text
+ */
+function withMoreNewsFooter(text) {
+  const t = text.trim();
+  if (!t) return '';
+  return `${t}${moreNewsBlock()}`;
+}
+
 function defaultHeader() {
   const h = process.env.WEEKLY_NEWS_HEADER?.trim();
   return h || 'Resumo semanal — AG Assist (Brasil)';
@@ -52,14 +73,14 @@ export async function buildWeeklyNewsWhatsAppBody() {
   const apiKey = process.env.GNEWS_API_KEY?.trim() ?? '';
 
   if (!apiKey) {
-    return staticBody;
+    return withMoreNewsFooter(staticBody);
   }
 
   try {
     const articles = await fetchGNewsArticles(apiKey);
     if (articles.length === 0) {
       console.warn('[weekly-news] GNews retornou 0 artigos — usando texto estático se houver.');
-      return staticBody;
+      return withMoreNewsFooter(staticBody);
     }
 
     const header = defaultHeader();
@@ -70,10 +91,10 @@ export async function buildWeeklyNewsWhatsAppBody() {
     if (footer) {
       body += `\n\n${footer}`;
     }
-    return body;
+    return withMoreNewsFooter(body);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn('[weekly-news] GNews falhou:', msg);
-    return staticBody;
+    return withMoreNewsFooter(staticBody);
   }
 }
