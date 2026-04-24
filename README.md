@@ -57,6 +57,7 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
 | POST | `/webhook/whatsapp` | Teste com JSON (Postman / Swagger) |
 | POST | `/webhook/whatsapp/twilio` | **Webhook do Twilio** — mensagens reais do WhatsApp |
 | GET | `/admin/` | **Painel do proprietário** — dashboard, BI, usuários, organizações e histórico de mensagens |
+| GET | `/area-do-cliente/` | **Portal do cliente** — login, plano, uso e gestão de números (titular empresa) |
 | GET | `/api/plans` | Catálogo público de planos (JSON, sem login) |
 | GET | `/admin/api/dashboard` | Resumo agregado (overview + analytics + organizações + avisos) — **recomendado** para o painel |
 | GET | `/admin/api/analytics` | Métricas de BI (pagamento, mensagens, cadastros, top uso) |
@@ -78,6 +79,15 @@ Substitua os placeholders `[RAZÃO SOCIAL]`, `[CNPJ]`, etc. antes de divulgar em
 5. Acesse `http://localhost:PORT/admin/` (ou `/admin` — redireciona para `/admin/`).
 
 As rotas `/admin/api/*` (exceto `/admin/api/config`) exigem header `Authorization: Bearer <access_token>` do Supabase; o navegador envia isso automaticamente após o login.
+
+### Área do cliente `/area-do-cliente/`
+
+- Login por **e-mail + senha** cadastrados no checkout da página `/planos`.
+- Defina `CUSTOMER_AUTH_SECRET` no `.env` para assinar sessão do cliente.
+- API do portal:
+  - `POST /api/customer/auth/login`
+  - `GET /api/customer/me`
+  - `POST /api/customer/seats` e `DELETE /api/customer/seats` (somente titular da conta empresa).
 
 **Se o painel vier vazio ou der erro de coluna/tabela:** confira `SUPABASE_SERVICE_ROLE_KEY` no servidor, rode a migração SQL acima e confira se `ADMIN_EMAILS` inclui o e-mail com que você faz login.
 

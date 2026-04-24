@@ -5,12 +5,14 @@
 create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text,
+  owner_user_id uuid,
   max_seats integer not null check (max_seats >= 1 and max_seats <= 100),
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
 comment on table public.organizations is 'Conta equipe/família: limite de números WhatsApp com acesso pago';
+comment on column public.organizations.owner_user_id is 'Usuário titular da conta empresa (pode gerir assentos/números)';
 
 create table if not exists public.organization_seats (
   id uuid primary key default gen_random_uuid(),
@@ -52,6 +54,13 @@ alter table public.users
   add column if not exists asaas_subscription_id text,
   add column if not exists subscription_plan_code text,
   add column if not exists asaas_subscription_status text;
+
+alter table public.users
+  add column if not exists billing_usage_ym text,
+  add column if not exists billing_usage_count integer not null default 0 check (billing_usage_count >= 0);
+
+comment on column public.users.billing_usage_ym is 'YYYY-MM (America/Sao_Paulo) do ciclo de contagem de análises (planos com teto mensal)';
+comment on column public.users.billing_usage_count is 'Análises com IA no mês billing_usage_ym';
 
 create unique index if not exists users_asaas_subscription_id_uidx
   on public.users (asaas_subscription_id)
@@ -117,6 +126,12 @@ create table if not exists public.product_plans (
   unique (code, customer_segment)
 );
 
+alter table public.product_plans
+  add column if not exists max_analyses_per_month integer
+  check (max_analyses_per_month is null or (max_analyses_per_month >= 1 and max_analyses_per_month <= 100000));
+
+comment on column public.product_plans.max_analyses_per_month is 'Teto de análises/mês; null = ilimitado';
+
 comment on table public.product_plans is 'Planos SaaS: colunas tipadas para preço e IDs externos; bullets/copy longos continuam em plan_catalog.plans (JSON)';
 comment on column public.product_plans.customer_segment is 'personal = CPF; company = CNPJ';
 
@@ -133,22 +148,40 @@ insert into public.product_plans (
   billing_period_label,
   summary,
   max_whatsapp_seats,
+  max_analyses_per_month,
   external_sku,
   highlight,
-  sort_order
+  sort_order,
+  active
 )
 values
   (
-    'basic',
+    'lite',
     'personal',
-    'Básico — produtor (CPF)',
+    'Essencial',
     29.00,
     'mês',
-    'Para quem decide no campo com um WhatsApp: análises no ritmo do dia a dia, sem complicação de contrato empresarial.',
+    'Até 35 análises por mês com uso justo; um número de WhatsApp. Ideal para validar o serviço com custo menor.',
     1,
-    'AG-BASIC-PF-MONTH',
+    35,
+    'AG-LITE-PF-MONTH',
     false,
-    1
+    1,
+    true
+  ),
+  (
+    'basic',
+    'personal',
+    'Starter',
+    49.00,
+    'mês',
+    'Entrada no serviço: um número de WhatsApp, análises ilimitadas com política de uso justo e suporte no ritmo do seu trabalho.',
+    1,
+    null,
+    'AG-BASIC-PF-MONTH',
+    true,
+    2,
+    true
   ),
   (
     'pro',
@@ -158,21 +191,25 @@ values
     'mês',
     'Melhor custo-benefício para quem já usa toda semana: respostas mais completas, histórico e foco em decisão rápida no talhão.',
     1,
+    null,
     'AG-PRO-PF-MONTH',
-    true,
-    2
+    false,
+    3,
+    false
   ),
   (
     'premium',
     'personal',
-    'Premium — família ou time (CPF)',
+    'Team',
     119.00,
     'mês',
-    'Até 3 números no mesmo plano: fazenda ou família com o mesmo padrão de resposta, um responsável paga no CPF.',
+    'Até 3 números na mesma assinatura: equipe ou família com o mesmo nível de serviço, gestão centralizada e previsibilidade de custo.',
     3,
+    null,
     'AG-PREMIUM-PF-MONTH',
     false,
-    3
+    4,
+    true
   ),
   (
     'pro',
@@ -182,21 +219,25 @@ values
     'mês',
     'Nota fiscal em nome da empresa, uso profissional e governança: um WhatsApp corporativo com o mesmo núcleo do PRO para produtor.',
     1,
+    null,
     'AG-PRO-PJ-MONTH',
     false,
-    4
+    5,
+    false
   ),
   (
     'premium',
     'company',
-    'Premium — empresa (CNPJ)',
-    119.00,
+    'Business',
+    199.00,
     'mês',
-    'Contrato empresarial com até 3 linhas WhatsApp: equipe técnica, consultoria ou operações que precisam de NF e rastreabilidade.',
-    3,
+    'Plano empresarial (CNPJ): até 5 números, faturamento e cadastro alinhados à empresa e o mesmo padrão de resposta para a equipe.',
+    5,
+    null,
     'AG-PREMIUM-PJ-MONTH',
-    false,
-    5
+    true,
+    6,
+    true
   )
 on conflict (code, customer_segment) do update set
   name = excluded.name,
@@ -204,16 +245,18 @@ on conflict (code, customer_segment) do update set
   billing_period_label = excluded.billing_period_label,
   summary = excluded.summary,
   max_whatsapp_seats = excluded.max_whatsapp_seats,
+  max_analyses_per_month = excluded.max_analyses_per_month,
   external_sku = excluded.external_sku,
   highlight = excluded.highlight,
   sort_order = excluded.sort_order,
+  active = excluded.active,
   updated_at = now();
 
 -- Solicitações vindas da página /planos (cadastro simplificado).
 create table if not exists public.subscription_requests (
   id uuid primary key default gen_random_uuid(),
   customer_type text not null check (customer_type in ('personal', 'company')),
-  plan_code text not null check (plan_code in ('basic', 'pro', 'premium')),
+  plan_code text not null check (plan_code in ('lite', 'basic', 'pro', 'premium')),
   name text not null,
   phone text not null,
   password_hash text not null,
@@ -238,8 +281,9 @@ alter table public.subscription_requests enable row level security;
 create table if not exists public.billing_phone_otp (
   id uuid primary key default gen_random_uuid(),
   phone text not null,
-  plan_code text not null check (plan_code in ('basic', 'pro', 'premium')),
+  plan_code text not null check (plan_code in ('lite', 'basic', 'pro', 'premium')),
   customer_segment text not null default 'personal' check (customer_segment in ('personal', 'company')),
+  billing_cycle text not null default 'MONTHLY' check (billing_cycle in ('MONTHLY', 'YEARLY')),
   code_hash text not null,
   attempt_count integer not null default 0 check (attempt_count >= 0),
   expires_at timestamptz not null,
@@ -254,6 +298,9 @@ create index if not exists billing_phone_otp_phone_idx
 
 create index if not exists billing_phone_otp_phone_plan_segment_idx
   on public.billing_phone_otp (phone, plan_code, customer_segment, created_at desc);
+
+create index if not exists billing_phone_otp_phone_plan_segment_cycle_idx
+  on public.billing_phone_otp (phone, plan_code, customer_segment, billing_cycle, created_at desc);
 
 create unique index if not exists billing_phone_otp_token_uidx
   on public.billing_phone_otp (verification_token)

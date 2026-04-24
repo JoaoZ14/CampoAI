@@ -1,4 +1,9 @@
 import { asaasRequest } from './asaasClient.js';
+import {
+  brazilMonthYm,
+  subscriptionChargeFromMonthlyPrice,
+  normalizeBillingCycle,
+} from '../config/billing.js';
 import { getProductPlanPriceByCode } from './productPlanRepository.js';
 import { normalizePhone } from '../utils/phone.js';
 import {
@@ -9,8 +14,9 @@ import {
 } from './userService.js';
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { AppError } from '../utils/errors.js';
+import { addSeatToOrganization, createOrganization } from './organizationService.js';
 
-const ALLOWED_PLANS = new Set(['basic', 'pro', 'premium']);
+const ALLOWED_PLANS = new Set(['lite', 'basic', 'pro', 'premium']);
 
 /** Data YYYY-MM-DD em America/Sao_Paulo (vencimento / primeira cobrança). */
 export function brazilTodayYmd() {
@@ -28,7 +34,7 @@ async function loadUserBillingRow(phone) {
   const supabase = createSupabaseClient();
   const { data, error } = await supabase
     .from('users')
-    .select('id, phone, asaas_customer_id, asaas_subscription_id, is_paid')
+    .select('id, phone, asaas_customer_id, asaas_subscription_id, is_paid, organization_id')
     .eq('phone', phone)
     .maybeSingle();
 
@@ -39,7 +45,7 @@ async function loadUserBillingRow(phone) {
 }
 
 /**
- * Cria cliente + assinatura mensal com cartão no Asaas e marca usuário como pago.
+ * Cria cliente + assinatura com cartão no Asaas (ciclo mensal ou anual) e marca usuário como pago.
  * A primeira cobrança usa `nextDueDate` (padrão: hoje no horário de Brasília) para cobrar na criação quando o Asaas processar o ciclo.
  *
  * @param {{
@@ -50,6 +56,7 @@ async function loadUserBillingRow(phone) {
  *   creditCard: { holderName: string, number: string, expiryMonth: string, expiryYear: string, ccv: string },
  *   creditCardHolderInfo: Record<string, string>,
  *   remoteIp: string,
+ *   billingCycle?: 'MONTHLY'|'YEARLY'|string,
  * }} input
  */
 export async function subscribeUserWithCreditCardMonthly(input) {
@@ -62,7 +69,7 @@ export async function subscribeUserWithCreditCardMonthly(input) {
     .trim()
     .toLowerCase();
   if (!ALLOWED_PLANS.has(planCode)) {
-    throw new AppError('planCode deve ser basic, pro ou premium.', 400);
+    throw new AppError('planCode deve ser lite, basic, pro ou premium.', 400);
   }
 
   const customerType = input.customerType === 'company' ? 'company' : 'personal';
@@ -70,6 +77,12 @@ export async function subscribeUserWithCreditCardMonthly(input) {
   if (!plan) {
     throw new AppError('Plano não encontrado.', 404);
   }
+
+  const billingCycle = normalizeBillingCycle(input.billingCycle);
+  const { value: chargeValue, cycle: asaasCycle } = subscriptionChargeFromMonthlyPrice(
+    plan.priceBrl,
+    billingCycle
+  );
 
   await findOrCreateUser(phone);
   const row = await loadUserBillingRow(phone);
@@ -147,13 +160,14 @@ export async function subscribeUserWithCreditCardMonthly(input) {
     const nextDue =
       process.env.ASAAS_FIRST_CHARGE_DATE?.trim() || brazilTodayYmd();
 
+    const cycleLabel = asaasCycle === 'YEARLY' ? 'anual' : 'mensal';
     const subBody = {
       customer: customerId,
       billingType: 'CREDIT_CARD',
-      value: plan.priceBrl,
+      value: chargeValue,
       nextDueDate: nextDue,
-      cycle: 'MONTHLY',
-      description: `AG Assist — ${plan.name}`.slice(0, 500),
+      cycle: asaasCycle,
+      description: `AG Assist — ${plan.name} (${cycleLabel})`.slice(0, 500),
       externalReference: userId,
       creditCard: {
         holderName: String(cc.holderName).trim(),
@@ -189,7 +203,28 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       subscriptionPlanCode: planCode,
       asaasSubscriptionStatus: status,
       asaasCheckoutStartedAt: null,
+      billingUsageYm: brazilMonthYm(),
+      billingUsageCount: 0,
     });
+
+    if (customerType === 'company') {
+      let organizationId = rowFresh?.organization_id || row.organization_id || null;
+      if (!organizationId) {
+        const org = await createOrganization({
+          name: cust.name.trim(),
+          maxSeats: plan.maxWhatsAppSeats ?? 1,
+          ownerUserId: userId,
+        });
+        organizationId = org.id;
+      }
+
+      await updateUserById(userId, {
+        organizationId,
+        billingKind: 'team',
+        isPaid: true,
+      });
+      await addSeatToOrganization(organizationId, phone);
+    }
 
     return {
       subscriptionId: subId,
@@ -198,7 +233,9 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       planCode,
       planName: plan.name,
       customerType,
-      value: plan.priceBrl,
+      value: chargeValue,
+      monthlyPriceBrl: plan.priceBrl,
+      billingCycle: asaasCycle,
       nextDueDate: nextDue,
       userId,
     };

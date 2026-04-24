@@ -13,6 +13,8 @@
  * @property {string} [billing_kind]
  * @property {string|null} [subscription_plan_code]
  * @property {string|null} [asaas_subscription_status]
+ * @property {string|null} [billing_usage_ym]
+ * @property {number} [billing_usage_count]
  * @property {string} created_at
  */
 
@@ -29,6 +31,8 @@ export function mapUserRow(row) {
     billingKind: row.billing_kind ?? 'free',
     subscriptionPlanCode: row.subscription_plan_code ?? null,
     asaasSubscriptionStatus: row.asaas_subscription_status ?? null,
+    billingUsageYm: row.billing_usage_ym ?? null,
+    billingUsageCount: row.billing_usage_count ?? 0,
     createdAt: row.created_at,
   };
 }

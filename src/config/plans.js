@@ -22,50 +22,63 @@ export const DEFAULT_VERSION = '2026-04';
 /** @type {PublicPlan[]} */
 export const DEFAULT_PLANS = [
   {
-    code: 'basic',
-    name: 'Básico',
+    code: 'lite',
+    name: 'Essencial',
     priceBrl: 29,
     period: 'mês',
     summary:
-      'Orientação no dia a dia da roça: menos pesquisa solta, mais clareza para decidir sem enrolação.',
+      'Até 35 análises por mês com política de uso justo; um número de WhatsApp. Entrada com custo menor antes de subir para o Starter.',
     bullets: [
-      'Um número de WhatsApp com análises ilimitadas (uso razoável no campo)',
-      'Lavoura, pecuária e sanidade em linguagem simples; calculadora integrada (calc ajuda)',
+      'Até 35 análises com IA por mês (renova todo mês em horário de Brasília)',
+      'Um número de WhatsApp',
+      'Conteúdo técnico em linguagem clara; calc ajuda integrada',
+    ],
+  },
+  {
+    code: 'basic',
+    name: 'Starter',
+    priceBrl: 49,
+    period: 'mês',
+    summary:
+      'Entrada no produto: um número, previsibilidade de custo e análises ilimitadas com política de uso justo.',
+    bullets: [
+      'Um número de WhatsApp com análises ilimitadas (uso justo)',
+      'Conteúdo técnico em linguagem clara; calculadora integrada (calc ajuda)',
       'Memória da conversa conforme a configuração do servidor',
     ],
   },
   {
     code: 'pro',
-    name: 'PRO — melhor custo-benefício',
+    name: 'Pro',
     priceBrl: 59,
     period: 'mês',
     summary:
-      'O plano que a gente quer que a maioria escolha: menos risco de erro, decisão melhor e tempo sobrando.',
+      'Plano intermediário (legado): respostas mais completas e relatório em PDF quando o servidor oferecer.',
     bullets: [
-      'Tudo do Básico + foco em resposta boa quando você mais precisa',
-      'Você não compra “IA”: compra tranquilidade para não errar na hora H',
+      'Um número de WhatsApp',
+      'Respostas mais detalhadas quando necessário',
       'Relatório em PDF da conversa quando estiver ativo no servidor',
     ],
   },
   {
     code: 'premium',
-    name: 'Premium',
+    name: 'Team',
     priceBrl: 119,
     period: 'mês',
     seats: 3,
     summary:
-      'Para fazenda, família ou time: mais de um celular no mesmo plano, com o mesmo padrão de resposta.',
+      'Até três números numa única assinatura: mesmo nível de serviço para quem divide o uso com equipe ou família.',
     bullets: [
-      'Tudo do PRO para até 3 números de WhatsApp no mesmo plano',
+      'Até 3 números de WhatsApp no mesmo plano',
       'Um responsável contrata; você define quem usa (painel administrativo)',
-      'Ideal quando várias pessoas mandam foto e áudio do mesmo talhão ou rebanho',
+      'Indicado quando várias pessoas enviam mídia e perguntas no mesmo fluxo',
     ],
   },
 ];
 
 export const DEFAULT_NOTES = [
-  'Posicionamento: o produtor compra menos prejuízo por decisão mal informada e menos tempo perdido pesquisando — não compra “tecnologia por tecnologia”.',
-  'Na página de planos, destaque visual no PRO (R$59): é o melhor custo-benefício para a maior parte dos produtores.',
+  'Posicionamento: o cliente compra clareza e tempo — menos erro operacional e menos ida e volta na busca por informação.',
+  'Na vitrine, o Essencial (R$29) é a porta de entrada com teto mensal de análises; o Starter (R$49) é ilimitado no mesmo espírito de uso justo.',
 ];
 
 /**

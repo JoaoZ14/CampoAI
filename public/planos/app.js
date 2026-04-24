@@ -1,3 +1,5 @@
+import { getPlanIconSvg } from './planIcons.js';
+
 function byId(id) {
   return document.getElementById(id);
 }
@@ -11,47 +13,57 @@ let activeSegmentTab = 'personal';
 /** Evita cliques repetidos (planos, OTP, finalizar). */
 let flowInteractionLock = false;
 
-/** Fallback se /api/plans falhar (só personal). */
+/** Fallback se /api/plans falhar (alinhado à oferta atual: PF dois níveis + PJ). */
 const PLAN_CONTENT = {
-  basic: {
-    name: 'Básico',
+  lite: {
+    name: 'Essencial',
     monthly: 29,
     benefits: [
-      '30 análises/mês',
-      'Acesso a notícias do agro',
-      'Ideal para começar',
+      'Até 35 análises com IA por mês (renova no mês civil, horário de Brasília)',
+      'Um número de WhatsApp',
+      'Conteúdo técnico em linguagem clara; calc ajuda integrada',
     ],
-    summary: 'Plano simples para iniciar com segurança.',
+    summary: 'Entrada com custo menor: teto mensal claro antes de ir para o Starter ilimitado.',
   },
-  pro: {
-    name: 'PRO',
-    monthly: 59,
-    badge: 'Mais escolhido',
+  basic: {
+    name: 'Starter',
+    monthly: 49,
     benefits: [
-      '100 análises/mês',
-      'Recomendações mais completas',
-      'Personalização por tipo de produção',
-      'Histórico de análises',
-      'Ideal para produtores ativos',
+      'Um número com análises ilimitadas (política de uso justo)',
+      'Respostas técnicas em linguagem clara; calc ajuda integrada',
+      'Memória da conversa conforme o servidor',
     ],
-    summary: 'Melhor custo-benefício para quem usa no dia a dia.',
+    summary: 'Ponto de entrada: custo fixo mensal e um WhatsApp para validar o produto no seu ritmo.',
   },
   premium: {
-    name: 'Premium',
+    name: 'Team',
     monthly: 119,
     benefits: [
-      'Uso intensivo (com política justa)',
-      'Prioridade nas respostas',
-      'Análises avançadas',
-      'Suporte prioritário',
-      'Ideal para uso profissional',
+      'Até 3 números na mesma assinatura',
+      'Um titular; você distribui o acesso à equipe ou família',
+      'Mesmo padrão de resposta para todos os números',
     ],
-    summary: 'Para operação profissional e ritmo mais intenso.',
+    summary: 'Quando mais de uma pessoa precisa do assistente no mesmo contrato.',
   },
 };
 
+const COMPANY_FALLBACK_PLAN = {
+  code: 'premium',
+  customerSegment: 'company',
+  name: 'Business',
+  priceBrl: 199,
+  summary:
+    'Assinatura em CNPJ: até 5 números, cadastro e faturamento empresariais, NF quando aplicável.',
+  bullets: [
+    'Até 5 números vinculados ao contrato empresarial',
+    'Cadastro e cobrança alinhados ao CNPJ',
+    'Mesmo nível de serviço para a equipe',
+  ],
+  highlight: true,
+};
+
 function buildStaticFallbackPlans() {
-  return ['basic', 'pro', 'premium'].map((code) => {
+  const personal = ['lite', 'basic', 'premium'].map((code) => {
     const p = PLAN_CONTENT[code];
     return {
       code,
@@ -60,9 +72,11 @@ function buildStaticFallbackPlans() {
       priceBrl: p.monthly,
       summary: p.summary,
       bullets: p.benefits,
-      highlight: code === 'pro',
+      highlight: code === 'basic',
+      seats: code === 'lite' ? 1 : code === 'premium' ? 3 : 1,
     };
   });
+  return [...personal, COMPANY_FALLBACK_PLAN];
 }
 
 function plansForRender() {
@@ -295,9 +309,10 @@ async function apiPost(path, body) {
   return json;
 }
 
+/** Alinhado a `src/config/billing.js` (ANNUAL_DISCOUNT_FRACTION = 0,2). */
 function formatPrice(monthly, annualMode) {
   if (!annualMode) return { price: monthly, period: 'mês' };
-  const discounted = Math.round(monthly * 0.8 * 12);
+  const discounted = Math.round(monthly * (1 - 0.2) * 12);
   return { price: discounted, period: 'ano' };
 }
 
@@ -307,6 +322,18 @@ function escHtml(s) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+/** Alinha bullets ao `seats` do plano (ex.: Business 5 vs catálogo JSON ainda com 3). */
+function bulletsAlignedToSeats(bullets, seats) {
+  const arr = Array.isArray(bullets) ? bullets : [];
+  if (!Number.isFinite(seats) || seats < 1) return arr;
+  return arr.map((b) =>
+    String(b)
+      .replace(/[Aa]té\s+\d+\s+números?\b/g, `Até ${seats} números`)
+      .replace(/\b\d+\s+números\s+de\s+WhatsApp\b/gi, `${seats} números de WhatsApp`)
+      .replace(/\b\d+\s+números\s+no\s+mesmo\s+plano\b/gi, `${seats} números no mesmo plano`)
+  );
 }
 
 const PLAN_SUMMARY_EMPTY =
@@ -373,8 +400,10 @@ function showSubscriptionSuccess(out) {
         .trim() || 'AG Assist';
     const status = String(out.status != null ? out.status : '').trim();
     const due = String(out.nextDueDate != null ? out.nextDueDate : '').trim();
+    const cycle =
+      String(out.billingCycle || '').toUpperCase() === 'YEARLY' ? 'Cobrança anual' : 'Cobrança mensal';
     if (detail) {
-      detail.textContent = `Plano: ${name} — status ${status}. Próximo vencimento (referência): ${due}.`;
+      detail.textContent = `Plano: ${name} — ${cycle}. Status ${status}. Próximo vencimento (referência): ${due}.`;
     }
     requestAnimationFrame(() =>
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -472,8 +501,13 @@ function renderPlans() {
   if (!list.length) {
     target.innerHTML =
       '<p class="plan-grid-empty muted">Nenhum plano disponível nesta aba no momento.</p>';
+    target.className = 'plan-grid';
     return;
   }
+
+  target.className =
+    'plan-grid' +
+    (list.length === 1 ? ' plan-grid--one' : list.length === 2 ? ' plan-grid--two' : ' plan-grid--many');
 
   target.innerHTML = list
     .map((raw) => {
@@ -483,27 +517,46 @@ function renderPlans() {
       const name = escHtml(String(p.name ?? code));
       const priceBrl = Number(p.priceBrl);
       const pricing = formatPrice(Number.isFinite(priceBrl) ? priceBrl : 0, annualMode);
-      const bullets = Array.isArray(p.bullets) ? p.bullets : [];
-      const benefits = bullets.map((b) => `<li>${escHtml(String(b))}</li>`).join('');
+      const seatCap = Number(p.seats);
+      const bullets = bulletsAlignedToSeats(Array.isArray(p.bullets) ? p.bullets : [], seatCap);
+      const benefits = bullets
+        .map(
+          (b) =>
+            `<li><span class="benefit-check" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>${escHtml(String(b))}</span></li>`
+        )
+        .join('');
       const featured = p.highlight ? ' featured' : '';
       const badge =
-        p.highlight && segment === 'personal' && code === 'pro'
-          ? '<p class="plan-badge">Mais escolhido</p>'
+        p.highlight && segment === 'personal' && code === 'basic'
+          ? '<span class="plan-badge">Mais escolhido</span>'
           : '';
       const audience =
         activeSegmentTab === 'company'
-          ? 'Contrato em CNPJ: nota fiscal e cadastro com dados da empresa.'
-          : 'Titular em CPF: produtor, família ou time no mesmo padrão de uso.';
+          ? 'Vários WhatsApp no mesmo contrato, com cobrança e cadastro no CNPJ.'
+          : 'Titular em CPF: uso individual ou compartilhado com família no mesmo padrão.';
+      const legal =
+        segment === 'company'
+          ? '<span class="plan-legal-pill">CNPJ</span>'
+          : '<span class="plan-legal-pill">CPF</span>';
       const sum = escHtml(String(p.summary ?? ''));
+      const iconHtml = getPlanIconSvg(code, segment);
       return `<article class="plan-card${featured}">
-        ${badge}
+        <div class="plan-card-head">
+          <div class="plan-icon-wrap">${iconHtml}</div>
+          <div class="plan-card-head-meta">
+            ${badge ? `<div class="plan-badges">${badge}</div>` : ''}
+            ${legal}
+          </div>
+        </div>
+        <h3 class="plan-title">${name}</h3>
         <p class="plan-audience">${audience}</p>
-        <h3>${name}</h3>
-        <p class="price">R$ ${pricing.price}</p>
-        <p class="period">/ ${pricing.period}</p>
+        <div class="plan-price-row">
+          <p class="price">R$&nbsp;${pricing.price}</p>
+          <p class="period">/${pricing.period}</p>
+        </div>
         <p class="summary">${sum}</p>
         <ul class="benefits">${benefits}</ul>
-        <button class="plan-cta" type="button" data-plan-code="${code}" data-customer-segment="${segment}">Assinar agora</button>
+        <button type="button" class="plan-cta" data-plan-code="${code}" data-customer-segment="${segment}">Assinar agora</button>
       </article>`;
     })
     .join('');
@@ -527,6 +580,11 @@ function setStep(step) {
   document.querySelectorAll('[data-step]').forEach((el) => {
     el.hidden = !Number.isFinite(n) || Number(el.dataset.step) !== n;
   });
+  const toggleBtn = byId('billing-toggle-btn');
+  if (toggleBtn) {
+    const lockBilling = Number.isFinite(n) && n >= 3;
+    toggleBtn.disabled = lockBilling || flowInteractionLock;
+  }
 }
 
 function refreshCompanyFields() {
@@ -543,7 +601,8 @@ function refreshCompanyFields() {
 function bindFlow() {
   const form = byId('flow-form');
   const toggleBtn = byId('billing-toggle-btn');
-  const state = { verificationToken: '' };
+  /** @type {{ verificationToken: string, billingCycle: 'MONTHLY'|'YEARLY' }} */
+  const state = { verificationToken: '', billingCycle: 'MONTHLY' };
 
   wireSubscriptionFormatting();
 
@@ -562,6 +621,7 @@ function bindFlow() {
   byId('back-to-plans')?.addEventListener('click', () => {
     if (flowInteractionLock) return;
     state.verificationToken = '';
+    state.billingCycle = 'MONTHLY';
     form.reset();
     applySelectedPlan('', '');
     setStep(null);
@@ -570,6 +630,7 @@ function bindFlow() {
 
   byId('success-done-btn')?.addEventListener('click', () => {
     state.verificationToken = '';
+    state.billingCycle = 'MONTHLY';
     dismissSubscriptionSuccess();
     refreshCompanyFields();
   });
@@ -579,12 +640,15 @@ function bindFlow() {
     const fd = new FormData(form);
     setFlowInteractionLock(true);
     try {
+      const annualMode = toggleBtn.getAttribute('aria-pressed') === 'true';
+      state.billingCycle = annualMode ? 'YEARLY' : 'MONTHLY';
       const out = await apiPost('/api/billing/otp/send', {
         phone: onlyDigits(getText(fd, 'phone')),
         planCode: getText(fd, 'planCode'),
         customerType: getText(fd, 'customerType'),
+        billingCycle: state.billingCycle,
       });
-      showFeedback(`Código enviado para ${out.phone}. Confira seu WhatsApp.`);
+      showFeedback(`Código enviado para ${out.phone} por SMS.`);
       setStep(3);
     } catch (e) {
       showFeedback(e.message || String(e), true);
@@ -603,6 +667,7 @@ function bindFlow() {
         planCode: getText(fd, 'planCode'),
         customerType: getText(fd, 'customerType'),
         code: onlyDigits(getText(fd, 'otpCode')),
+        billingCycle: state.billingCycle,
       });
       state.verificationToken = out.verificationToken;
       showFeedback('Telefone validado com sucesso. Agora finalize o pagamento.');
@@ -628,7 +693,7 @@ function bindFlow() {
     }
     try {
       if (!state.verificationToken) {
-        throw new Error('Valide o código do WhatsApp antes de pagar.');
+        throw new Error('Valide o código SMS antes de pagar.');
       }
 
       await apiPost('/api/billing/requests', {
@@ -648,6 +713,7 @@ function bindFlow() {
         verificationToken: state.verificationToken,
         planCode: getText(fd, 'planCode'),
         customerType: getText(fd, 'customerType'),
+        billingCycle: state.billingCycle,
         phone: onlyDigits(getText(fd, 'phone')),
         name: normalizeSpaces(getText(fd, 'name')),
         email: getText(fd, 'email').trim().toLowerCase(),
@@ -671,6 +737,7 @@ function bindFlow() {
       });
 
       state.verificationToken = '';
+      state.billingCycle = 'MONTHLY';
       form.reset();
       showFeedback();
       showSubscriptionSuccess(out);

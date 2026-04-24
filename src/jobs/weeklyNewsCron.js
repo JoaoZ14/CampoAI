@@ -29,23 +29,47 @@ function weeklyNewsTemplateBodyVarKey() {
 }
 
 /**
- * Monta `contentVariables` para o Content Template ({{1}}, {{2}}, …).
- * Texto completo do resumo (sem truncar no app — use menos matérias via WEEKLY_NEWS_GNEWS_MAX se precisar caber no template).
+ * Normaliza o texto para variável de template do WhatsApp.
+ * Preserva formatação em linhas e remove título duplicado do corpo dinâmico.
  * @param {string} body
- * @param {string} bannerUrl
- * @returns {Record<string, string>}
+ * @returns {string}
  */
-function buildWeeklyNewsTemplateVariables(body, bannerUrl) {
-  const bodyKey = weeklyNewsTemplateBodyVarKey();
-  /** @type {Record<string, string>} */
-  const vars = { [bodyKey]: body };
+function normalizeWeeklyTemplateBody(body) {
+  const raw = typeof body === 'string' ? body : '';
+  const header = (process.env.WEEKLY_NEWS_HEADER?.trim() ?? '').toLowerCase();
 
-  const mediaVar = process.env.WEEKLY_NEWS_TEMPLATE_BANNER_VAR_KEY?.trim() ?? '';
-  if (mediaVar && /^\d+$/.test(mediaVar) && bannerUrl) {
-    vars[mediaVar] = bannerUrl;
+  const normalized = raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\t/g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/[ ]{2,}/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  const lines = normalized.split('\n');
+  if (lines.length > 0 && header && lines[0].toLowerCase() === header) {
+    lines.shift();
+    while (lines.length > 0 && !lines[0].trim()) lines.shift();
   }
 
-  return vars;
+  const withFormat = lines.join(' ').replace(/\s{2,}/g, ' ').trim();
+  const MAX_TEMPLATE_VAR_LEN = 1400;
+  return withFormat.length > MAX_TEMPLATE_VAR_LEN
+    ? `${withFormat.slice(0, MAX_TEMPLATE_VAR_LEN - 1).trimEnd()}…`
+    : withFormat;
+}
+
+/**
+ * Monta `contentVariables` para o template semanal.
+ * Regra do produto: enviar somente a variável {{1}} (sem variável de banner).
+ * @param {string} body
+ * @returns {Record<string, string>}
+ */
+function buildWeeklyNewsTemplateVariables(body) {
+  const bodyKey = weeklyNewsTemplateBodyVarKey();
+  return { [bodyKey]: normalizeWeeklyTemplateBody(body) };
 }
 
 /** URL HTTPS pública do banner (Twilio faz GET na imagem). */
@@ -105,7 +129,7 @@ function weeklyNewsSendDelayMs() {
 async function sendWeeklyNewsToPhone(phone, body, bannerUrl) {
   const contentSid = weeklyNewsWhatsAppContentSid();
   if (contentSid) {
-    const vars = buildWeeklyNewsTemplateVariables(body, bannerUrl);
+    const vars = buildWeeklyNewsTemplateVariables(body);
     const result = await sendWhatsAppContentTemplate(phone, contentSid, vars);
     return {
       kind: 'template',

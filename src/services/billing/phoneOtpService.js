@@ -1,8 +1,12 @@
 import crypto from 'node:crypto';
 import { createSupabaseClient } from '../../models/supabaseClient.js';
+import { normalizeBillingCycle } from '../../config/billing.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { AppError } from '../../utils/errors.js';
-import { sendWhatsAppMessage } from '../whatsappService.js';
+import {
+  sendWhatsAppMessage,
+  sendSmsMessage,
+} from '../whatsappService.js';
 
 const OTP_TTL_MIN = Math.max(1, Number(process.env.OTP_PHONE_TTL_MIN) || 5);
 const TOKEN_TTL_MIN = Math.max(5, Number(process.env.OTP_PHONE_TOKEN_TTL_MIN) || 30);
@@ -37,15 +41,16 @@ function validPlanCode(planCode) {
   const p = String(planCode ?? '')
     .trim()
     .toLowerCase();
-  if (p === 'basic' || p === 'pro' || p === 'premium') return p;
+  if (p === 'lite' || p === 'basic' || p === 'pro' || p === 'premium') return p;
   throw new AppError('Plano inválido para confirmação.', 400);
 }
 
-export async function sendPhoneOtp({ phone, planCode, customerSegment }) {
+export async function sendPhoneOtp({ phone, planCode, customerSegment, billingCycle }) {
   const normalized = normalizePhone(String(phone ?? '').trim());
   if (!normalized || normalized.length < 10) throw new AppError('Telefone inválido.', 400);
   const plan = validPlanCode(planCode);
   const segment = normCustomerSegment(customerSegment);
+  const cycle = normalizeBillingCycle(billingCycle);
   const supabase = getClient();
 
   const { data: lastRows, error: qErr } = await supabase
@@ -72,6 +77,7 @@ export async function sendPhoneOtp({ phone, planCode, customerSegment }) {
     phone: normalized,
     plan_code: plan,
     customer_segment: segment,
+    billing_cycle: cycle,
     code_hash: sha(code),
     expires_at: nowPlusMin(OTP_TTL_MIN),
   };
@@ -79,18 +85,23 @@ export async function sendPhoneOtp({ phone, planCode, customerSegment }) {
   const { error: insErr } = await supabase.from('billing_phone_otp').insert(insertRow);
   if (insErr) throw new AppError(`Erro ao salvar OTP: ${insErr.message}`, 500);
 
-  await sendWhatsAppMessage(
-    normalized,
-    `Código AG Assist: ${code}\n\nValidade: ${OTP_TTL_MIN} minutos.\nSe não foi você, ignore esta mensagem.`
-  );
-  return { ok: true, phone: normalized, planCode: plan, expiresInMinutes: OTP_TTL_MIN };
+  const plainBody = `Código AG Assist: ${code}\n\nValidade: ${OTP_TTL_MIN} minutos.\nSe não foi você, ignore esta mensagem.`;
+  await sendSmsMessage(normalized, plainBody);
+  return {
+    ok: true,
+    phone: normalized,
+    planCode: plan,
+    billingCycle: cycle,
+    expiresInMinutes: OTP_TTL_MIN,
+  };
 }
 
-export async function verifyPhoneOtp({ phone, planCode, code, customerSegment }) {
+export async function verifyPhoneOtp({ phone, planCode, code, customerSegment, billingCycle }) {
   const normalized = normalizePhone(String(phone ?? '').trim());
   if (!normalized || normalized.length < 10) throw new AppError('Telefone inválido.', 400);
   const plan = validPlanCode(planCode);
   const segment = normCustomerSegment(customerSegment);
+  const cycle = normalizeBillingCycle(billingCycle);
   const codeRaw = String(code ?? '').replaceAll(/\D/g, '');
   if (codeRaw.length !== 6) throw new AppError('Código deve ter 6 dígitos.', 400);
 
@@ -101,6 +112,7 @@ export async function verifyPhoneOtp({ phone, planCode, code, customerSegment })
     .eq('phone', normalized)
     .eq('plan_code', plan)
     .eq('customer_segment', segment)
+    .eq('billing_cycle', cycle)
     .order('created_at', { ascending: false })
     .limit(1);
   if (error) throw new AppError(`Erro ao verificar OTP: ${error.message}`, 500);
@@ -130,14 +142,21 @@ export async function verifyPhoneOtp({ phone, planCode, code, customerSegment })
     .eq('id', row.id);
   if (upErr) throw new AppError(`Erro ao salvar validação OTP: ${upErr.message}`, 500);
 
-  await sendWhatsAppMessage(normalized, 'Telefone confirmado com sucesso. Você pode continuar sua assinatura.');
-  return { ok: true, verificationToken: token, tokenExpiresAt: tokenExp };
+  await sendSmsMessage(normalized, 'Telefone confirmado com sucesso. Você pode continuar sua assinatura.');
+  return { ok: true, verificationToken: token, tokenExpiresAt: tokenExp, billingCycle: cycle };
 }
 
-export async function assertPhoneVerification({ phone, planCode, verificationToken, customerSegment }) {
+export async function assertPhoneVerification({
+  phone,
+  planCode,
+  verificationToken,
+  customerSegment,
+  billingCycle,
+}) {
   const normalized = normalizePhone(String(phone ?? '').trim());
   const plan = validPlanCode(planCode);
   const segment = normCustomerSegment(customerSegment);
+  const cycle = normalizeBillingCycle(billingCycle);
   const token = String(verificationToken ?? '').trim();
   if (!normalized || !token) throw new AppError('Verificação inválida.', 401);
 
@@ -148,6 +167,7 @@ export async function assertPhoneVerification({ phone, planCode, verificationTok
     .eq('phone', normalized)
     .eq('plan_code', plan)
     .eq('customer_segment', segment)
+    .eq('billing_cycle', cycle)
     .eq('verification_token', token)
     .order('created_at', { ascending: false })
     .limit(1);

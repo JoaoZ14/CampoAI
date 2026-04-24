@@ -8,6 +8,24 @@ import { createSupabaseClient } from '../models/supabaseClient.js';
 import { AppError } from '../utils/errors.js';
 
 /**
+ * Alinha texto dos bullets ao teto de WhatsApp do `product_plans` (ex.: Team 3 vs Business 5).
+ * @param {string[]|undefined} bullets
+ * @param {unknown} maxSeatsRow
+ * @returns {string[]|undefined}
+ */
+function bulletsWithProductSeatCap(bullets, maxSeatsRow) {
+  if (!Array.isArray(bullets) || maxSeatsRow == null || maxSeatsRow === '') return bullets;
+  const seats = Number(maxSeatsRow);
+  if (!Number.isFinite(seats) || seats < 1) return bullets;
+  return bullets.map((b) =>
+    String(b)
+      .replace(/[Aa]té\s+\d+\s+números?\b/g, `Até ${seats} números`)
+      .replace(/\b\d+\s+números\s+de\s+WhatsApp\b/gi, `${seats} números de WhatsApp`)
+      .replace(/\b\d+\s+números\s+no\s+mesmo\s+plano\b/gi, `${seats} números no mesmo plano`)
+  );
+}
+
+/**
  * Sobrescreve preço/nome/resumo com `product_plans` e define `customerSegment` por linha.
  * @param {import('../config/plans.js').PublicPlan[]} catalogPlans
  */
@@ -59,6 +77,8 @@ async function mergePlansWithProductRows(catalogPlans) {
           row.max_whatsapp_seats != null && row.max_whatsapp_seats !== ''
             ? Number(row.max_whatsapp_seats)
             : cat.seats,
+        bullets:
+          bulletsWithProductSeatCap(cat.bullets, row.max_whatsapp_seats) ?? cat.bullets,
       };
     });
   } catch {

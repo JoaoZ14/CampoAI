@@ -50,6 +50,7 @@ export async function handleAsaasSubscribe(req, res, next) {
     const result = await subscribeUserWithCreditCardMonthly({
       ...req.body,
       customerType: normCustomerType(req.body),
+      billingCycle: req.body?.billingCycle,
       remoteIp: ip,
     });
     res.status(201).json({ ok: true, ...result });
@@ -84,6 +85,7 @@ export async function handleBillingOtpSend(req, res, next) {
       phone: req.body?.phone,
       planCode: req.body?.planCode,
       customerSegment: normCustomerType(req.body),
+      billingCycle: req.body?.billingCycle,
     });
     res.status(200).json(out);
   } catch (e) {
@@ -98,6 +100,7 @@ export async function handleBillingOtpVerify(req, res, next) {
       planCode: req.body?.planCode,
       code: req.body?.code,
       customerSegment: normCustomerType(req.body),
+      billingCycle: req.body?.billingCycle,
     });
     res.status(200).json(out);
   } catch (e) {
@@ -118,6 +121,7 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       planCode: body.planCode,
       verificationToken: body.verificationToken,
       customerSegment: customerType,
+      billingCycle: body.billingCycle,
     });
 
     const ip = clientIp(req);
@@ -125,6 +129,7 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       phone: body.phone,
       planCode: body.planCode,
       customerType,
+      billingCycle: body.billingCycle,
       customer: {
         name: body.name,
         email: body.email,
@@ -137,13 +142,17 @@ export async function handleCheckoutAfterOtp(req, res, next) {
     });
 
     const planLabel = result.planName || String(result.planCode || '').toUpperCase() || 'AG Assist';
+    const billingLine =
+      result.billingCycle === 'YEARLY'
+        ? 'A cobrança anual (com desconto em relação a 12 meses no mensal) segue no cartão que você cadastrou.'
+        : 'A cobrança mensal segue no cartão que você cadastrou.';
     const welcomeMsg =
       `Parabéns — você agora faz parte do AG Assist.\n\n` +
       `Plano: ${planLabel}\n` +
       `Status: ${result.status}\n` +
       `Próximo vencimento (referência): ${result.nextDueDate}\n\n` +
       `Continue neste WhatsApp para análises no campo, notícias do agro e suporte no dia a dia. ` +
-      `A cobrança mensal segue no cartão que você cadastrou.\n\n` +
+      `${billingLine}\n\n` +
       `Bem-vindo e bom trabalho na roça.`;
 
     try {

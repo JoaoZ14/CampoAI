@@ -367,7 +367,7 @@ function renderPlanRef(data) {
     src +
     plans
       .map((p) => {
-        const feat = p.code === 'pro' ? ' plan-ref-card--featured' : '';
+        const feat = p.code === 'basic' ? ' plan-ref-card--featured' : '';
         return `<div class="plan-ref-card${feat}"><p style="margin:0"><strong>${escapeHtml(
           p.name
         )}</strong> — R$ ${Number(p.priceBrl).toFixed(0)}/${escapeHtml(p.period)}${

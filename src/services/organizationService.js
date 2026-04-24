@@ -10,7 +10,7 @@ function getClient() {
 const BILLING = { FREE: 'free', PERSONAL: 'personal', TEAM: 'team' };
 
 /**
- * @param {{ name?: string, maxSeats: number }} input
+ * @param {{ name?: string, maxSeats: number, ownerUserId?: string|null }} input
  */
 export async function createOrganization(input) {
   const supabase = getClient();
@@ -21,11 +21,19 @@ export async function createOrganization(input) {
 
   const name = typeof input.name === 'string' ? input.name.trim() || null : null;
 
-  const { data, error } = await supabase
+  let result = await supabase
     .from('organizations')
-    .insert({ name, max_seats: maxSeats, is_active: true })
+    .insert({ name, max_seats: maxSeats, is_active: true, owner_user_id: input.ownerUserId ?? null })
     .select('*')
     .single();
+  if (result.error && /owner_user_id/i.test(String(result.error.message || ''))) {
+    result = await supabase
+      .from('organizations')
+      .insert({ name, max_seats: maxSeats, is_active: true })
+      .select('*')
+      .single();
+  }
+  const { data, error } = result;
 
   if (error) {
     throw new AppError(`Erro ao criar organização: ${error.message}`, 500);
@@ -88,6 +96,7 @@ function mapOrgRow(row) {
     name: row.name,
     maxSeats: row.max_seats,
     isActive: row.is_active,
+    ownerUserId: row.owner_user_id ?? null,
     createdAt: row.created_at,
   };
 }

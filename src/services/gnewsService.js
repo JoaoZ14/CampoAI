@@ -2,7 +2,9 @@ import { AppError } from '../utils/errors.js';
 
 const GNEWS_SEARCH = 'https://gnews.io/api/v4/search';
 
-const DEFAULT_QUERY = 'agronegocio OR agricultura OR pecuaria OR safra';
+/** Busca ampla em PT-BR (GNews); sobrescreva com WEEKLY_NEWS_GNEWS_QUERY no .env para o seu nicho. */
+const DEFAULT_QUERY =
+  'agronegocio OR agricultura OR pecuaria OR safra OR lavoura OR gado OR milho OR soja OR avicultura OR cafe OR citricultura';
 
 /**
  * Busca artigos na GNews (v4) com filtros de idioma e país.

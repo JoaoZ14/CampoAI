@@ -102,10 +102,16 @@
 
         <nav class="segment-tabs" role="tablist" aria-label="Tipo de contratação">
           <button type="button" class="segment-tab is-active" id="tab-personal" role="tab" aria-selected="true">
-            Pessoal
+            <span class="segment-tab-inner">
+              <svg class="segment-tab-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.75"/></svg>
+              <span class="segment-tab-text"><span class="segment-tab-title">Pessoal</span><span class="segment-tab-hint">CPF</span></span>
+            </span>
           </button>
           <button type="button" class="segment-tab" id="tab-company" role="tab" aria-selected="false">
-            Empresa
+            <span class="segment-tab-inner">
+              <svg class="segment-tab-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2" stroke="currentColor" stroke-width="1.75"/><path d="M9 22v-4h6v4" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span class="segment-tab-text"><span class="segment-tab-title">Empresa</span><span class="segment-tab-hint">CNPJ</span></span>
+            </span>
           </button>
         </nav>
 
@@ -362,7 +368,8 @@
           <h2 class="section-heading success-title">Parabéns — você faz parte do AG Assist</h2>
           <p class="success-lead">
             Sua assinatura foi registrada. Daqui pra frente você conta com orientação no WhatsApp para a
-            lavoura e a pecuária, com limites claros de uso e cobrança mensal no cartão cadastrado.
+            lavoura e a pecuária, com limites claros de uso e cobrança recorrente no cartão cadastrado
+            (mensal ou anual, conforme você escolheu).
           </p>
           <p id="success-plan-detail" class="success-plan-detail muted" aria-live="polite"></p>
           <p class="success-whatsapp muted">

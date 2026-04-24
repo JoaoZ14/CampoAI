@@ -4,6 +4,7 @@ import {
   findOrCreateUser,
   incrementUsage,
   isUsageBlocked,
+  buildUsageAccessContext,
 } from '../services/userService.js';
 import { generateAgriculturalReply } from '../services/aiService.js';
 import {
@@ -128,10 +129,53 @@ export function getLimitReachedMessage() {
 }
 
 const PLAN_DISPLAY = {
-  basic: 'Básico',
-  pro: 'PRO',
-  premium: 'Premium',
+  lite: 'Essencial',
+  basic: 'Starter',
+  pro: 'Pro',
+  premium: 'Team',
 };
+
+export const MSG_LITE_MONTHLY_LIMIT_BASE =
+  'Você atingiu o limite de análises deste mês no plano *Essencial*.\n\n' +
+  'O contador renova no próximo mês (calendário em horário de Brasília). Para análises ilimitadas, faça upgrade para o *Starter*; para mais números no CPF, veja *Team*.';
+
+/**
+ * Nome amigável do plano (código + titularidade CPF vs equipe/CNPJ).
+ * @param {{ subscriptionPlanCode?: string|null, billingKind?: string }} user
+ */
+function planDisplayName(user) {
+  const code = String(user.subscriptionPlanCode || '').toLowerCase();
+  if (code === 'lite') return PLAN_DISPLAY.lite;
+  if (code === 'basic') return PLAN_DISPLAY.basic;
+  if (code === 'pro') return PLAN_DISPLAY.pro;
+  if (code === 'premium') {
+    return user.billingKind === 'team' ? 'Business' : 'Team';
+  }
+  return code ? code.toUpperCase() : 'assinante';
+}
+
+/**
+ * @param {string} toPhone
+ * @returns {string[]}
+ */
+function getLiteMonthlyLimitParts(toPhone = '') {
+  const raw = process.env.PAYWALL_URL?.trim();
+  if (!raw) return [MSG_LITE_MONTHLY_LIMIT_BASE];
+  const url = withPhonePrefill(normalizePaywallUrl(raw), toPhone);
+  const singleBubble =
+    process.env.PAYWALL_SINGLE_BUBBLE === 'true' ||
+    process.env.PAYWALL_LINK_IN_SAME_MESSAGE === 'true';
+  const ctaLine =
+    process.env.PAYWALL_CTA_LINE?.trim() ||
+    'Toque no link para abrir no navegador e ver os planos:';
+  if (singleBubble) {
+    return [`${MSG_LITE_MONTHLY_LIMIT_BASE}\n\n${ctaLine}\n${url}`];
+  }
+  const first =
+    process.env.PAYWALL_FIRST_MESSAGE?.trim() ||
+    `${MSG_LITE_MONTHLY_LIMIT_BASE}\n\n👇 O link para ver os planos vem na mensagem abaixo — toque no endereço em destaque para abrir.`;
+  return [first, url];
+}
 
 function getSupportLine() {
   const support =
@@ -179,8 +223,9 @@ export function wantsPlanInquiry(text) {
 /**
  * @param {{ isPaid: boolean, usageCount: number, billingKind?: string, subscriptionPlanCode?: string|null, asaasSubscriptionStatus?: string|null }} user
  * @param {string} phone E.164 (para link /planos)
+ * @param {{ monthlyAnalysisCap?: number|null, monthlyAnalysisUsed?: number }} [usageCtx]
  */
-export function formatPlanInquiryMessage(user, phone) {
+export function formatPlanInquiryMessage(user, phone, usageCtx) {
   const payUrl = withPhonePrefill(
     normalizePaywallUrl(process.env.PAYWALL_URL?.trim() || ''),
     phone
@@ -191,8 +236,7 @@ export function formatPlanInquiryMessage(user, phone) {
     : '\n\nPara assinar ou mudar de plano, fale com o suporte.';
 
   if (user.isPaid) {
-    const code = String(user.subscriptionPlanCode || '').toLowerCase();
-    const planName = PLAN_DISPLAY[code] || (code ? code.toUpperCase() : 'assinante');
+    const planName = planDisplayName(user);
     const status = String(user.asaasSubscriptionStatus || 'ativo').trim() || 'ativo';
     const kind =
       user.billingKind === 'team'
@@ -200,11 +244,17 @@ export function formatPlanInquiryMessage(user, phone) {
         : user.billingKind === 'personal'
           ? 'titularidade CPF (individual)'
           : 'ativo';
+    const usageLine =
+      usageCtx && usageCtx.monthlyAnalysisCap != null && usageCtx.monthlyAnalysisCap >= 1
+        ? `\n\n*Uso no mês (análises com IA):* ${usageCtx.monthlyAnalysisUsed} de ${usageCtx.monthlyAnalysisCap}`
+        : '';
     return (
       `📋 *Seu plano AG Assist*\n\n` +
       `*Plano:* ${planName}\n` +
       `*Titularidade:* ${kind}\n` +
-      `*Status (Asaas):* ${status}\n\n` +
+      `*Status (Asaas):* ${status}` +
+      usageLine +
+      `\n\n` +
       'As análises com a IA seguem as regras do seu plano. Para cancelamento, troca de cartão ou dúvida de cobrança, use o link abaixo ou o suporte.' +
       linkLine +
       supportLine
@@ -238,7 +288,8 @@ export function formatPlanInquiryMessage(user, phone) {
  * - {{3}}: URL/contato de suporte
  */
 async function sendPlanInquiryResponse(phone, user) {
-  const body = formatPlanInquiryMessage(user, phone);
+  const usageCtx = await buildUsageAccessContext(user);
+  const body = formatPlanInquiryMessage(user, phone, usageCtx);
   const contentSid = process.env.PLAN_INQUIRY_CONTENT_SID?.trim();
   if (!contentSid) {
     await sendWhatsAppMessage(phone, body);
@@ -352,6 +403,7 @@ export async function processIncomingMessage({
   }
 
   const user = await findOrCreateUser(phone);
+  const usageCtx = await buildUsageAccessContext(user);
 
   if (unsupportedVideo === true) {
     await sendWhatsAppMessage(phone, MSG_UNSUPPORTED_VIDEO);
@@ -394,8 +446,15 @@ export async function processIncomingMessage({
     };
   }
 
-  if (isUsageBlocked(user)) {
-    await sendLimitReachedMessages(phone);
+  if (isUsageBlocked(usageCtx)) {
+    if (usageCtx.isPaid && usageCtx.monthlyAnalysisCap != null && usageCtx.monthlyAnalysisCap >= 1) {
+      const parts = getLiteMonthlyLimitParts(phone);
+      for (const chunk of parts) {
+        await sendWhatsAppMessage(phone, chunk);
+      }
+    } else {
+      await sendLimitReachedMessages(phone);
+    }
     return {
       step: 'limit_reached',
       userId: user.id,

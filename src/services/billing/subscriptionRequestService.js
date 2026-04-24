@@ -17,7 +17,7 @@ function normalizePlanCode(planCode) {
   const code = String(planCode ?? '')
     .trim()
     .toLowerCase();
-  if (code === 'basic' || code === 'pro' || code === 'premium') return code;
+  if (code === 'lite' || code === 'basic' || code === 'pro' || code === 'premium') return code;
   throw new AppError('Plano inválido. Use basic, pro ou premium.', 400);
 }
 
@@ -84,11 +84,16 @@ export async function createSubscriptionRequest(body) {
     status: 'new',
   };
 
+  const email = String(body.email ?? '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    throw new AppError('Informe um e-mail válido para acessar a área do cliente.', 400);
+  }
+  payload.email = email;
+
   if (customerType === 'company') {
     const companyName = String(body.companyName ?? '').trim();
     const cnpj = String(body.cnpj ?? '').replace(/\D/g, '');
     const contactName = String(body.contactName ?? '').trim();
-    const email = String(body.email ?? '').trim().toLowerCase();
     const notes = String(body.notes ?? '').trim();
 
     if (companyName.length < 2) {
@@ -107,7 +112,6 @@ export async function createSubscriptionRequest(body) {
     payload.company_name = companyName;
     payload.cnpj = cnpj;
     payload.contact_name = contactName;
-    payload.email = email;
     payload.notes = notes || null;
   }
 

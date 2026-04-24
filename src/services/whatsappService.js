@@ -258,3 +258,49 @@ export async function sendWhatsAppContentTemplate(
     throw new AppError(`Falha ao enviar template WhatsApp (Twilio): ${msg}`, 502);
   }
 }
+
+/**
+ * Envia SMS via Twilio para o número informado.
+ * Usa TWILIO_SMS_FROM; se ausente, tenta reaproveitar TWILIO_WHATSAPP_FROM removendo prefixo "whatsapp:".
+ * @param {string} toPhone E.164, ex: +5511999999999
+ * @param {string} body
+ */
+export async function sendSmsMessage(toPhone, body) {
+  const text = String(body ?? '').trim();
+  if (!text) throw new AppError('Mensagem SMS vazia.', 400);
+
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    console.log(`[MOCK_SMS] Para: ${toPhone} | ${text.slice(0, 160)}${text.length > 160 ? '…' : ''}`);
+    return { sid: 'MOCK_SID', status: 'mocked', parts: 1, sms: true };
+  }
+
+  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+  const fromRaw = process.env.TWILIO_SMS_FROM?.trim() || process.env.TWILIO_WHATSAPP_FROM?.trim() || '';
+  const from = fromRaw.replace(/^whatsapp:/i, '').trim();
+
+  if (!sid || !token || !from) {
+    throw new AppError(
+      'Twilio SMS não configurado (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_SMS_FROM ou TWILIO_WHATSAPP_FROM).',
+      500
+    );
+  }
+
+  const client = twilio(sid, token);
+  try {
+    const message = await client.messages.create({
+      from,
+      to: String(toPhone ?? '').trim(),
+      body: text,
+    });
+    return {
+      sid: message.sid ?? '',
+      status: message.status ?? '',
+      parts: 1,
+      sms: true,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new AppError(`Falha ao enviar SMS (Twilio): ${msg}`, 502);
+  }
+}
