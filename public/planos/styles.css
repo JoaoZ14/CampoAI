@@ -845,7 +845,7 @@ button:not(.toggle-btn):not(.segment-tab):not(.link-back-plans):hover {
   margin-bottom: 0.75rem;
 }
 
-.success-whatsapp {
+.success-sms {
   font-size: 0.9rem;
   margin-bottom: 1.25rem;
   max-width: 52ch;

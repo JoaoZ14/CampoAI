@@ -18,7 +18,7 @@ import {
   sendWhatsAppContentTemplate,
   sendWhatsAppTypingIndicator,
 } from '../services/whatsappService.js';
-import { tryResolveFieldCalcMessage } from './fieldCalcService.js';
+import { tryResolveFieldCalcMessage, fieldCalcIntent } from './fieldCalcService.js';
 import { wantsConversationPdfReport } from './reportIntent.js';
 import { generateConversationReportText } from './aiService.js';
 import { buildConversationReportPdf } from './reportPdfService.js';
@@ -534,14 +534,16 @@ export async function processIncomingMessage({
     }
   }
 
-  if (textRaw && type.hasText && !type.hasImage && !type.hasAudio) {
+  const calcIntent = textRaw && type.hasText && !type.hasImage && !type.hasAudio ? fieldCalcIntent(textRaw) : 'none';
+
+  if (calcIntent === 'help_or_intro') {
     const calcReply = tryResolveFieldCalcMessage(textRaw);
     if (calcReply) {
       await incrementUsage(user.id);
       await saveChatTurn(user.id, buildUserTurnSummary(type, message), calcReply);
       await sendWhatsAppMessage(phone, calcReply);
       return {
-        step: 'field_calc',
+        step: 'field_calc_help',
         userId: user.id,
         usageCount: user.usageCount + 1,
         replyPreview: calcReply.slice(0, 280),
@@ -573,6 +575,7 @@ export async function processIncomingMessage({
       imageUrl: type.hasImage ? String(imageUrl).trim() : undefined,
       audioUrl: type.hasAudio ? String(audioUrl).trim() : undefined,
       history,
+      fieldCalcMode: calcIntent === 'compute',
     });
   } catch (err) {
     console.error('[incoming] Falha na IA:', err);

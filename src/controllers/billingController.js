@@ -5,7 +5,7 @@ import {
   sendPhoneOtp,
   verifyPhoneOtp,
 } from '../services/billing/phoneOtpService.js';
-import { sendWhatsAppMessage } from '../services/whatsappService.js';
+import { sendSmsMessage } from '../services/whatsappService.js';
 import { AppError } from '../utils/errors.js';
 
 function assertCheckoutSecret(req) {
@@ -71,7 +71,7 @@ export async function handleCreateSubscriptionRequest(req, res, next) {
       message:
         data.customer_type === 'company'
           ? 'Solicitação da empresa recebida. Nosso time vai entrar em contato.'
-          : 'Cadastro recebido. Vamos te chamar no WhatsApp para ativar o plano.',
+          : 'Cadastro recebido. Vamos te chamar por telefone ou SMS para ativar o plano.',
       request: data,
     });
   } catch (e) {
@@ -151,14 +151,14 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       `Plano: ${planLabel}\n` +
       `Status: ${result.status}\n` +
       `Próximo vencimento (referência): ${result.nextDueDate}\n\n` +
-      `Continue neste WhatsApp para análises no campo, notícias do agro e suporte no dia a dia. ` +
+      `Use o AG Assist pelo WhatsApp do número cadastrado para análises no campo, notícias do agro e suporte no dia a dia. ` +
       `${billingLine}\n\n` +
       `Bem-vindo e bom trabalho na roça.`;
 
     try {
-      await sendWhatsAppMessage(body.phone, welcomeMsg);
+      await sendSmsMessage(body.phone, welcomeMsg);
     } catch (e) {
-      console.warn('[billing] falha ao enviar confirmação no WhatsApp:', e);
+      console.warn('[billing] falha ao enviar confirmação por SMS:', e);
     }
 
     res.status(201).json({ ok: true, ...result });

@@ -15,7 +15,7 @@ const SYSTEM_PROMPT =
   'Linguagem simples, acessível a quem trabalha na roça. Trabalhe com hipóteses, o que observar no animal ou na lavoura, e próximos passos seguros. ' +
   'Em suspeita de emergência (animal caído, sangramento forte, não come/bebe, gestação com problema, surto rápido no rebanho), diga para buscar MÉDICO VETERINÁRIO ou serviço oficial na hora. ' +
   'Nunca informe dosagem de medicamentos, venenos agrícolas, antibióticos, vacinas ou defensivos; nunca prescreva tratamento fechado. ' +
-  'Para contas numéricas padronizadas (área, semente em kg, volume, vazão, lotação simplificada etc.) o sistema já responde sozinho quando a mensagem começa com "calc " ou "calculo " — nesse caso o usuário não precisa que você refaça a mesma conta; pode só complementar com dicas de campo se fizer sentido. ' +
+  'Quando o sistema marcar modo calculadora (mensagem começando com calc ou calculo, exceto calc ajuda), você executa a conta com precisão e responde no formato pedido no bloco complementar — sem conversa fiada. ' +
   'Não repita a pergunta do usuário. ' +
   'Não se apresente de novo em toda mensagem: não diga de novo "sou o AG Assist" nem o nome antigo "AgroAssist"; não replique o texto de boas-vindas. O usuário já está em conversa no WhatsApp — responda direto ao que ele mandou agora, usando o histórico quando fizer sentido para dar continuidade (memória da conversa).';
 
@@ -27,6 +27,19 @@ const AUDIO_ONLY_PROMPT =
 
 const IMAGE_AND_AUDIO_PROMPT =
   'Há uma imagem e um áudio do produtor. Use os dois para responder em tópicos • com orientação prática no campo.';
+
+/** Instruções extras só em mensagens calc/calculo com números (via `fieldCalcMode`). */
+const FIELD_CALC_AI_APPEND =
+  'MODO CALCULADORA DE CAMPO (obrigatório): a mensagem do usuário é um comando calc ou calculo com subcomando e números. ' +
+  'Trate vírgula ou ponto como decimal. Seja exato nas contas. ' +
+  'Responda no WhatsApp em texto puro, o mais curto possível: no máximo 3 linhas curtas. ' +
+  'Linha 1: só a fórmula ou relação usada (ex.: ha=m²/10.000). Linha 2: comece com → e os valores numéricos (precisão coerente com a entrada). ' +
+  'Opcional linha 3: no máximo uma frase curta só se for indispensável (ex.: alqueire geográfico varia por estado). ' +
+  'Sem Markdown, sem repetir o comando inteiro, sem saudação, sem perguntar nada de volta. ' +
+  'Constantes: 1 ha = 10.000 m²; 1 alqueire geográfico = 48.400 m²; 1 m³ = 1.000 L; m³/h a partir de L/min = (L/min)×60/1000. ' +
+  'Subcomandos esperados: m2-ha, ha-m2, area-ret, plantas, semente-kg, semente-sac, volume-ret, litros-m3, m3-litros, vazao-lh, encher, lotacao (1 UA≈1 bovino adulto só como ordem de grandeza), alq-ha, ha-alq. ' +
+  'Se o subcomando for desconhecido ou faltarem números, diga em uma linha o que falta ou envie calc ajuda — sem texto longo. ' +
+  'Não calcule dosagem de defensivo, medicamento nem receita de produto.';
 
 /**
  * Tokens de saída do Gemini. Padrão alto para não cortar resposta no meio da frase.
@@ -65,7 +78,10 @@ function buildGeminiModelChain() {
 /**
  * Resposta fixa para desenvolvimento quando MOCK_LLM=true (sem chamar API externa).
  */
-function mockAgriculturalReply({ text, imageUrl, audioUrl }) {
+function mockAgriculturalReply({ text, imageUrl, audioUrl, fieldCalcMode }) {
+  if (fieldCalcMode) {
+    return '[TESTE — MOCK_LLM calc]\nm²/10.000\n→ (simule valores reais com GEMINI_API_KEY)';
+  }
   const excerpt = text?.trim()
     ? text.trim().slice(0, 120) + (text.trim().length > 120 ? '…' : '')
     : '(sem texto)';
@@ -188,7 +204,7 @@ async function fetchMediaAsInlineData(mediaUrl, kind) {
 /**
  * @param {{ role: 'user' | 'assistant', text: string }[]} history - turnos anteriores (só texto)
  */
-async function generateWithGemini({ text, imageUrl, audioUrl, history = [] }) {
+async function generateWithGemini({ text, imageUrl, audioUrl, history = [], fieldCalcMode = false }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new AppError('GEMINI_API_KEY não configurada.', 500);
@@ -243,12 +259,17 @@ async function generateWithGemini({ text, imageUrl, audioUrl, history = [] }) {
   const maxAttempts = Math.min(8, Math.max(1, Number(process.env.GEMINI_RETRY_ATTEMPTS) || 1));
   const baseMs = Math.max(0, Number(process.env.GEMINI_RETRY_MS) || 800);
   const maxOut = DEFAULT_MAX_OUTPUT_TOKENS();
+  const systemInstruction = fieldCalcMode
+    ? `${SYSTEM_PROMPT}\n\n${FIELD_CALC_AI_APPEND}`
+    : SYSTEM_PROMPT;
+  const outTokens = fieldCalcMode ? Math.min(384, maxOut) : maxOut;
+  const temperature = fieldCalcMode ? 0.12 : 0.35;
 
   for (let mi = 0; mi < modelChain.length; mi++) {
     const modelName = modelChain[mi];
     const model = genAI.getGenerativeModel({
       model: modelName,
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction,
     });
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -256,9 +277,9 @@ async function generateWithGemini({ text, imageUrl, audioUrl, history = [] }) {
         const result = await model.generateContent({
           contents,
           generationConfig: {
-            maxOutputTokens: maxOut,
-            temperature: 0.35,
-            topP: 0.9,
+            maxOutputTokens: outTokens,
+            temperature,
+            topP: fieldCalcMode ? 0.85 : 0.9,
           },
         });
 
@@ -327,7 +348,7 @@ function isRetryableGeminiError(message) {
 
 /**
  * Gera resposta rural via Google Gemini (único motor de IA).
- * @param {{ text?: string, imageUrl?: string, audioUrl?: string, history?: { role: 'user' | 'assistant', text: string }[] }} input
+ * @param {{ text?: string, imageUrl?: string, audioUrl?: string, history?: { role: 'user' | 'assistant', text: string }[], fieldCalcMode?: boolean }} input
  * @returns {Promise<string>}
  */
 export async function generateAgriculturalReply(input) {

@@ -64,6 +64,28 @@ function needMore(sub, n, min) {
   return `${sub}: faltam números. Preciso de pelo menos ${min} valor(es). Ex.: calc ajuda`;
 }
 
+const HELP_SUBS = new Set(['ajuda', 'help', '?', 'comandos']);
+
+/**
+ * Primeira linha: intenção do comando calc (ajuda/intro ficam no texto fixo; contas vão para a IA).
+ * @param {string} raw
+ * @returns {'none' | 'help_or_intro' | 'compute'}
+ */
+export function fieldCalcIntent(raw) {
+  const line = String(raw ?? '')
+    .trim()
+    .split('\n')[0]
+    .trim();
+  if (!/^(calc|calculo)\b/i.test(line)) return 'none';
+  const after = line.replace(/^(calc|calculo)\s*/i, '').trim();
+  if (!after) return 'help_or_intro';
+  const parts = after.split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'help_or_intro';
+  const sub = parts[0].toLowerCase().replace(/_/g, '-');
+  if (HELP_SUBS.has(sub)) return 'help_or_intro';
+  return 'compute';
+}
+
 /**
  * Resposta determinística ou null se a mensagem não for comando calc.
  * @param {string} raw
@@ -74,6 +96,7 @@ export function tryResolveFieldCalcMessage(raw) {
     .trim()
     .split('\n')[0]
     .trim();
+  if (/^(calc|calculo)$/i.test(line)) return MSG_INTRO;
   const m = line.match(/^(calc|calculo)\s+(.+)$/i);
   if (!m) return null;
 
@@ -84,8 +107,7 @@ export function tryResolveFieldCalcMessage(raw) {
   const sub = parts[0].toLowerCase().replace(/_/g, '-');
   const n = nums(parts.slice(1));
 
-  const allHelp = new Set(['ajuda', 'help', '?', 'comandos']);
-  if (allHelp.has(sub)) {
+  if (HELP_SUBS.has(sub)) {
     return helpFull();
   }
 
@@ -101,14 +123,14 @@ export function tryResolveFieldCalcMessage(raw) {
       if (err) return err;
       const ha = n[0] / M2_PER_HA;
       const alq = n[0] / ALQ_GEO_M2;
-      return `m² → ha\n• ${fmt(n[0], 2)} m² = ${fmt(ha, 6)} ha (≈ ${fmt(alq, 4)} alq geo; 1 alq = ${ALQ_GEO_M2} m²)`;
+      return `ha=m²/10.000; alq_geo=m²/${ALQ_GEO_M2}\n→ ${fmt(ha, 6)} ha; ${fmt(alq, 4)} alq`;
     }
     case 'ha-m2': {
       if (n.length < 1) return needMore(sub, n, 1);
       const err = pos(n[0], 'ha');
       if (err) return err;
       const m2 = n[0] * M2_PER_HA;
-      return `ha → m²\n• ${fmt(n[0], 6)} ha = ${fmt(m2, 2)} m²`;
+      return `m²=ha×10.000\n→ ${fmt(m2, 2)} m²`;
     }
     case 'area-ret': {
       if (n.length < 2) return needMore(sub, n, 2);
@@ -118,11 +140,7 @@ export function tryResolveFieldCalcMessage(raw) {
       if (e2) return e2;
       const m2 = n[0] * n[1];
       const ha = m2 / M2_PER_HA;
-      return (
-        `Área retangular\n` +
-        `• ${fmt(n[0], 2)} m × ${fmt(n[1], 2)} m = ${fmt(m2, 2)} m²\n` +
-        `• = ${fmt(ha, 6)} ha`
-      );
+      return `m²=C×L; ha=m²/10.000\n→ ${fmt(m2, 2)} m²; ${fmt(ha, 6)} ha`;
     }
     case 'plantas': {
       if (n.length < 2) return needMore(sub, n, 2);
@@ -132,12 +150,7 @@ export function tryResolveFieldCalcMessage(raw) {
       if (e2) return e2;
       if (n[0] === 0 || n[1] === 0) return 'Espaçamentos precisam ser maiores que zero.';
       const perHa = M2_PER_HA / (n[0] * n[1]);
-      return (
-        `Plantas por hectare (linhas retas, monocultivo)\n` +
-        `• Entrelinhas ${fmt(n[0], 3)} m × na linha ${fmt(n[1], 3)} m\n` +
-        `• ≈ ${fmt(perHa, 0)} plantas/ha\n\n` +
-        `Confira com o espaçamento real da cultivar e da plantadeira.`
-      );
+      return `plantas/ha=10.000/(entre×linha)\n→ ${fmt(perHa, 0)} plantas/ha`;
     }
     case 'semente-kg': {
       if (n.length < 2) return needMore(sub, n, 2);
@@ -146,7 +159,7 @@ export function tryResolveFieldCalcMessage(raw) {
       if (e1) return e1;
       if (e2) return e2;
       const kg = n[0] * n[1];
-      return `Semente (massa)\n• ${fmt(n[0], 3)} kg/ha × ${fmt(n[1], 4)} ha = ${fmt(kg, 3)} kg total`;
+      return `kg=(kg/ha)×ha\n→ ${fmt(kg, 3)} kg`;
     }
     case 'semente-sac': {
       if (n.length < 3) return needMore(sub, n, 3);
@@ -159,12 +172,7 @@ export function tryResolveFieldCalcMessage(raw) {
       if (n[2] === 0) return 'kg por saco precisa ser maior que zero.';
       const kg = n[0] * n[1];
       const sacs = Math.ceil(kg / n[2]);
-      return (
-        `Semente em sacos\n` +
-        `• ${fmt(n[0], 3)} kg/ha × ${fmt(n[1], 4)} ha = ${fmt(kg, 3)} kg\n` +
-        `• Sacos de ${fmt(n[2], 2)} kg: ${sacs} saco(s) (arredondado pra cima)\n\n` +
-        `Sempre confira pureza, germinação e calagem na orientação técnica.`
-      );
+      return `kg=(kg/ha)×ha; sacos=⌈kg/kg_saco⌉\n→ ${fmt(kg, 3)} kg; ${sacs} saco(s)`;
     }
     case 'volume-ret': {
       if (n.length < 3) return needMore(sub, n, 3);
@@ -174,25 +182,21 @@ export function tryResolveFieldCalcMessage(raw) {
       }
       const m3 = n[0] * n[1] * n[2];
       const L = m3 * 1000;
-      return (
-        `Volume (tanque retangular)\n` +
-        `• ${fmt(n[0], 2)} × ${fmt(n[1], 2)} × ${fmt(n[2], 2)} m = ${fmt(m3, 4)} m³\n` +
-        `• ≈ ${fmt(L, 1)} litros`
-      );
+      return `m³=C×L×A; L=m³×1000\n→ ${fmt(m3, 4)} m³; ${fmt(L, 1)} L`;
     }
     case 'litros-m3': {
       if (n.length < 1) return needMore(sub, n, 1);
       const err = pos(n[0], 'm³');
       if (err) return err;
       const L = n[0] * 1000;
-      return `m³ → litros\n• ${fmt(n[0], 6)} m³ = ${fmt(L, 2)} L`;
+      return `L=m³×1000\n→ ${fmt(L, 2)} L`;
     }
     case 'm3-litros': {
       if (n.length < 1) return needMore(sub, n, 1);
       const err = pos(n[0], 'litros');
       if (err) return err;
       const m3 = n[0] / 1000;
-      return `litros → m³\n• ${fmt(n[0], 2)} L = ${fmt(m3, 6)} m³`;
+      return `m³=L/1000\n→ ${fmt(m3, 6)} m³`;
     }
     case 'vazao-lh': {
       if (n.length < 1) return needMore(sub, n, 1);
@@ -200,7 +204,7 @@ export function tryResolveFieldCalcMessage(raw) {
       if (err) return err;
       if (n[0] === 0) return 'Vazão precisa ser maior que zero.';
       const m3h = (n[0] * 60) / 1000;
-      return `Vazão\n• ${fmt(n[0], 3)} L/min ≈ ${fmt(m3h, 4)} m³/h`;
+      return `m³/h=(L/min)×60/1000\n→ ${fmt(m3h, 4)} m³/h`;
     }
     case 'encher': {
       if (n.length < 2) return needMore(sub, n, 2);
@@ -210,7 +214,7 @@ export function tryResolveFieldCalcMessage(raw) {
       if (e2) return e2;
       if (n[1] === 0) return 'Vazão precisa ser maior que zero.';
       const min = n[0] / n[1];
-      return `Tempo para encher\n• ${fmt(n[0], 1)} L ÷ ${fmt(n[1], 3)} L/min ≈ ${fmt(min, 2)} minutos (${fmt(min / 60, 2)} h)`;
+      return `min=L÷(L/min)\n→ ${fmt(min, 2)} min (${fmt(min / 60, 2)} h)`;
     }
     case 'lotacao': {
       if (n.length < 2) return needMore(sub, n, 2);
@@ -221,28 +225,21 @@ export function tryResolveFieldCalcMessage(raw) {
       if (n[0] <= 0) return 'Indique o número de animais (maior que zero).';
       if (n[1] === 0) return 'Área precisa ser maior que zero.';
       const cabHa = n[0] / n[1];
-      const uaHa = cabHa;
-      return (
-        `Lotação (bem simplificada: 1 bovino adulto ≈ 1 UA)\n` +
-        `• ${fmt(n[0], 0)} cabeças em ${fmt(n[1], 4)} ha\n` +
-        `• ≈ ${fmt(cabHa, 3)} cabeças/ha\n` +
-        `• ≈ ${fmt(uaHa, 3)} UA/ha\n\n` +
-        `UA real varia com peso, categoria e pasto — use só como ordem de grandeza.`
-      );
+      return `cabeças/ha=N÷A (1 bov.≈1 UA)\n→ ${fmt(cabHa, 3)} cab/ha`;
     }
     case 'alq-ha': {
       if (n.length < 1) return needMore(sub, n, 1);
       const err = pos(n[0], 'ha');
       if (err) return err;
       const alq = (n[0] * M2_PER_HA) / ALQ_GEO_M2;
-      return `ha → alq geográfico (${ALQ_GEO_M2} m²/alq)\n• ${fmt(n[0], 6)} ha ≈ ${fmt(alq, 4)} alq`;
+      return `alq=ha×10.000/${ALQ_GEO_M2}\n→ ${fmt(alq, 4)} alq`;
     }
     case 'ha-alq': {
       if (n.length < 1) return needMore(sub, n, 1);
       const err = pos(n[0], 'alqueires');
       if (err) return err;
       const ha = (n[0] * ALQ_GEO_M2) / M2_PER_HA;
-      return `alq geográfico → ha (${ALQ_GEO_M2} m²/alq)\n• ${fmt(n[0], 6)} alq ≈ ${fmt(ha, 6)} ha`;
+      return `ha=alq×${ALQ_GEO_M2}/10.000\n→ ${fmt(ha, 6)} ha`;
     }
     default:
       return (

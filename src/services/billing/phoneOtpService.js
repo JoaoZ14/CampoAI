@@ -3,10 +3,7 @@ import { createSupabaseClient } from '../../models/supabaseClient.js';
 import { normalizeBillingCycle } from '../../config/billing.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { AppError } from '../../utils/errors.js';
-import {
-  sendWhatsAppMessage,
-  sendSmsMessage,
-} from '../whatsappService.js';
+import { sendSmsMessage } from '../whatsappService.js';
 
 const OTP_TTL_MIN = Math.max(1, Number(process.env.OTP_PHONE_TTL_MIN) || 5);
 const TOKEN_TTL_MIN = Math.max(5, Number(process.env.OTP_PHONE_TOKEN_TTL_MIN) || 30);

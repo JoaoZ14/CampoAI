@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#2a382a" />
     <meta
       name="description"
-      content="Planos AG Assist — lavoura e pecuária no WhatsApp. CPF ou CNPJ, confirmação por código e preços claros."
+      content="Planos AG Assist — lavoura e pecuária no WhatsApp. CPF ou CNPJ, confirmação por SMS e preços claros."
     />
     <title>Planos — AG Assist</title>
     <link
@@ -56,7 +56,7 @@
           <strong>10 análises grátis</strong> para você sentir o serviço no bolso antes de pagar
           nada. Ao assinar, <strong>preço e limite de uso</strong> estão no card: nada de letrinha
           miúda nem promessa de “crédito infinito” que some na hora H.
-          <strong>Código no seu número</strong> antes de qualquer cobrança no cartão; na vitrine
+          <strong>Código por SMS no seu celular</strong> antes de qualquer cobrança no cartão; na vitrine
           você já escolhe <strong>Pessoal ou Empresa</strong> (CPF ou CNPJ) — contrato alinhado ao
           jeito que você fatura, sem gambiarra no cadastro.
         </p>
@@ -75,7 +75,7 @@
           <li>
             <strong>Transparência de uso e cobrança</strong>
             <span>Limite gratuito claro; nos planos, faixas de análises definidas. Checkout com OTP
-              no seu número: ninguém assina por engano no teclado.</span>
+              por SMS no seu celular: ninguém assina por engano no teclado.</span>
           </li>
           <li>
             <strong>CPF e CNPJ na mesma página</strong>
@@ -124,10 +124,10 @@
           <button type="button" id="back-to-plans" class="link-back-plans">
             ← Escolher outro plano
           </button>
-          <h2 class="section-heading">Assinar pelo WhatsApp</h2>
+          <h2 class="section-heading">Assinar com segurança</h2>
           <p id="plan-selected-summary" class="plan-picked checkout-summary muted" aria-live="polite"></p>
           <p class="muted flow-intro">
-            Telefone → código no WhatsApp → dados e cartão. Sem etapa extra: o plano você já escolheu nos
+            Celular → código por SMS → dados e cartão. Sem etapa extra: o plano você já escolheu nos
             cards.
           </p>
 
@@ -136,8 +136,8 @@
             <input type="hidden" name="customerType" id="customerType" value="" />
 
             <fieldset data-step="2" hidden>
-              <legend>1) Seu WhatsApp</legend>
-              <label>Telefone (WhatsApp)
+              <legend>1) Seu celular (SMS)</legend>
+              <label>Celular (recebe o código por SMS)
                 <input
                   type="tel"
                   name="phone"
@@ -149,7 +149,7 @@
                   placeholder="(11) 98765-4321"
                 />
               </label>
-              <button type="button" id="send-otp">Enviar código no WhatsApp</button>
+              <button type="button" id="send-otp">Enviar código por SMS</button>
             </fieldset>
 
             <fieldset data-step="3" hidden>
@@ -372,9 +372,8 @@
             (mensal ou anual, conforme você escolheu).
           </p>
           <p id="success-plan-detail" class="success-plan-detail muted" aria-live="polite"></p>
-          <p class="success-whatsapp muted">
-            Enviamos também uma mensagem de boas-vindas neste WhatsApp com o resumo do plano e o status da
-            assinatura.
+          <p class="success-sms muted">
+            Enviamos também um SMS para este número com o resumo do plano e o status da assinatura.
           </p>
           <div class="success-actions">
             <button type="button" id="success-done-btn" class="success-primary-btn">
