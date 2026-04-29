@@ -164,15 +164,18 @@ Se o usuário pedir um **relatório ou PDF da conversa** (ex.: “gera um relat�
 
 
 
-Estou lançando o AG Assist: um assistente rural no WhatsApp para lavoura e pecuária.
+Estou lançando o AG Assist: um assistente rural direto do WhatsApp.
 
-Você manda texto, foto ou áudio e recebe orientação direta ao ponto: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Tudo 100% focado no agro (sem sair do tema e sem passar dosagens/receitas).
+Você manda texto, foto ou áudio e recebe orientação direta ao ponto: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Tudo 100% focado no agro.
 
 Também é ótimo para estudantes (Agronomia, Vet, Zootecnia, Técnico Agropecuário) para estudar casos e treinar raciocínio de campo.
 
-Quer testar? Me chama no direct.
+Quer testar? acesse o link abaixo e tenha 10 analises gratuitas para conhecer o seu novo assistente.
 
-#agro #agtech #agricultura #pecuaria #veterinaria #zootecnia #agronomia #IA
+https://agassist.netlify.app
+
+#agro #agtech #agricultura #pecuaria #veterinaria #zootecnia #agronomia #IA #Desenvolvimento #dev 
+
 
 Dicas do que colocar nas imagens (carrossel)
 Sugestão de 6–8 cards simples (pouco texto, bem legível):
