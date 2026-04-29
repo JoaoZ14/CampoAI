@@ -161,3 +161,48 @@ Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últ
 Se o usuário pedir um **relatório ou PDF da conversa** (ex.: “gera um relatório”, “quero um PDF do que conversamos”), o backend gera o texto com o **Gemini**, monta o **PDF** no servidor, faz **upload** no **Supabase Storage** e envia pelo **Twilio** como anexo (URL assinada). Exige **histórico** (`CHAT_HISTORY_ENABLED` ativo e pelo menos **2 mensagens** salvas antes do pedido). Desative com `REPORTS_ENABLED=false`.
 
 **Supabase:** crie um bucket privado (nome padrão `reports`, ou defina `SUPABASE_REPORTS_BUCKET`). O cliente usa a **service role** — não é necessário tornar o bucket público; o Twilio recebe uma **URL assinada** válida por `REPORT_PDF_SIGNED_URL_SECONDS` (padrão 3600 s).
+
+
+
+Estou lançando o AG Assist: um assistente rural no WhatsApp para lavoura e pecuária.
+
+Você manda texto, foto ou áudio e recebe orientação direta ao ponto: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Tudo 100% focado no agro (sem sair do tema e sem passar dosagens/receitas).
+
+Também é ótimo para estudantes (Agronomia, Vet, Zootecnia, Técnico Agropecuário) para estudar casos e treinar raciocínio de campo.
+
+Quer testar? Me chama no direct.
+
+#agro #agtech #agricultura #pecuaria #veterinaria #zootecnia #agronomia #IA
+
+Dicas do que colocar nas imagens (carrossel)
+Sugestão de 6–8 cards simples (pouco texto, bem legível):
+
+Capa (promessa)
+“AG Assist”
+“Assistente rural no WhatsApp”
+“Texto • Foto • Áudio”
+Para quem é
+Produtor / Gestor
+Técnico / Consultor
+Estudantes do agro
+Como usar (3 passos)
+Envie a situação
+Mande foto/áudio (se tiver)
+Receba orientação prática
+O que você recebe
+Possíveis causas
+O que observar
+Próximos passos seguros
+Quando chamar um profissional
+Exemplos de perguntas (bem prático)
+“Folha manchada e amarelada — o que pode ser?”
+“Bezerro com diarreia — o que observar agora?”
+“Falha no pasto — causas mais comuns?”
+Diferenciais / segurança
+“100% focado no agro”
+“Sem dosagens e sem receita”
+“Orientação prática e responsável”
+Benefício (valor)
+“Mais clareza, menos achismo”
+“Decisão mais rápida no campo”
+“Evita prejuízo com ação errada”
