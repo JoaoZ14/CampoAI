@@ -14,12 +14,25 @@ function ollamaModel() {
 
 function ollamaTimeoutMs() {
   const n = Number(process.env.OLLAMA_TIMEOUT_MS);
-  return Number.isFinite(n) && n > 0 ? n : 120_000;
+  return Number.isFinite(n) && n > 0 ? n : 180_000;
 }
 
-function maxOutputTokens(fieldCalcMode) {
-  const maxOut = Math.min(8192, Math.max(512, Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 4096));
-  return fieldCalcMode ? Math.min(384, maxOut) : maxOut;
+function ollamaMaxPredict(fieldCalcMode) {
+  if (fieldCalcMode) {
+    const n = Number(process.env.OLLAMA_MAX_PREDICT_CALC);
+    return Number.isFinite(n) && n > 0 ? Math.min(512, n) : 384;
+  }
+  const env = Number(process.env.OLLAMA_MAX_PREDICT);
+  if (Number.isFinite(env) && env > 0) return Math.min(4096, env);
+  return 1024;
+}
+
+function trimHistoryForOllama(history) {
+  const env = Number(process.env.OLLAMA_HISTORY_MAX_MESSAGES);
+  const limit = Number.isFinite(env) && env >= 0 ? Math.min(80, env) : 12;
+  if (limit === 0 || !history?.length) return [];
+  if (history.length <= limit) return history;
+  return history.slice(-limit);
 }
 
 /**
@@ -29,8 +42,9 @@ function maxOutputTokens(fieldCalcMode) {
 function buildOllamaMessages(history, userText, fieldCalcMode) {
   /** @type {{ role: string, content: string }[]} */
   const messages = [{ role: 'system', content: buildSystemInstruction(fieldCalcMode) }];
+  const trimmed = trimHistoryForOllama(history);
 
-  for (const h of history) {
+  for (const h of trimmed) {
     if (!h?.text?.trim()) continue;
     messages.push({
       role: h.role === 'assistant' ? 'assistant' : 'user',
@@ -48,6 +62,7 @@ function isRetryableOllamaError(message) {
     m.includes('econnrefused') ||
     m.includes('fetch failed') ||
     m.includes('timeout') ||
+    m.includes('abort') ||
     m.includes('503') ||
     m.includes('502') ||
     m.includes('429') ||
@@ -67,12 +82,23 @@ export async function generateWithOllama({ text, history = [], fieldCalcMode = f
 
   const url = `${ollamaBaseUrl()}/api/chat`;
   const model = ollamaModel();
+  const trimmedHistory = trimHistoryForOllama(history);
   const messages = buildOllamaMessages(history, userText, fieldCalcMode);
   const temperature = fieldCalcMode ? 0.12 : 0.35;
-  const numPredict = maxOutputTokens(fieldCalcMode);
+  const numPredict = ollamaMaxPredict(fieldCalcMode);
   const maxAttempts = Math.min(3, Math.max(1, Number(process.env.OLLAMA_RETRY_ATTEMPTS) || 2));
+  const started = Date.now();
 
-  console.log('[Ollama] modelo:', model, '| histórico:', history.length, '| calc:', fieldCalcMode);
+  console.log(
+    '[Ollama] modelo:',
+    model,
+    '| histórico:',
+    `${trimmedHistory.length}/${history.length}`,
+    '| max_predict:',
+    numPredict,
+    '| calc:',
+    fieldCalcMode
+  );
 
   let lastMsg = '';
 
@@ -112,6 +138,7 @@ export async function generateWithOllama({ text, history = [], fieldCalcMode = f
         throw new Error('Resposta vazia do Ollama.');
       }
 
+      console.log('[Ollama] ok em', `${((Date.now() - started) / 1000).toFixed(1)}s`, '| chars:', reply.length);
       return reply;
     } catch (err) {
       lastMsg = err instanceof Error ? err.message : String(err);

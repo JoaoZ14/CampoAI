@@ -25,6 +25,7 @@ import { buildConversationReportPdf } from './reportPdfService.js';
 import { uploadReportPdfAndGetSignedUrl } from './reportStorageService.js';
 import { FREE_USAGE_LIMIT } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
+import { isSimpleGreeting, MSG_SIMPLE_GREETING } from '../utils/greeting.js';
 
 const MSG_WELCOME_CORE =
   `Você tem ${FREE_USAGE_LIMIT} análises grátis para testar — sem pagar nada na entrada.\n\n` +
@@ -431,6 +432,21 @@ export async function processIncomingMessage({
 
   const planInquiryText =
     type.hasText && message != null ? String(message).trim() : '';
+
+  if (
+    planInquiryText &&
+    !type.hasImage &&
+    !type.hasAudio &&
+    isSimpleGreeting(planInquiryText)
+  ) {
+    await sendWhatsAppMessage(phone, MSG_SIMPLE_GREETING);
+    return {
+      step: 'greeting',
+      userId: user.id,
+      usageCount: user.usageCount,
+    };
+  }
+
   if (
     planInquiryText &&
     !type.hasImage &&
