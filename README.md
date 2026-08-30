@@ -15,7 +15,13 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
 
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e **`SUPABASE_ANON_KEY`** (Settings → API no Supabase; a **service role** só no servidor; a **anon** é pública e usada pelo login do painel `/admin`).
    - **`ADMIN_EMAILS`** — lista de e-mails (separados por vírgula) que podem acessar o painel; devem ser os mesmos cadastrados no **Supabase Auth**.
-   - `GEMINI_API_KEY` (crie em [AI Studio](https://aistudio.google.com/apikey)).
+   - `GEMINI_API_KEY` (crie em [AI Studio](https://aistudio.google.com/apikey)) — **obrigatória para foto, áudio e relatórios PDF**.
+   - **LLM híbrido (opcional):** texto via **Ollama/Qwen** na VPS; foto e áudio continuam no **Gemini**:
+     - `LLM_TEXT_PROVIDER=ollama`
+     - `OLLAMA_BASE_URL=http://127.0.0.1:11434`
+     - `OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M`
+     - `OLLAMA_FALLBACK_GEMINI=true` (se Ollama cair, texto vai pro Gemini)
+     - Instalação na VPS: `bash deploy/install-ollama-rocky.sh`
    - Opcional: `GEMINI_MODEL` — o padrão no código é `gemini-2.5-flash` (o `gemini-2.0-flash` deixou de estar disponível para contas novas na API). Para usar **Gemini 3 Flash**, defina o ID que aparecer na [documentação](https://ai.google.dev/gemini-api/docs/models/gemini) ou no AI Studio (ex.: `gemini-3-flash-preview` enquanto preview).
    - Opcional: **`PAYWALL_URL`** — link (https) incluído na mensagem quando o usuário gratuito **atinge o limite** de análises (ex.: página de planos ou checkout).
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex.: `whatsapp:+14155238886` no sandbox).
