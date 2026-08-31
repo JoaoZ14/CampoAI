@@ -10,6 +10,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import customerPortalRoutes from './routes/customerPortalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { getPublicPlanCatalogPayload } from './services/planCatalogService.js';
+import { getLandingNewsPayload } from './services/landingNewsService.js';
 import { openapiSpec } from './swagger/openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,19 @@ export function createApp() {
   app.get('/api/plans', async (_req, res, next) => {
     try {
       res.json(await getPublicPlanCatalogPayload());
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  /**
+   * Notícias do agro (público) — cache em `news_articles` (Supabase);
+   * atualiza via GNews se o TTL estiver vencido (padrão 24h).
+   */
+  app.get('/api/noticias', async (_req, res, next) => {
+    try {
+      res.set('Cache-Control', 'public, max-age=300');
+      res.json(await getLandingNewsPayload());
     } catch (e) {
       next(e);
     }

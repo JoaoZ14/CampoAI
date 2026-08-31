@@ -27,7 +27,7 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (ex.: `whatsapp:+14155238886` no sandbox).
    - O catálogo de planos (landing e `GET /api/plans`) fica na tabela **`plan_catalog`** no Postgres (Supabase), não no `.env`. Rode `supabase/migration_003_plan_catalog.sql` se ainda não estiver no seu banco; edite pelo painel `/admin` (seção Planos) ou pelo SQL Editor.
 
-2. **Crie as tabelas** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase (inclui `users`, `chat_messages`, organizações, assentos e `plan_catalog`). Se o projeto **já existia** antes dessa versão, rode também `supabase/migration_002_organizations.sql` e `supabase/migration_003_plan_catalog.sql` conforme o que ainda não tiver aplicado.
+2. **Crie as tabelas** executando o SQL em `supabase/schema.sql` no **SQL Editor** do Supabase (inclui `users`, `chat_messages`, organizações, assentos e `plan_catalog`). Se o projeto **já existia** antes dessa versão, rode também `supabase/migration_002_organizations.sql` e `supabase/migration_003_plan_catalog.sql` conforme o que ainda não tiver aplicado. Para notícias do landing (`GET /api/noticias`), rode `supabase/migration_016_news_articles.sql` e defina `GNEWS_API_KEY` no servidor.
 
 3. **Instale dependências** na pasta do projeto:
 

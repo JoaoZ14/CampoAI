@@ -18,8 +18,9 @@ const GNEWS_SEARCH = 'https://gnews.io/api/v4/search';
  *   max?: number,
  *   fromIso?: string,
  *   inFields?: string,
+ *   includeExtras?: boolean,
  * }} [opts]
- * @returns {Promise<{ title: string, url: string, sourceName?: string }[]>}
+ * @returns {Promise<{ title: string, url: string, sourceName?: string, publishedAt?: string, image?: string }[]>}
  */
 export async function fetchGNewsArticles(apiKey, opts = {}) {
   const key = typeof apiKey === 'string' ? apiKey.trim() : '';
@@ -27,6 +28,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
     throw new AppError('GNews: apiKey vazio.', 500);
   }
 
+  const includeExtras = opts.includeExtras === true;
   const q = (opts.q ?? resolveGNewsQuery()).trim();
   const lang = (opts.lang ?? process.env.WEEKLY_NEWS_GNEWS_LANG?.trim()) || 'pt';
   const country = (opts.country ?? process.env.WEEKLY_NEWS_GNEWS_COUNTRY?.trim()) || 'br';
@@ -56,10 +58,13 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
     from: fromIso,
     in: inFields,
   });
+  if (includeExtras) {
+    params.set('nullable', 'image');
+  }
 
   const url = `${GNEWS_SEARCH}?${params.toString()}`;
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'AG-Assist/1.0 (CampoAI weekly-news)' },
+    headers: { 'User-Agent': 'AG-Assist/1.0 (CampoAI news)' },
   });
 
   let data = {};
@@ -82,7 +87,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
   }
 
   const articles = Array.isArray(data.articles) ? data.articles : [];
-  /** @type {Map<string, { title: string, url: string, sourceName?: string, publishedAt?: string }>} */
+  /** @type {Map<string, { title: string, url: string, sourceName?: string, publishedAt?: string, image?: string }>} */
   const byUrl = new Map();
 
   for (const a of articles) {
@@ -95,6 +100,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
       .replace(/\s+/g, ' ')
       .slice(0, 40);
     const publishedAt = String(a.publishedAt ?? '').trim();
+    const image = String(a.image ?? '').trim();
     if (!title || !urlOne) continue;
     if (!byUrl.has(urlOne)) {
       byUrl.set(urlOne, {
@@ -102,6 +108,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
         url: urlOne,
         ...(sourceName ? { sourceName } : {}),
         ...(publishedAt ? { publishedAt } : {}),
+        ...(includeExtras && image ? { image } : {}),
       });
     }
   }
@@ -115,9 +122,11 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
     }
   }
 
-  return result.map(({ title, url, sourceName }) => ({
+  return result.map(({ title, url, sourceName, publishedAt, image }) => ({
     title,
     url,
     ...(sourceName ? { sourceName } : {}),
+    ...(includeExtras && publishedAt ? { publishedAt } : {}),
+    ...(includeExtras && image ? { image } : {}),
   }));
 }

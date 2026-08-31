@@ -18,9 +18,48 @@ export const openapiSpec = {
   ],
   tags: [
     { name: 'Health', description: 'Verificação do serviço' },
+    { name: 'Landing', description: 'Endpoints públicos do site (notícias, planos)' },
     { name: 'Webhook', description: 'Simulação do webhook WhatsApp (Postman-style)' },
   ],
   paths: {
+    '/api/noticias': {
+      get: {
+        tags: ['Landing'],
+        summary: 'Lista de notícias do agro (cache Supabase + GNews)',
+        description:
+          'Retorna itens cacheados em `news_articles`. Se a última sync for mais antiga que o TTL (LANDING_NEWS_TTL_HOURS, padrão 24), atualiza via GNews antes de responder.',
+        operationId: 'getNoticias',
+        responses: {
+          '200': {
+            description: 'Lista de notícias',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    fetchedAt: { type: 'string', format: 'date-time' },
+                    source: { type: 'string', example: 'gnews' },
+                    items: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          title: { type: 'string' },
+                          url: { type: 'string', format: 'uri' },
+                          source: { type: 'string' },
+                          publishedAt: { type: 'string' },
+                          image: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     '/health': {
       get: {
         tags: ['Health'],
