@@ -336,6 +336,7 @@ export async function generateAgriculturalReply(input) {
       if (!canFallback) throw err;
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('[LLM] Ollama falhou; fallback Gemini (texto):', msg.slice(0, 200));
+      console.log('[LLM] rota: Gemini (texto — fallback Ollama)');
       return generateWithGemini(input);
     }
   }

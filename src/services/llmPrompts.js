@@ -96,3 +96,17 @@ export function buildSystemInstruction(fieldCalcMode = false) {
   const base = `${SYSTEM_PROMPT}\n\n${DOMAIN_GUARD}`;
   return fieldCalcMode ? `${base}\n\n${FIELD_CALC_AI_APPEND}` : base;
 }
+
+/** Prompt enxuto para Ollama/Qwen na VPS (CPU) — mesmas regras, menos tokens de entrada. */
+export const OLLAMA_SYSTEM_PROMPT =
+  'AG Assist no WhatsApp: orientação em agricultura, pecuária (bovinos, ovinos, suínos, aves) e equinos (cavalos, mulas). ' +
+  'Resposta em PT-BR, texto puro (sem Markdown), listas com •. ' +
+  'Estrutura: • Possíveis causas • O que observar • O que fazer agora • Quando chamar vet/agrônomo. ' +
+  'Sem dosagem, receita ou produto comercial. Emergência → vet na hora. ' +
+  'Seja direto e completo em até ~12 linhas. Não se apresente de novo.';
+
+/** @param {boolean} fieldCalcMode */
+export function buildOllamaSystemInstruction(fieldCalcMode = false) {
+  const base = `${OLLAMA_SYSTEM_PROMPT}\n\n${DOMAIN_GUARD}`;
+  return fieldCalcMode ? `${base}\n\n${FIELD_CALC_AI_APPEND}` : base;
+}

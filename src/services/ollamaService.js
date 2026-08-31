@@ -1,8 +1,11 @@
 import { AppError } from '../utils/errors.js';
-import { buildSystemInstruction } from './llmPrompts.js';
+import { buildOllamaSystemInstruction } from './llmPrompts.js';
 
 const DEFAULT_OLLAMA_BASE = 'http://127.0.0.1:11434';
 const DEFAULT_OLLAMA_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
+
+/** Evita duas inferências simultâneas (WhatsApp em sequência rápida). */
+let ollamaChain = Promise.resolve();
 
 function ollamaBaseUrl() {
   return (process.env.OLLAMA_BASE_URL?.trim() || DEFAULT_OLLAMA_BASE).replace(/\/$/, '');
@@ -14,7 +17,12 @@ function ollamaModel() {
 
 function ollamaTimeoutMs() {
   const n = Number(process.env.OLLAMA_TIMEOUT_MS);
-  return Number.isFinite(n) && n > 0 ? n : 180_000;
+  return Number.isFinite(n) && n > 0 ? n : 90_000;
+}
+
+function ollamaContextWindow() {
+  const n = Number(process.env.OLLAMA_NUM_CTX);
+  return Number.isFinite(n) && n >= 1024 ? Math.min(8192, n) : 2048;
 }
 
 function ollamaMaxPredict(fieldCalcMode) {
@@ -23,16 +31,22 @@ function ollamaMaxPredict(fieldCalcMode) {
     return Number.isFinite(n) && n > 0 ? Math.min(512, n) : 384;
   }
   const env = Number(process.env.OLLAMA_MAX_PREDICT);
-  if (Number.isFinite(env) && env > 0) return Math.min(4096, env);
-  return 1024;
+  if (Number.isFinite(env) && env > 0) return Math.min(2048, env);
+  return 512;
 }
 
 function trimHistoryForOllama(history) {
   const env = Number(process.env.OLLAMA_HISTORY_MAX_MESSAGES);
-  const limit = Number.isFinite(env) && env >= 0 ? Math.min(80, env) : 12;
+  const limit = Number.isFinite(env) && env >= 0 ? Math.min(80, env) : 6;
   if (limit === 0 || !history?.length) return [];
   if (history.length <= limit) return history;
   return history.slice(-limit);
+}
+
+function trimMessageContent(text, maxChars = 500) {
+  const s = String(text ?? '').trim();
+  if (s.length <= maxChars) return s;
+  return `${s.slice(0, maxChars)}…`;
 }
 
 /**
@@ -41,14 +55,14 @@ function trimHistoryForOllama(history) {
  */
 function buildOllamaMessages(history, userText, fieldCalcMode) {
   /** @type {{ role: string, content: string }[]} */
-  const messages = [{ role: 'system', content: buildSystemInstruction(fieldCalcMode) }];
+  const messages = [{ role: 'system', content: buildOllamaSystemInstruction(fieldCalcMode) }];
   const trimmed = trimHistoryForOllama(history);
 
   for (const h of trimmed) {
     if (!h?.text?.trim()) continue;
     messages.push({
       role: h.role === 'assistant' ? 'assistant' : 'user',
-      content: h.text.trim(),
+      content: trimMessageContent(h.text),
     });
   }
 
@@ -70,11 +84,7 @@ function isRetryableOllamaError(message) {
   );
 }
 
-/**
- * Gera resposta de texto via Ollama (Qwen local).
- * @param {{ text: string, history?: { role: 'user' | 'assistant', text: string }[], fieldCalcMode?: boolean }} input
- */
-export async function generateWithOllama({ text, history = [], fieldCalcMode = false }) {
+async function generateWithOllamaOnce({ text, history = [], fieldCalcMode = false }) {
   const userText = text?.trim();
   if (!userText) {
     throw new AppError('Nenhum texto para enviar ao Ollama.', 400);
@@ -86,7 +96,8 @@ export async function generateWithOllama({ text, history = [], fieldCalcMode = f
   const messages = buildOllamaMessages(history, userText, fieldCalcMode);
   const temperature = fieldCalcMode ? 0.12 : 0.35;
   const numPredict = ollamaMaxPredict(fieldCalcMode);
-  const maxAttempts = Math.min(3, Math.max(1, Number(process.env.OLLAMA_RETRY_ATTEMPTS) || 2));
+  const numCtx = ollamaContextWindow();
+  const maxAttempts = Math.min(3, Math.max(1, Number(process.env.OLLAMA_RETRY_ATTEMPTS) || 1));
   const started = Date.now();
 
   console.log(
@@ -94,8 +105,12 @@ export async function generateWithOllama({ text, history = [], fieldCalcMode = f
     model,
     '| histórico:',
     `${trimmedHistory.length}/${history.length}`,
+    '| ctx:',
+    numCtx,
     '| max_predict:',
     numPredict,
+    '| timeout_ms:',
+    ollamaTimeoutMs(),
     '| calc:',
     fieldCalcMode
   );
@@ -119,6 +134,7 @@ export async function generateWithOllama({ text, history = [], fieldCalcMode = f
             temperature,
             top_p: fieldCalcMode ? 0.85 : 0.9,
             num_predict: numPredict,
+            num_ctx: numCtx,
           },
         }),
       });
@@ -143,11 +159,11 @@ export async function generateWithOllama({ text, history = [], fieldCalcMode = f
     } catch (err) {
       lastMsg = err instanceof Error ? err.message : String(err);
       const retryable = isRetryableOllamaError(lastMsg);
-      console.warn(`[Ollama] tentativa ${attempt + 1}/${maxAttempts} — ${lastMsg.slice(0, 160)}`);
+      console.warn(`[Ollama] tentativa ${attempt + 1}/${maxAttempts} — ${lastMsg.slice(0, 200)}`);
 
       if (!retryable || attempt === maxAttempts - 1) {
         throw new AppError(
-          `Falha na API Ollama (${model}): ${lastMsg}. Confira se o serviço está rodando (ollama serve) e se o modelo foi baixado (ollama pull ${model}).`,
+          `Falha na API Ollama (${model}): ${lastMsg}. Confira se o serviço está rodando (systemctl status ollama).`,
           502
         );
       }
@@ -159,6 +175,17 @@ export async function generateWithOllama({ text, history = [], fieldCalcMode = f
   }
 
   throw new AppError(`Falha na API Ollama: ${lastMsg}`, 502);
+}
+
+/**
+ * Gera resposta de texto via Ollama (Qwen local), uma requisição por vez.
+ * @param {{ text: string, history?: { role: 'user' | 'assistant', text: string }[], fieldCalcMode?: boolean }} input
+ */
+export async function generateWithOllama(input) {
+  const run = () => generateWithOllamaOnce(input);
+  const job = ollamaChain.then(run, run);
+  ollamaChain = job.catch(() => {});
+  return job;
 }
 
 /** @returns {boolean} */
