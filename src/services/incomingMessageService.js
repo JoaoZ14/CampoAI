@@ -574,7 +574,7 @@ export async function processIncomingMessage({
   }
 
   const ack = process.env.WHATSAPP_IA_ACK_TEXT?.trim();
-  if (ack) {
+  if (ack && type.hasImage) {
     try {
       await sendWhatsAppMessage(phone, ack);
     } catch (err) {
