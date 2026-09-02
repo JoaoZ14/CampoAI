@@ -14,6 +14,7 @@ import {
 } from './userService.js';
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { AppError } from '../utils/errors.js';
+import { markSignupCompletedForPaidUser } from './signup/signupService.js';
 import { addSeatToOrganization, createOrganization } from './organizationService.js';
 
 const ALLOWED_PLANS = new Set(['lite', 'basic', 'pro', 'premium']);
@@ -226,6 +227,8 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       await addSeatToOrganization(organizationId, phone);
     }
 
+    await markSignupCompletedForPaidUser(phone, cust.name.trim());
+
     return {
       subscriptionId: subId,
       customerId,
@@ -273,6 +276,7 @@ export async function activateUserByAsaasSubscriptionId(subscriptionId) {
   await updateUserById(row.id, {
     isPaid: true,
     billingKind: 'personal',
+    signupCompletedAt: new Date().toISOString(),
   });
   return { ok: true, userId: row.id };
 }

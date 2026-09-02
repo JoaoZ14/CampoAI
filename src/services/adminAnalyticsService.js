@@ -70,9 +70,9 @@ export async function getAdminAnalytics() {
       else if (bk === 'free') usersByBilling.free += 1;
       else usersByBilling.unknown += 1;
 
-      const created = row.created_at;
-      if (created) {
-        const key = dayKeyUtc(created);
+      const signupAt = row.signup_completed_at ?? row.created_at;
+      if (signupAt) {
+        const key = dayKeyUtc(signupAt);
         if (dayBuckets.has(key)) {
           dayBuckets.set(key, (dayBuckets.get(key) ?? 0) + 1);
         }
@@ -117,13 +117,35 @@ export async function getAdminAnalytics() {
 
 /**
  * Histórico recente de mensagens (memória Gemini) com telefone do usuário.
- * @param {{ limit: number, offset: number }} opts
+ * @param {{ limit: number, offset: number, phone?: string }} opts
  */
-export async function listAdminChatMessages({ limit, offset }) {
+export async function listAdminChatMessages({ limit, offset, phone }) {
   const supabase = getClient();
-  const { data, error, count } = await supabase
+
+  let userIdFilter = null;
+  const phoneTerm = typeof phone === 'string' ? phone.replace(/\D/g, '') : '';
+  if (phoneTerm.length >= 4) {
+    const { data: userRows } = await supabase
+      .from('users')
+      .select('id')
+      .ilike('phone', `%${phoneTerm}%`)
+      .limit(20);
+    const ids = (userRows ?? []).map((u) => u.id);
+    if (!ids.length) {
+      return { rows: [], total: 0 };
+    }
+    userIdFilter = ids;
+  }
+
+  let query = supabase
     .from('chat_messages')
-    .select('id, role, content, created_at, user_id', { count: 'exact' })
+    .select('id, role, content, created_at, user_id', { count: 'exact' });
+
+  if (userIdFilter) {
+    query = query.in('user_id', userIdFilter);
+  }
+
+  const { data, error, count } = await query
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

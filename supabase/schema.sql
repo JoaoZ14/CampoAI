@@ -39,6 +39,14 @@ create table if not exists public.users (
   is_paid boolean not null default false,
   organization_id uuid references public.organizations (id) on delete set null,
   billing_kind text not null default 'free',
+  name text,
+  email text,
+  signup_completed_at timestamptz,
+  trial_started_at timestamptz,
+  trial_ends_at timestamptz,
+  welcome_sent_at timestamptz,
+  trial_expired_notified_at timestamptz,
+  signup_source text,
   created_at timestamptz not null default now(),
   constraint users_billing_kind_check check (billing_kind in ('free', 'personal', 'team'))
 );
@@ -94,13 +102,13 @@ comment on table public.plan_catalog is 'Catálogo de planos (uma linha id=defau
 
 alter table public.plan_catalog enable row level security;
 
--- Dados iniciais (mesmo conteúdo que migration_003_plan_catalog.sql).
+-- Dados iniciais (alinhado a migration_017_sync_plan_catalog.sql e product_plans).
 insert into public.plan_catalog (id, version, plans, notes)
 values (
   'default',
   '2026-04',
-  $plan$[{"code":"basic","name":"Básico","priceBrl":29,"period":"mês","summary":"Orientação no dia a dia da roça: menos pesquisa solta, mais clareza para decidir sem enrolação.","bullets":["Um número de WhatsApp com análises ilimitadas (uso razoável no campo)","Lavoura, pecuária e sanidade em linguagem simples; calculadora integrada (calc ajuda)","Memória da conversa conforme a configuração do servidor"]},{"code":"pro","name":"PRO — melhor custo-benefício","priceBrl":59,"period":"mês","summary":"O plano que a gente quer que a maioria escolha: menos risco de erro, decisão melhor e tempo sobrando.","bullets":["Tudo do Básico + foco em resposta boa quando você mais precisa","Você não compra \"IA\": compra tranquilidade para não errar na hora H","Relatório em PDF da conversa quando estiver ativo no servidor"]},{"code":"premium","name":"Premium","priceBrl":119,"period":"mês","seats":3,"summary":"Para fazenda, família ou time: mais de um celular no mesmo plano, com o mesmo padrão de resposta.","bullets":["Tudo do PRO para até 3 números de WhatsApp no mesmo plano","Um responsável contrata; você define quem usa (painel administrativo)","Ideal quando várias pessoas mandam foto e áudio do mesmo talhão ou rebanho"]}]$plan$::jsonb,
-  $notes$["Posicionamento: o produtor compra menos prejuízo por decisão mal informada e menos tempo perdido pesquisando — não compra \"tecnologia por tecnologia\".","Na página de planos, destaque visual no PRO (R$59): é o melhor custo-benefício para a maior parte dos produtores."]$notes$::jsonb
+  $plan$[{"code":"lite","name":"Essencial","priceBrl":29,"period":"mês","summary":"Até 35 análises por mês com política de uso justo; um número de WhatsApp. Entrada com custo menor antes de subir para o Starter.","bullets":["Até 35 análises com IA por mês (renova todo mês em horário de Brasília)","Um número de WhatsApp","Conteúdo técnico em linguagem clara; calc ajuda integrada"]},{"code":"basic","name":"Starter","priceBrl":49,"period":"mês","summary":"Entrada no produto: um número, previsibilidade de custo e análises ilimitadas com política de uso justo.","bullets":["Um número de WhatsApp com análises ilimitadas (uso justo)","Conteúdo técnico em linguagem clara; calculadora integrada (calc ajuda)","Memória da conversa conforme a configuração do servidor"],"highlight":true},{"code":"premium","name":"Team","priceBrl":119,"period":"mês","seats":3,"summary":"Até três números numa única assinatura: mesmo nível de serviço para quem divide o uso com equipe ou família.","bullets":["Até 3 números de WhatsApp no mesmo plano","Um responsável contrata; você define quem usa (painel administrativo)","Indicado quando várias pessoas enviam mídia e perguntas no mesmo fluxo"]},{"code":"pro","name":"Pro","priceBrl":59,"period":"mês","summary":"Plano intermediário (legado): respostas mais completas e relatório em PDF quando o servidor oferecer.","bullets":["Um número de WhatsApp","Respostas mais detalhadas quando necessário","Relatório em PDF da conversa quando estiver ativo no servidor"]}]$plan$::jsonb,
+  $notes$["Posicionamento: o cliente compra clareza e tempo — menos erro operacional e menos ida e volta na busca por informação.","Na vitrine, o Essencial (R$29) é a porta de entrada com teto mensal de análises; o Starter (R$49) é ilimitado no mesmo espírito de uso justo.","Bullets de assentos são ajustados pelo backend conforme product_plans (Team 3, Business 5)."]$notes$::jsonb
 )
 on conflict (id) do nothing;
 
@@ -307,3 +315,24 @@ create unique index if not exists billing_phone_otp_token_uidx
   where verification_token is not null;
 
 alter table public.billing_phone_otp enable row level security;
+
+create table if not exists public.signup_phone_otp (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null,
+  code_hash text not null,
+  attempt_count integer not null default 0 check (attempt_count >= 0),
+  expires_at timestamptz not null,
+  verified_at timestamptz,
+  verification_token text,
+  token_expires_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists signup_phone_otp_phone_idx
+  on public.signup_phone_otp (phone, created_at desc);
+
+create unique index if not exists signup_phone_otp_token_uidx
+  on public.signup_phone_otp (verification_token)
+  where verification_token is not null;
+
+alter table public.signup_phone_otp enable row level security;

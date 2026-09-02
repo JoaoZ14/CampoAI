@@ -2,19 +2,23 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import webhookRoutes from './routes/whatsappRoutes.js';
 import asaasWebhookRoutes from './routes/asaasWebhookRoutes.js';
 import billingRoutes from './routes/billingRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import signupRoutes from './routes/signupRoutes.js';
 import customerPortalRoutes from './routes/customerPortalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { getPublicPlanCatalogPayload } from './services/planCatalogService.js';
+import { getLandingNewsPayload } from './services/landingNewsService.js';
 import { openapiSpec } from './swagger/openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const adminDir = path.join(__dirname, '../public/admin');
 const plansDir = path.join(__dirname, '../public/planos');
+const signupDir = path.join(__dirname, '../public/cadastro');
 const legalDir = path.join(__dirname, '../public/legal');
 const customerDir = path.join(__dirname, '../public/area-do-cliente');
 
@@ -22,6 +26,12 @@ export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    })
+  );
   app.use(cors());
   // urlencoded antes de json — Twilio WhatsApp manda application/x-www-form-urlencoded
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
@@ -53,7 +63,21 @@ export function createApp() {
     }
   });
 
+  /**
+   * Notícias do agro (público) — cache em `news_articles` (Supabase);
+   * atualiza via GNews se o TTL estiver vencido (padrão 24h).
+   */
+  app.get('/api/noticias', async (_req, res, next) => {
+    try {
+      res.set('Cache-Control', 'public, max-age=300');
+      res.json(await getLandingNewsPayload());
+    } catch (e) {
+      next(e);
+    }
+  });
+
   app.use('/api/billing', billingRoutes);
+  app.use('/api/signup', signupRoutes);
   app.use('/api/customer', customerPortalRoutes);
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
@@ -64,6 +88,17 @@ export function createApp() {
   app.use(
     '/planos',
     express.static(plansDir, {
+      index: false,
+      redirect: false,
+    })
+  );
+
+  app.get(['/cadastro', '/cadastro/'], (_req, res) => {
+    res.sendFile(path.join(signupDir, 'index.html'));
+  });
+  app.use(
+    '/cadastro',
+    express.static(signupDir, {
       index: false,
       redirect: false,
     })
@@ -98,6 +133,9 @@ export function createApp() {
   );
 
   app.use('/admin', adminRoutes);
+  app.get(['/admin/login', '/admin/login/'], (_req, res) => {
+    res.sendFile(path.join(adminDir, 'login.html'));
+  });
   app.get(['/admin', '/admin/'], (_req, res) => {
     res.sendFile(path.join(adminDir, 'index.html'));
   });

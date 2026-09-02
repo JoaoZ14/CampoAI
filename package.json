@@ -8,7 +8,13 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "weekly-news": "node scripts/sendWeeklyNewsOnce.mjs",
-    "weekly-news:send": "node scripts/sendWeeklyNewsOnce.mjs"
+    "weekly-news:send": "node scripts/sendWeeklyNewsOnce.mjs",
+    "test:signup-flow": "node scripts/test-signup-flow.mjs",
+    "test:signup-email": "node scripts/sendSignupWelcomeEmailOnce.mjs",
+    "smoke:deploy": "node scripts/smoke-deploy.mjs",
+    "validate:funnel": "node scripts/validate-prod-funnel.mjs",
+    "confirm:migrations": "node scripts/confirm-migrations.mjs",
+    "verify:integrations": "node scripts/verify-integrations.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -23,10 +29,13 @@
   "license": "MIT",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@sentry/node": "^10.73.0",
     "@supabase/supabase-js": "^2.49.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "node-cron": "^3.0.3",
     "pdfkit": "^0.18.0",
     "swagger-ui-express": "^5.0.1",

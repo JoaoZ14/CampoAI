@@ -1,6 +1,6 @@
 import { brazilMonthYm } from '../config/billing.js';
 import { createSupabaseClient } from '../models/supabaseClient.js';
-import { mapUserRow, FREE_USAGE_LIMIT } from '../models/userModel.js';
+import { mapUserRow, FREE_USAGE_LIMIT, FREE_TRIAL_DAYS } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
 import { normalizePhone } from '../utils/phone.js';
 import { getProductPlanAnalysisCap } from './productPlanRepository.js';
@@ -51,7 +51,65 @@ export async function listDistinctUserPhones() {
 }
 
 /**
+ * Busca usuário pelo telefone (sem criar).
+ * @param {string} phone
+ */
+export async function findUserByPhone(phone) {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('phone', phone)
+    .maybeSingle();
+
+  if (error) {
+    throw new AppError(`Erro ao buscar usuário: ${error.message}`, 500);
+  }
+  return data ? mapUserRow(data) : null;
+}
+
+/**
+ * @param {ReturnType<typeof mapUserRow>} user
+ */
+export function hasCompletedSignup(user) {
+  return Boolean(user?.signupCompletedAt);
+}
+
+/**
+ * Motivo de expiração do trial gratuito.
+ * @param {ReturnType<typeof mapUserRow>} user
+ * @returns {'usage'|'time'|null}
+ */
+export function getTrialExpiryReason(user) {
+  if (!user || user.isPaid) return null;
+  const byUsage = (user.usageCount ?? 0) >= FREE_USAGE_LIMIT;
+  const byTime =
+    user.trialEndsAt != null && Date.now() > new Date(user.trialEndsAt).getTime();
+  if (byUsage && byTime) return 'usage';
+  if (byUsage) return 'usage';
+  if (byTime) return 'time';
+  return null;
+}
+
+/**
+ * @param {ReturnType<typeof mapUserRow>} user
+ */
+export function isTrialExpired(user) {
+  return getTrialExpiryReason(user) != null;
+}
+
+/**
+ * Calcula trial_ends_at a partir de agora.
+ */
+export function computeTrialEndsAt(fromDate = new Date()) {
+  const d = new Date(fromDate.getTime());
+  d.setUTCDate(d.getUTCDate() + FREE_TRIAL_DAYS);
+  return d.toISOString();
+}
+
+/**
  * Busca usuário pelo telefone ou cria com valores padrão.
+ * Usado em billing/organização — não define signup_completed_at (checkout faz isso).
  * @param {string} phone
  */
 export async function findOrCreateUser(phone) {
@@ -150,8 +208,15 @@ export async function incrementUsage(userId) {
 }
 
 /**
- * Contexto para limite de uso (grátis por usage_count; pago com teto por billing_usage_*).
- * @typedef {{ isPaid: boolean, usageCount: number, monthlyAnalysisCap: number|null, monthlyAnalysisUsed: number }} UsageAccessContext
+ * Contexto para limite de uso (grátis por usage_count + trial temporal; pago com teto mensal).
+ * @typedef {{
+ *   isPaid: boolean,
+ *   usageCount: number,
+ *   monthlyAnalysisCap: number|null,
+ *   monthlyAnalysisUsed: number,
+ *   trialExpiryReason: 'usage'|'time'|null,
+ *   signupCompleted: boolean,
+ * }} UsageAccessContext
  */
 
 /**
@@ -168,6 +233,8 @@ export async function buildUsageAccessContext(user) {
       usageCount: user.usageCount ?? 0,
       monthlyAnalysisCap: null,
       monthlyAnalysisUsed: 0,
+      trialExpiryReason: null,
+      signupCompleted: hasCompletedSignup(user),
     };
   }
 
@@ -178,6 +245,8 @@ export async function buildUsageAccessContext(user) {
       usageCount: u.usageCount ?? 0,
       monthlyAnalysisCap: null,
       monthlyAnalysisUsed: 0,
+      trialExpiryReason: getTrialExpiryReason(u),
+      signupCompleted: hasCompletedSignup(u),
     };
   }
 
@@ -191,6 +260,8 @@ export async function buildUsageAccessContext(user) {
       usageCount: u.usageCount ?? 0,
       monthlyAnalysisCap: null,
       monthlyAnalysisUsed: 0,
+      trialExpiryReason: null,
+      signupCompleted: hasCompletedSignup(u),
     };
   }
 
@@ -214,6 +285,8 @@ export async function buildUsageAccessContext(user) {
     usageCount: u.usageCount ?? 0,
     monthlyAnalysisCap: cap,
     monthlyAnalysisUsed: used,
+    trialExpiryReason: null,
+    signupCompleted: hasCompletedSignup(u),
   };
 }
 
@@ -221,7 +294,8 @@ export async function buildUsageAccessContext(user) {
  * @param {UsageAccessContext} ctx
  */
 export function isUsageBlocked(ctx) {
-  if (!ctx.isPaid) return ctx.usageCount >= FREE_USAGE_LIMIT;
+  if (!ctx.signupCompleted) return true;
+  if (!ctx.isPaid) return ctx.trialExpiryReason != null;
   if (ctx.monthlyAnalysisCap == null || ctx.monthlyAnalysisCap < 1) return false;
   return (Number(ctx.monthlyAnalysisUsed) || 0) >= ctx.monthlyAnalysisCap;
 }
@@ -254,7 +328,16 @@ export async function getUserById(userId) {
  *   asaasCheckoutStartedAt?: string|null,
  *   billingUsageYm?: string|null,
  *   billingUsageCount?: number,
- * }} patch
+ *   name?: string|null,
+ *   email?: string|null,
+ *   signupCompletedAt?: string|null,
+ *   trialStartedAt?: string|null,
+ *   trialEndsAt?: string|null,
+ *   welcomeSentAt?: string|null,
+ *   trialExpiredNotifiedAt?: string|null,
+   *   signupSource?: string|null,
+   *   usageCount?: number,
+   * }} patch
  */
 export async function updateUserById(userId, patch) {
   const supabase = getClient();
@@ -271,6 +354,17 @@ export async function updateUserById(userId, patch) {
   }
   if (patch.billingUsageYm !== undefined) row.billing_usage_ym = patch.billingUsageYm;
   if (patch.billingUsageCount !== undefined) row.billing_usage_count = patch.billingUsageCount;
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.email !== undefined) row.email = patch.email;
+  if (patch.signupCompletedAt !== undefined) row.signup_completed_at = patch.signupCompletedAt;
+  if (patch.trialStartedAt !== undefined) row.trial_started_at = patch.trialStartedAt;
+  if (patch.trialEndsAt !== undefined) row.trial_ends_at = patch.trialEndsAt;
+  if (patch.welcomeSentAt !== undefined) row.welcome_sent_at = patch.welcomeSentAt;
+  if (patch.trialExpiredNotifiedAt !== undefined) {
+    row.trial_expired_notified_at = patch.trialExpiredNotifiedAt;
+  }
+  if (patch.signupSource !== undefined) row.signup_source = patch.signupSource;
+  if (patch.usageCount !== undefined) row.usage_count = patch.usageCount;
 
   if (Object.keys(row).length === 0) {
     throw new AppError('Nenhum campo para atualizar.', 400);
@@ -312,3 +406,25 @@ export async function releaseAsaasCheckoutClaim(userId) {
     console.warn('[billing] release_asaas_checkout_claim:', error.message);
   }
 }
+
+/**
+ * Usuários com trial expirado por tempo que ainda não receberam aviso proativo.
+ */
+export async function listUsersPendingTrialExpiryNotification() {
+  const supabase = getClient();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, phone, name, trial_ends_at')
+    .eq('is_paid', false)
+    .not('signup_completed_at', 'is', null)
+    .not('trial_ends_at', 'is', null)
+    .lt('trial_ends_at', now)
+    .is('trial_expired_notified_at', null);
+
+  if (error) {
+    throw new AppError(`Erro ao listar trials expirados: ${error.message}`, 500);
+  }
+  return (data ?? []).map(mapUserRow);
+}
+

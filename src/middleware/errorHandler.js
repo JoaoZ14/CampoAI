@@ -1,9 +1,10 @@
 import { AppError } from '../utils/errors.js';
+import { captureException } from '../lib/sentry.js';
 
 /**
  * Middleware global de erros — não vaza stack em produção.
  */
-export function errorHandler(err, _req, res, _next) {
+export function errorHandler(err, req, res, _next) {
   const isApp = err instanceof AppError;
   const status = isApp ? err.statusCode : 500;
   const message = isApp
@@ -12,6 +13,10 @@ export function errorHandler(err, _req, res, _next) {
 
   if (status >= 500) {
     console.error('[Erro]', err);
+    captureException(err, {
+      path: req?.originalUrl,
+      method: req?.method,
+    });
   }
 
   res.status(status).json({

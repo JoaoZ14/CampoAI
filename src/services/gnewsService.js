@@ -1,10 +1,12 @@
 import { AppError } from '../utils/errors.js';
+import {
+  filterAgroNews,
+  isAgroFilterEnabled,
+  resolveExtraBlocklist,
+  resolveGNewsQuery,
+} from './agroNewsFilter.js';
 
 const GNEWS_SEARCH = 'https://gnews.io/api/v4/search';
-
-/** Busca ampla em PT-BR (GNews); sobrescreva com WEEKLY_NEWS_GNEWS_QUERY no .env para o seu nicho. */
-const DEFAULT_QUERY =
-  'agronegocio OR agricultura OR pecuaria OR safra OR lavoura OR gado OR milho OR soja OR avicultura OR cafe OR citricultura';
 
 /**
  * Busca artigos na GNews (v4) com filtros de idioma e país.
@@ -16,8 +18,9 @@ const DEFAULT_QUERY =
  *   max?: number,
  *   fromIso?: string,
  *   inFields?: string,
+ *   includeExtras?: boolean,
  * }} [opts]
- * @returns {Promise<{ title: string, url: string, sourceName?: string }[]>}
+ * @returns {Promise<{ title: string, url: string, sourceName?: string, publishedAt?: string, image?: string }[]>}
  */
 export async function fetchGNewsArticles(apiKey, opts = {}) {
   const key = typeof apiKey === 'string' ? apiKey.trim() : '';
@@ -25,7 +28,8 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
     throw new AppError('GNews: apiKey vazio.', 500);
   }
 
-  const q = (opts.q ?? process.env.WEEKLY_NEWS_GNEWS_QUERY?.trim()) || DEFAULT_QUERY;
+  const includeExtras = opts.includeExtras === true;
+  const q = (opts.q ?? resolveGNewsQuery()).trim();
   const lang = (opts.lang ?? process.env.WEEKLY_NEWS_GNEWS_LANG?.trim()) || 'pt';
   const country = (opts.country ?? process.env.WEEKLY_NEWS_GNEWS_COUNTRY?.trim()) || 'br';
   const rawMax = opts.max ?? Number(process.env.WEEKLY_NEWS_GNEWS_MAX);
@@ -40,20 +44,27 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
   const inTrim = opts.inFields ?? process.env.WEEKLY_NEWS_GNEWS_IN?.trim();
   const inFields = inTrim && inTrim.length ? inTrim : 'title,description';
 
+  const filterEnabled = isAgroFilterEnabled();
+  const extraBlocklist = resolveExtraBlocklist();
+  const fetchMax = filterEnabled ? Math.min(100, Math.max(max * 4, max)) : max;
+
   const params = new URLSearchParams({
     q,
     lang,
     country,
-    max: String(max),
+    max: String(fetchMax),
     apikey: key,
     sortby: 'publishedAt',
     from: fromIso,
     in: inFields,
   });
+  if (includeExtras) {
+    params.set('nullable', 'image');
+  }
 
   const url = `${GNEWS_SEARCH}?${params.toString()}`;
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'AG-Assist/1.0 (CampoAI weekly-news)' },
+    headers: { 'User-Agent': 'AG-Assist/1.0 (CampoAI news)' },
   });
 
   let data = {};
@@ -76,7 +87,7 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
   }
 
   const articles = Array.isArray(data.articles) ? data.articles : [];
-  /** @type {Map<string, { title: string, url: string, sourceName?: string }>} */
+  /** @type {Map<string, { title: string, url: string, sourceName?: string, publishedAt?: string, image?: string }>} */
   const byUrl = new Map();
 
   for (const a of articles) {
@@ -88,15 +99,34 @@ export async function fetchGNewsArticles(apiKey, opts = {}) {
       .trim()
       .replace(/\s+/g, ' ')
       .slice(0, 40);
+    const publishedAt = String(a.publishedAt ?? '').trim();
+    const image = String(a.image ?? '').trim();
     if (!title || !urlOne) continue;
     if (!byUrl.has(urlOne)) {
       byUrl.set(urlOne, {
         title,
         url: urlOne,
         ...(sourceName ? { sourceName } : {}),
+        ...(publishedAt ? { publishedAt } : {}),
+        ...(includeExtras && image ? { image } : {}),
       });
     }
   }
 
-  return [...byUrl.values()];
+  let result = [...byUrl.values()];
+
+  if (filterEnabled) {
+    result = filterAgroNews(result, { extraBlocklist, enabled: true });
+    if (result.length > max) {
+      result = result.slice(0, max);
+    }
+  }
+
+  return result.map(({ title, url, sourceName, publishedAt, image }) => ({
+    title,
+    url,
+    ...(sourceName ? { sourceName } : {}),
+    ...(includeExtras && publishedAt ? { publishedAt } : {}),
+    ...(includeExtras && image ? { image } : {}),
+  }));
 }

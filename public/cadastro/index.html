@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#2a382a" />
+    <meta
+      name="description"
+      content="Cadastre-se grátis no AG Assist — 14 dias ou 10 análises para testar o assistente rural no WhatsApp."
+    />
+    <title>Cadastro grátis — AG Assist</title>
+    <link
+      rel="icon"
+      href="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
+      type="image/png"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/planos/styles.css" />
+    <link rel="stylesheet" href="/cadastro/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#signup-form">Pular para o cadastro</a>
+
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="site-logo" href="https://agassist.netlify.app/" aria-label="AG Assist — início">
+          <img
+            src="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
+            alt="AG Assist"
+            width="200"
+            height="54"
+            decoding="async"
+          />
+          <span class="brand-text">AG Assist</span>
+        </a>
+        <nav class="site-nav" aria-label="Principal">
+          <a class="site-nav-link" href="https://agassist.netlify.app/">Início</a>
+          <a class="site-nav-link" href="/planos">Planos</a>
+          <a class="site-nav-link" href="/legal/termos-de-uso">Termos</a>
+          <a class="site-nav-link" href="/legal/politica-de-privacidade">Privacidade</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <div class="container signup-wrap">
+        <header class="hero signup-hero">
+          <h1>Crie sua conta e comece pelo WhatsApp</h1>
+          <p class="subtitle">
+            <strong>14 dias</strong> ou <strong>10 análises</strong> grátis — o que acabar primeiro.
+            Depois do cadastro, o AG Assist manda uma mensagem no seu WhatsApp para você começar na hora.
+          </p>
+        </header>
+
+        <nav class="signup-stepper" aria-label="Progresso do cadastro">
+          <ol class="signup-stepper-list">
+            <li class="signup-stepper-item is-active" data-step-indicator="1">
+              <span class="signup-stepper-num" aria-hidden="true">1</span>
+              <span class="signup-stepper-label">Seus dados</span>
+            </li>
+            <li class="signup-stepper-item" data-step-indicator="2">
+              <span class="signup-stepper-num" aria-hidden="true">2</span>
+              <span class="signup-stepper-label">Confirme o SMS</span>
+            </li>
+          </ol>
+        </nav>
+
+        <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+
+        <form id="signup-form" class="signup-form card-panel" novalidate>
+          <div data-step="1">
+            <h2 id="step-1-title">Seus dados</h2>
+            <label for="name">Seu nome
+              <input
+                type="text"
+                name="name"
+                id="name"
+                required
+                minlength="3"
+                autocomplete="name"
+                placeholder="Como você quer ser chamado"
+                aria-describedby="name-error"
+              />
+              <span id="name-error" class="field-error" hidden></span>
+            </label>
+            <label for="phone">WhatsApp (celular)
+              <input
+                type="tel"
+                name="phone"
+                id="phone"
+                required
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="(00) 00000-0000"
+                aria-describedby="phone-error"
+              />
+              <span id="phone-error" class="field-error" hidden></span>
+            </label>
+            <label for="email">E-mail <span class="optional">(opcional)</span>
+              <input
+                type="email"
+                name="email"
+                id="email"
+                inputmode="email"
+                autocomplete="email"
+                placeholder="voce@email.com"
+              />
+              <span class="field-hint">Se informar, enviamos um lembrete com link para começar no WhatsApp.</span>
+            </label>
+
+            <div class="legal-accept-wrap">
+              <label class="legal-accept">
+                <input type="checkbox" id="accept-terms" name="acceptTerms" required />
+                <span
+                  >Li e aceito os
+                  <a href="/legal/termos-de-uso" target="_blank" rel="noopener noreferrer">Termos de uso</a>
+                  e a
+                  <a href="/legal/politica-de-privacidade" target="_blank" rel="noopener noreferrer"
+                    >Política de privacidade</a
+                  >
+                  do AG Assist.</span
+                >
+              </label>
+              <span id="terms-error" class="field-error" hidden></span>
+            </div>
+
+            <button type="button" id="send-otp" class="btn-primary">Enviar código por SMS</button>
+          </div>
+
+          <div data-step="2" hidden aria-labelledby="step-2-title">
+            <h2 id="step-2-title">Confirme o telefone</h2>
+            <p class="phone-recap">
+              Código enviado para <strong id="phone-recap-value"></strong>.
+              <button type="button" id="edit-phone" class="link-btn">Alterar número</button>
+            </p>
+            <p class="hint">Digite o código de 6 dígitos que enviamos por SMS para validar seu WhatsApp.</p>
+            <label for="otpCode">Código de 6 dígitos (SMS)
+              <input
+                type="text"
+                name="otpCode"
+                id="otpCode"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="000000"
+                autocomplete="one-time-code"
+                aria-describedby="otp-error"
+              />
+              <span id="otp-error" class="field-error" hidden></span>
+            </label>
+            <div class="signup-actions">
+              <button type="button" id="verify-otp" class="btn-primary">Validar e concluir cadastro</button>
+              <button type="button" id="back-step-1" class="btn-secondary">Voltar</button>
+            </div>
+            <p class="resend-wrap">
+              <button type="button" id="resend-otp" class="link-btn" disabled>Reenviar código</button>
+              <span id="resend-timer" class="resend-timer" hidden></span>
+            </p>
+          </div>
+        </form>
+
+        <section id="success-panel" class="success-panel card-panel" hidden tabindex="-1" aria-live="polite">
+          <h2>Cadastro concluído!</h2>
+          <p>
+            Abra o <strong>WhatsApp</strong> no número que você cadastrou — o AG Assist já enviou uma mensagem
+            para você começar.
+          </p>
+          <p class="hint">Responda com uma foto, áudio ou pergunta do campo.</p>
+          <div class="success-actions">
+            <a id="open-whatsapp" class="btn-primary" href="#" rel="noopener noreferrer">Abrir WhatsApp</a>
+            <a href="https://agassist.netlify.app/" class="btn-secondary">Voltar ao site</a>
+          </div>
+          <p class="hint success-fallback">Não chegou em um minuto? Toque em Abrir WhatsApp ou mande qualquer mensagem no app.</p>
+        </section>
+
+        <footer class="site-legal-footer muted">
+          <p>
+            <a href="/legal/termos-de-uso">Termos de uso</a>
+            ·
+            <a href="/legal/politica-de-privacidade">Política de privacidade</a>
+          </p>
+        </footer>
+      </div>
+    </main>
+
+    <script type="module" src="/cadastro/app.js"></script>
+  </body>
+</html>
