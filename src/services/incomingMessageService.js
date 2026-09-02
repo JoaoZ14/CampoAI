@@ -1,10 +1,11 @@
 import { normalizePhone } from '../utils/phone.js';
 import { detectMessageType } from '../utils/messageType.js';
 import {
-  findOrCreateUser,
+  findUserByPhone,
   incrementUsage,
   isUsageBlocked,
   buildUsageAccessContext,
+  hasCompletedSignup,
 } from '../services/userService.js';
 import { generateAgriculturalReply } from '../services/aiService.js';
 import {
@@ -23,12 +24,12 @@ import { wantsConversationPdfReport } from './reportIntent.js';
 import { generateConversationReportText } from './aiService.js';
 import { buildConversationReportPdf } from './reportPdfService.js';
 import { uploadReportPdfAndGetSignedUrl } from './reportStorageService.js';
-import { FREE_USAGE_LIMIT } from '../models/userModel.js';
+import { FREE_USAGE_LIMIT, FREE_TRIAL_DAYS } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
 import { isSimpleGreeting, MSG_SIMPLE_GREETING } from '../utils/greeting.js';
 
 const MSG_WELCOME_CORE =
-  `Você tem ${FREE_USAGE_LIMIT} análises grátis para testar — sem pagar nada na entrada.\n\n` +
+  `Você tem *${FREE_TRIAL_DAYS} dias* ou *${FREE_USAGE_LIMIT} análises* grátis para testar — o que acabar primeiro.\n\n` +
   'Sou o AG Assist, seu parceiro no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
   'Objetivo: te ajudar a decidir melhor, evitar erro bobo e ganhar tempo (sem ficar caçando informação solta).\n\n' +
   'Para ver *plano*, *uso* e *status da assinatura*, mande: *plano* ou *meu plano* (não gasta análise).\n\n' +
@@ -55,15 +56,34 @@ export const MSG_UNSUPPORTED_VIDEO =
 
 /** Texto base (sem URL). Com `PAYWALL_URL`, o link entra na mesma bolha ou na seguinte — ver `getLimitReachedParts`. */
 export const MSG_LIMIT_BASE =
-  'Você usou suas análises gratuitas 👨‍🌾\n\n' +
+  'Seu período de teste gratuito acabou 👨‍🌾\n\n' +
   'Para continuar recebendo recomendações no campo, escolha um plano:';
+
+export const MSG_SIGNUP_REQUIRED_BASE =
+  'Este número ainda não está cadastrado no AG Assist.\n\n' +
+  'Crie sua conta grátis no site para começar a usar o assistente pelo WhatsApp:';
+
+/**
+ * URL pública da página de cadastro.
+ */
+export function getSignupUrl() {
+  const raw =
+    process.env.SIGNUP_URL?.trim() ||
+    (process.env.PUBLIC_APP_URL?.trim()
+      ? `${process.env.PUBLIC_APP_URL.trim().replace(/\/$/, '')}/cadastro`
+      : '');
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
 
 /**
  * Gera URL de planos com telefone no querystring (prefill da página /planos).
  * @param {string} baseUrl
  * @param {string} phone
+ * @param {string} [origin]
  */
-function withPhonePrefill(baseUrl, phone) {
+function withPhonePrefill(baseUrl, phone, origin = 'whatsapp_limit') {
   const base = String(baseUrl || '').trim();
   if (!base) return '';
   try {
@@ -71,7 +91,7 @@ function withPhonePrefill(baseUrl, phone) {
     const digits = String(phone || '').replaceAll(/\D/g, '');
     if (digits) {
       u.searchParams.set('phone', digits.startsWith('55') ? `+${digits}` : `+55${digits}`);
-      u.searchParams.set('origin', 'whatsapp_limit');
+      u.searchParams.set('origin', origin);
     }
     return u.toString();
   } catch {
@@ -96,13 +116,22 @@ function normalizePaywallUrl(raw) {
  * Sem `PAYWALL_URL`: só o texto base.
  * Com URL e sem `PAYWALL_SINGLE_BUBBLE=true`: duas mensagens — texto explicando + mensagem só com o link (área tocável grande no WhatsApp).
  * Botões nativos estilo app exigem template aprovado no Meta/Twilio (Content API).
+ * @param {string} toPhone
+ * @param {'usage'|'time'|null} [trialReason]
  * @returns {string[]}
  */
-export function getLimitReachedParts(toPhone = '') {
+export function getLimitReachedParts(toPhone = '', trialReason = null) {
   const raw = process.env.PAYWALL_URL?.trim();
-  if (!raw) return [MSG_LIMIT_BASE];
+  const head =
+    trialReason === 'time'
+      ? `Seu teste gratuito de *${FREE_TRIAL_DAYS} dias* acabou 👨‍🌾\n\nPara continuar recebendo recomendações no campo, escolha um plano:`
+      : trialReason === 'usage'
+        ? `Você usou suas *${FREE_USAGE_LIMIT} análises* do teste gratuito 👨‍🌾\n\nPara continuar recebendo recomendações no campo, escolha um plano:`
+        : MSG_LIMIT_BASE;
 
-  const url = withPhonePrefill(normalizePaywallUrl(raw), toPhone);
+  if (!raw) return [head];
+
+  const url = withPhonePrefill(normalizePaywallUrl(raw), toPhone, 'trial_expired');
   const singleBubble =
     process.env.PAYWALL_SINGLE_BUBBLE === 'true' ||
     process.env.PAYWALL_LINK_IN_SAME_MESSAGE === 'true';
@@ -112,12 +141,12 @@ export function getLimitReachedParts(toPhone = '') {
     'Toque no link para abrir no navegador e ver os planos:';
 
   if (singleBubble) {
-    return [`${MSG_LIMIT_BASE}\n\n${ctaLine}\n${url}`];
+    return [`${head}\n\n${ctaLine}\n${url}`];
   }
 
   const first =
     process.env.PAYWALL_FIRST_MESSAGE?.trim() ||
-    `${MSG_LIMIT_BASE}\n\n👇 O link para ver os planos vem na mensagem abaixo — toque no endereço em destaque para abrir.`;
+    `${head}\n\n👇 O link para ver os planos vem na mensagem abaixo — toque no endereço em destaque para abrir.`;
 
   return [first, url];
 }
@@ -265,9 +294,10 @@ export function formatPlanInquiryMessage(user, phone, usageCtx) {
   const used = Number(user.usageCount) || 0;
   const lim = FREE_USAGE_LIMIT;
   const blocked = used >= lim;
+  const trialDays = FREE_TRIAL_DAYS;
   const head = blocked
-    ? `📋 *Seu uso (teste grátis)*\n\nVocê já usou *${used}* de *${lim}* análises gratuitas — o limite do teste acabou.`
-    : `📋 *Seu uso (teste grátis)*\n\nVocê já usou *${used}* de *${lim}* análises gratuitas neste número.`;
+    ? `📋 *Seu uso (teste grátis)*\n\nVocê já usou *${used}* de *${lim}* análises — o limite do teste acabou.`
+    : `📋 *Seu uso (teste grátis)*\n\nVocê já usou *${used}* de *${lim}* análises neste número.\nTeste válido por *${trialDays} dias* ou *${lim} análises* (o que acabar primeiro).`;
 
   return (
     `${head}\n\n` +
@@ -326,7 +356,7 @@ async function sendPlanInquiryResponse(phone, user) {
  * Botões embaixo da bolha no WhatsApp vêm do Content Template Builder (`contentSid`).
  * Só mensagem com `body` não gera esses botões.
  */
-async function sendLimitReachedMessages(toPhone) {
+async function sendLimitReachedMessages(toPhone, trialReason = null) {
   const contentSid = process.env.PAYWALL_CONTENT_SID?.trim();
   if (contentSid) {
     let variables;
@@ -343,13 +373,14 @@ async function sendLimitReachedMessages(toPhone) {
     if (!variables) {
       const urlRaw = process.env.PAYWALL_URL?.trim();
       const bodyForTemplate =
-        process.env.PAYWALL_FIRST_MESSAGE?.trim() || MSG_LIMIT_BASE;
+        process.env.PAYWALL_FIRST_MESSAGE?.trim() ||
+        getLimitReachedParts(toPhone, trialReason)[0];
       if (!urlRaw) {
         variables = { 1: bodyForTemplate };
       } else {
         variables = {
           1: bodyForTemplate,
-          2: withPhonePrefill(normalizePaywallUrl(urlRaw), toPhone),
+          2: withPhonePrefill(normalizePaywallUrl(urlRaw), toPhone, 'trial_expired'),
         };
       }
     }
@@ -357,7 +388,7 @@ async function sendLimitReachedMessages(toPhone) {
     return;
   }
 
-  const parts = getLimitReachedParts(toPhone);
+  const parts = getLimitReachedParts(toPhone, trialReason);
   for (let i = 0; i < parts.length; i++) {
     await sendWhatsAppMessage(toPhone, parts[i]);
     if (i < parts.length - 1) {
@@ -382,6 +413,19 @@ function buildUserTurnSummary(type, message) {
   return chunks.join(' ').trim() || '[mensagem]';
 }
 
+function getSignupRequiredParts() {
+  const url = getSignupUrl();
+  if (!url) return [MSG_SIGNUP_REQUIRED_BASE];
+  return [`${MSG_SIGNUP_REQUIRED_BASE}\n\n${url}`];
+}
+
+async function sendSignupRequiredMessages(toPhone) {
+  const parts = getSignupRequiredParts();
+  for (const chunk of parts) {
+    await sendWhatsAppMessage(toPhone, chunk);
+  }
+}
+
 /**
  * Fluxo único: Postman/JSON e webhook Twilio.
  * @param {{ phone: string, message?: string, imageUrl?: string, audioUrl?: string, unsupportedVideo?: boolean, messageSid?: string }} input
@@ -403,7 +447,16 @@ export async function processIncomingMessage({
     throw new AppError('Telefone inválido.', 400);
   }
 
-  const user = await findOrCreateUser(phone);
+  const user = await findUserByPhone(phone);
+
+  if (!user || !hasCompletedSignup(user)) {
+    await sendSignupRequiredMessages(phone);
+    return {
+      step: 'signup_required',
+      userId: user?.id ?? null,
+    };
+  }
+
   const usageCtx = await buildUsageAccessContext(user);
 
   if (unsupportedVideo === true) {
@@ -422,6 +475,15 @@ export async function processIncomingMessage({
   );
 
   if (type.isEmpty) {
+    if (isUsageBlocked(usageCtx)) {
+      await sendLimitReachedMessages(phone, usageCtx.trialExpiryReason);
+      return {
+        step: 'limit_reached',
+        userId: user.id,
+        usageCount: user.usageCount,
+        isPaid: user.isPaid,
+      };
+    }
     await sendWhatsAppMessage(phone, buildWelcomeMessage());
     return {
       step: 'welcome',
@@ -469,7 +531,7 @@ export async function processIncomingMessage({
         await sendWhatsAppMessage(phone, chunk);
       }
     } else {
-      await sendLimitReachedMessages(phone);
+      await sendLimitReachedMessages(phone, usageCtx.trialExpiryReason);
     }
     return {
       step: 'limit_reached',

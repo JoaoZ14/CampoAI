@@ -7,6 +7,7 @@ import webhookRoutes from './routes/whatsappRoutes.js';
 import asaasWebhookRoutes from './routes/asaasWebhookRoutes.js';
 import billingRoutes from './routes/billingRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import signupRoutes from './routes/signupRoutes.js';
 import customerPortalRoutes from './routes/customerPortalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { getPublicPlanCatalogPayload } from './services/planCatalogService.js';
@@ -16,6 +17,7 @@ import { openapiSpec } from './swagger/openapi.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const adminDir = path.join(__dirname, '../public/admin');
 const plansDir = path.join(__dirname, '../public/planos');
+const signupDir = path.join(__dirname, '../public/cadastro');
 const legalDir = path.join(__dirname, '../public/legal');
 const customerDir = path.join(__dirname, '../public/area-do-cliente');
 
@@ -68,6 +70,7 @@ export function createApp() {
   });
 
   app.use('/api/billing', billingRoutes);
+  app.use('/api/signup', signupRoutes);
   app.use('/api/customer', customerPortalRoutes);
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
@@ -78,6 +81,17 @@ export function createApp() {
   app.use(
     '/planos',
     express.static(plansDir, {
+      index: false,
+      redirect: false,
+    })
+  );
+
+  app.get(['/cadastro', '/cadastro/'], (_req, res) => {
+    res.sendFile(path.join(signupDir, 'index.html'));
+  });
+  app.use(
+    '/cadastro',
+    express.static(signupDir, {
       index: false,
       redirect: false,
     })

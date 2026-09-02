@@ -218,6 +218,7 @@ export async function addSeatToOrganization(organizationId, rawPhone) {
       is_paid: true,
       organization_id: organizationId,
       billing_kind: BILLING.TEAM,
+      signup_completed_at: new Date().toISOString(),
     })
     .eq('id', user.id);
 

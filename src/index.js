@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { startWeeklyNewsCron, stopWeeklyNewsCron } from './jobs/weeklyNewsCron.js';
+import { startTrialExpiryCron, stopTrialExpiryCron } from './jobs/trialExpiryCron.js';
 
 const port = Number(process.env.PORT) || 3001;
 const app = createApp();
@@ -13,10 +14,12 @@ const server = app.listen(port, () => {
   console.log(`Swagger: GET  http://localhost:${port}/api-docs`);
   console.log(`Painel dev: http://localhost:${port}/admin/`);
   startWeeklyNewsCron();
+  startTrialExpiryCron();
 });
 
 function shutdown() {
   stopWeeklyNewsCron();
+  stopTrialExpiryCron();
   server.close(() => process.exit(0));
 }
 
