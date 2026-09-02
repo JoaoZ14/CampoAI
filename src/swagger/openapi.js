@@ -19,6 +19,7 @@ export const openapiSpec = {
   tags: [
     { name: 'Health', description: 'Verificação do serviço' },
     { name: 'Landing', description: 'Endpoints públicos do site (notícias, planos)' },
+    { name: 'Signup', description: 'Cadastro gratuito com OTP SMS' },
     { name: 'Webhook', description: 'Simulação do webhook WhatsApp (Postman-style)' },
   ],
   paths: {
@@ -57,6 +58,132 @@ export const openapiSpec = {
               },
             },
           },
+        },
+      },
+    },
+    '/api/signup/otp/send': {
+      post: {
+        tags: ['Signup'],
+        summary: 'Enviar OTP por SMS para cadastro',
+        operationId: 'postSignupOtpSend',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['phone'],
+                properties: {
+                  phone: {
+                    type: 'string',
+                    description: 'Telefone com DDD (será normalizado)',
+                    example: '5511999999999',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'SMS enviado',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    ok: { type: 'boolean' },
+                    phone: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Telefone inválido' },
+          '429': { description: 'Aguarde antes de reenviar' },
+        },
+      },
+    },
+    '/api/signup/otp/verify': {
+      post: {
+        tags: ['Signup'],
+        summary: 'Validar OTP e obter token de verificação',
+        operationId: 'postSignupOtpVerify',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['phone', 'code'],
+                properties: {
+                  phone: { type: 'string', example: '5511999999999' },
+                  code: { type: 'string', example: '123456' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Código válido',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    ok: { type: 'boolean' },
+                    verificationToken: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Código inválido ou expirado' },
+        },
+      },
+    },
+    '/api/signup/complete': {
+      post: {
+        tags: ['Signup'],
+        summary: 'Concluir cadastro e iniciar trial',
+        operationId: 'postSignupComplete',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'phone', 'verificationToken'],
+                properties: {
+                  name: { type: 'string', example: 'João Silva' },
+                  phone: { type: 'string', example: '5511999999999' },
+                  email: { type: 'string', format: 'email' },
+                  verificationToken: { type: 'string' },
+                  signupSource: { type: 'string', example: 'landing' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Cadastro concluído',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    ok: { type: 'boolean' },
+                    message: { type: 'string' },
+                    whatsappOpenUrl: { type: 'string', format: 'uri' },
+                    userId: { type: 'string', format: 'uuid' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Token inválido ou dados incompletos' },
         },
       },
     },

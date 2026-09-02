@@ -70,9 +70,9 @@ export async function getAdminAnalytics() {
       else if (bk === 'free') usersByBilling.free += 1;
       else usersByBilling.unknown += 1;
 
-      const created = row.created_at;
-      if (created) {
-        const key = dayKeyUtc(created);
+      const signupAt = row.signup_completed_at ?? row.created_at;
+      if (signupAt) {
+        const key = dayKeyUtc(signupAt);
         if (dayBuckets.has(key)) {
           dayBuckets.set(key, (dayBuckets.get(key) ?? 0) + 1);
         }

@@ -63,7 +63,8 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
 | POST | `/webhook/whatsapp` | Teste com JSON (Postman / Swagger) |
 | POST | `/webhook/whatsapp/twilio` | **Webhook do Twilio** — mensagens reais do WhatsApp |
 | GET | `/admin/` | **Painel do proprietário** — dashboard, BI, usuários, organizações e histórico de mensagens |
-| GET | `/area-do-cliente/` | **Portal do cliente** — login, plano, uso e gestão de números (titular empresa) |
+| GET | `/cadastro/` | **Cadastro gratuito** — trial com OTP SMS |
+| GET | `/area-do-cliente/` | **Portal do assinante** — login, plano, uso e gestão de números (titular empresa) |
 | GET | `/api/plans` | Catálogo público de planos (JSON, sem login) |
 | GET | `/admin/api/dashboard` | Resumo agregado (overview + analytics + organizações + avisos) — **recomendado** para o painel |
 | GET | `/admin/api/analytics` | Métricas de BI (pagamento, mensagens, cadastros, top uso) |
@@ -88,6 +89,7 @@ As rotas `/admin/api/*` (exceto `/admin/api/config`) exigem header `Authorizatio
 
 ### Área do cliente `/area-do-cliente/`
 
+- Destinada a **assinantes** (checkout em `/planos`). Usuários que só fizeram `/cadastro` (trial grátis) usam o produto pelo WhatsApp — não há login web para trial.
 - Login por **e-mail + senha** cadastrados no checkout da página `/planos`.
 - Defina `CUSTOMER_AUTH_SECRET` no `.env` para assinar sessão do cliente.
 - API do portal:
@@ -168,50 +170,52 @@ Se o usuário pedir um **relatório ou PDF da conversa** (ex.: “gera um relat�
 
 **Supabase:** crie um bucket privado (nome padrão `reports`, ou defina `SUPABASE_REPORTS_BUCKET`). O cliente usa a **service role** — não é necessário tornar o bucket público; o Twilio recebe uma **URL assinada** válida por `REPORT_PDF_SIGNED_URL_SECONDS` (padrão 3600 s).
 
+## Cadastro gratuito `/cadastro`
 
+Página pública para criar conta e iniciar o **trial** (14 dias **ou** 10 análises — o que acabar primeiro). O usuário precisa estar cadastrado (`signup_completed_at`) para usar o assistente no WhatsApp.
 
-Estou lançando o AG Assist: um assistente rural direto do WhatsApp.
+### Fluxo
 
-Você manda texto, foto ou áudio e recebe orientação direta ao ponto: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Tudo 100% focado no agro.
+1. Nome + WhatsApp + e-mail opcional + aceite dos termos
+2. OTP por SMS (Twilio) para validar o telefone
+3. Conclusão → trial iniciado, boas-vindas no WhatsApp (+ e-mail se informado)
 
-Também é ótimo para estudantes (Agronomia, Vet, Zootecnia, Técnico Agropecuário) para estudar casos e treinar raciocínio de campo.
+### Endpoints
 
-Quer testar? acesse o link abaixo e tenha 10 analises gratuitas para conhecer o seu novo assistente.
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/api/signup/otp/send` | Envia código SMS (`{ "phone": "5511999999999" }`) |
+| POST | `/api/signup/otp/verify` | Valida código (`{ "phone", "code" }`) → `verificationToken` |
+| POST | `/api/signup/complete` | Finaliza cadastro (`name`, `phone`, `verificationToken`, `email?`, `signupSource?`) |
 
-https://agassist.netlify.app
+### Variáveis `.env`
 
-#agro #agtech #agricultura #pecuaria #veterinaria #zootecnia #agronomia #IA #Desenvolvimento #dev 
+- **`SIGNUP_URL`** — link enviado no WhatsApp quando o usuário ainda não cadastrou (ex.: `https://agassist.duckdns.org/cadastro`)
+- **`FREE_TRIAL_DAYS`** — padrão `14`
+- **`FREE_USAGE_LIMIT`** — padrão `10` (análises com IA)
+- **`RESEND_API_KEY`**, **`SIGNUP_EMAIL_FROM`**, **`SIGNUP_EMAIL_ENABLED`** — e-mail de boas-vindas (ver `docs/SIGNUP_WELCOME_EMAIL.md`)
+- **`WELCOME_SIGNUP_CONTENT_SID`**, **`TRIAL_EXPIRED_CONTENT_SID`** — templates WhatsApp (ver `docs/TWILIO_SIGNUP_TEMPLATES.md`)
+- **`TRIAL_EXPIRY_CRON_ENABLED`**, **`TRIAL_EXPIRY_CRON`**, **`TRIAL_EXPIRY_CRON_TZ`** — aviso quando o trial expira por tempo
 
+### Testes
 
-Dicas do que colocar nas imagens (carrossel)
-Sugestão de 6–8 cards simples (pouco texto, bem legível):
+```bash
+npm run test:signup-flow
+MOCK_EMAIL=true npm run test:signup-email
+```
 
-Capa (promessa)
-“AG Assist”
-“Assistente rural no WhatsApp”
-“Texto • Foto • Áudio”
-Para quem é
-Produtor / Gestor
-Técnico / Consultor
-Estudantes do agro
-Como usar (3 passos)
-Envie a situação
-Mande foto/áudio (se tiver)
-Receba orientação prática
-O que você recebe
-Possíveis causas
-O que observar
-Próximos passos seguros
-Quando chamar um profissional
-Exemplos de perguntas (bem prático)
-“Folha manchada e amarelada — o que pode ser?”
-“Bezerro com diarreia — o que observar agora?”
-“Falha no pasto — causas mais comuns?”
-Diferenciais / segurança
-“100% focado no agro”
-“Sem dosagens e sem receita”
-“Orientação prática e responsável”
-Benefício (valor)
-“Mais clareza, menos achismo”
-“Decisão mais rápida no campo”
-“Evita prejuízo com ação errada”
+### Migrações obrigatórias (signup/trial)
+
+Se o banco já existia antes do cadastro gratuito, rode no **SQL Editor** do Supabase (na ordem):
+
+1. `supabase/migration_017_sync_plan_catalog.sql`
+2. `supabase/migration_018_signup_trial.sql`
+3. `supabase/migration_019_legacy_signup_backfill.sql`
+
+Checklist completo de produção: **`docs/PRODUCTION_CHECKLIST.md`**.
+
+## Documentação de produto
+
+- **`PRODUCT.md`** — visão de produto, jornadas e nomenclatura (AG Assist)
+- **`DESIGN.md`** — tokens visuais compartilhados entre `/cadastro`, `/planos` e landing
+- **`docs/DEV_WORKFLOW.md`** — fluxo de desenvolvimento por feature

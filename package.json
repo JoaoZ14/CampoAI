@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "weekly-news": "node scripts/sendWeeklyNewsOnce.mjs",
-    "weekly-news:send": "node scripts/sendWeeklyNewsOnce.mjs"
+    "weekly-news:send": "node scripts/sendWeeklyNewsOnce.mjs",
+    "test:signup-flow": "node scripts/test-signup-flow.mjs",
+    "test:signup-email": "node scripts/sendSignupWelcomeEmailOnce.mjs"
   },
   "engines": {
     "node": ">=18"
