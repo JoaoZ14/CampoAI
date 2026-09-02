@@ -194,10 +194,6 @@ async function maybeRefresh() {
   return refreshInFlight;
 }
 
-/**
- * Payload público para o landing (mesmo shape do antigo noticias.json).
- * @returns {Promise<{ items: object[], fetchedAt: string | null, source: string }>}
- */
 export async function getLandingNewsPayload() {
   try {
     await maybeRefresh();
@@ -212,4 +208,15 @@ export async function getLandingNewsPayload() {
     fetchedAt: fetchedAt || new Date().toISOString(),
     source: 'gnews',
   };
+}
+
+/** Força sync GNews (admin). */
+export async function forceRefreshLandingNews() {
+  await refreshFromGNews();
+  return readFromDb();
+}
+
+/** Lista notícias para o painel admin. */
+export async function getAdminNewsList() {
+  return readFromDb();
 }

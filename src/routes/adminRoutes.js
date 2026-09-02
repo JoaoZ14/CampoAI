@@ -4,6 +4,9 @@ import {
   handleAdminChatMessages,
   handleAdminConfig,
   handleAdminDashboard,
+  handleAdminNews,
+  handleAdminNewsRefresh,
+  handleAdminOrganizationPatch,
   handleAdminOrganizationsCreate,
   handleAdminOrganizationsList,
   handleAdminOrganizationSeatAdd,
@@ -13,6 +16,9 @@ import {
   handleAdminPatchUser,
   handleAdminPlanCatalog,
   handleAdminPlanCatalogPut,
+  handleAdminSettings,
+  handleAdminSubscriptionRequests,
+  handleAdminUserDetail,
   handleAdminUsers,
 } from '../controllers/adminController.js';
 import { requireAdminAuth } from '../middleware/adminAuth.js';
@@ -33,10 +39,17 @@ router.get('/api/dashboard', requireAdminAuth, handleAdminDashboard);
 router.get('/api/analytics', requireAdminAuth, handleAdminAnalytics);
 router.get('/api/chat-messages', requireAdminAuth, handleAdminChatMessages);
 router.get('/api/users', requireAdminAuth, handleAdminUsers);
+router.get('/api/users/:userId', requireAdminAuth, handleAdminUserDetail);
 router.patch('/api/users/:userId', requireAdminAuth, handleAdminPatchUser);
+
+router.get('/api/subscription-requests', requireAdminAuth, handleAdminSubscriptionRequests);
+router.get('/api/news', requireAdminAuth, handleAdminNews);
+router.post('/api/news/refresh', requireAdminAuth, handleAdminNewsRefresh);
+router.get('/api/settings', requireAdminAuth, handleAdminSettings);
 
 router.get('/api/organizations', requireAdminAuth, handleAdminOrganizationsList);
 router.post('/api/organizations', requireAdminAuth, handleAdminOrganizationsCreate);
+router.patch('/api/organizations/:orgId', requireAdminAuth, handleAdminOrganizationPatch);
 router.get('/api/organizations/:orgId/seats', requireAdminAuth, handleAdminOrganizationSeats);
 router.post('/api/organizations/:orgId/seats', requireAdminAuth, handleAdminOrganizationSeatAdd);
 router.delete('/api/organizations/:orgId/seats', requireAdminAuth, handleAdminOrganizationSeatRemove);

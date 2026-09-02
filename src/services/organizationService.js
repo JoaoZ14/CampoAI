@@ -284,6 +284,43 @@ export async function removeSeatFromOrganization(organizationId, rawPhone) {
 }
 
 /**
+ * @param {string} organizationId
+ * @param {{ name?: string, maxSeats?: number, isActive?: boolean }} input
+ */
+export async function updateOrganization(organizationId, input) {
+  const supabase = getClient();
+  const row = {};
+  if (input.name !== undefined) {
+    row.name = typeof input.name === 'string' ? input.name.trim() || null : null;
+  }
+  if (input.maxSeats !== undefined) {
+    const maxSeats = Math.min(100, Math.max(1, Number(input.maxSeats) || 0));
+    if (!Number.isFinite(maxSeats) || maxSeats < 1) {
+      throw new AppError('maxSeats inválido (1–100).', 400);
+    }
+    row.max_seats = maxSeats;
+  }
+  if (typeof input.isActive === 'boolean') {
+    row.is_active = input.isActive;
+  }
+  if (Object.keys(row).length === 0) {
+    throw new AppError('Nenhum campo para atualizar.', 400);
+  }
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .update(row)
+    .eq('id', organizationId)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw new AppError(`Erro ao atualizar organização: ${error.message}`, 500);
+  }
+  return mapOrgRow(data);
+}
+
+/**
  * Telefone com assento ativo em alguma organização.
  * @param {string} phone
  */

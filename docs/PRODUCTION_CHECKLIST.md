@@ -66,8 +66,17 @@ Arquivo: `CampoAILanding/index.html`.
 ## 7. Smoke test pós-deploy
 
 ```bash
-# Health
-curl -s https://campoai-production-b7c7.up.railway.app/health
+# Health + OpenAPI + planos
+npm run smoke:deploy -- https://campoai-production-b7c7.up.railway.app
+
+# Funil comercial completo (páginas, APIs, guards)
+npm run validate:funnel -- https://campoai-production-b7c7.up.railway.app
+
+# Migrações no Supabase
+npm run confirm:migrations
+
+# E-mail + WhatsApp + Asaas
+npm run verify:integrations
 
 # Testes locais (antes do deploy)
 npm run test:signup-flow
@@ -82,4 +91,8 @@ npm run test:signup-flow
 
 ## 8. Pendências legais
 
-Preencher placeholders em `public/legal/termos-de-uso.html` e `public/legal/politica-de-privacidade.html` (`[RAZÃO SOCIAL]`, `[CNPJ]`, etc.) antes de divulgação ampla.
+Termos e privacidade já preenchidos em `public/legal/` (EcoSystems Brasil, CNPJ 66.412.901/0001-07). Revisar anualmente ou ao mudar planos/preços.
+
+## 9. Beta fechado
+
+Ver [`BETA_LAUNCH.md`](./BETA_LAUNCH.md) para convite de 10–30 usuários e acompanhamento via `/admin`.

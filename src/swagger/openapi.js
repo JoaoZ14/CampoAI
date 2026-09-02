@@ -20,6 +20,7 @@ export const openapiSpec = {
     { name: 'Health', description: 'Verificação do serviço' },
     { name: 'Landing', description: 'Endpoints públicos do site (notícias, planos)' },
     { name: 'Signup', description: 'Cadastro gratuito com OTP SMS' },
+    { name: 'Admin', description: 'Painel administrativo (Bearer Supabase + ADMIN_EMAILS)' },
     { name: 'Webhook', description: 'Simulação do webhook WhatsApp (Postman-style)' },
   ],
   paths: {
@@ -351,6 +352,78 @@ export const openapiSpec = {
             },
           },
         },
+      },
+    },
+    '/admin/api/dashboard': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Dashboard agregado (overview + analytics + orgs)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Bundle do painel' }, '401': { description: 'Não autenticado' } },
+      },
+    },
+    '/admin/api/users': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Listar usuários (busca e filtros)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'q', in: 'query', schema: { type: 'string' } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['trial_active', 'trial_expired', 'paid', 'blocked', 'no_signup'] } },
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'offset', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: { '200': { description: 'Lista paginada' } },
+      },
+    },
+    '/admin/api/users/{userId}': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Detalhe do usuário',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { '200': { description: 'Usuário + org + mensagens recentes' } },
+      },
+      patch: {
+        tags: ['Admin'],
+        summary: 'Atualizar usuário (trial, uso, billing)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { '200': { description: 'Usuário atualizado' } },
+      },
+    },
+    '/admin/api/subscription-requests': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Solicitações de checkout /planos',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Lista paginada' } },
+      },
+    },
+    '/admin/api/news/refresh': {
+      post: {
+        tags: ['Admin'],
+        summary: 'Forçar sync de notícias (GNews)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Notícias atualizadas' } },
+      },
+    },
+    '/admin/api/settings': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Configurações não-secretas do ambiente',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'URLs e flags de integração' } },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Token Supabase Auth (mesmo do login /admin)',
       },
     },
   },

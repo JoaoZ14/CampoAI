@@ -40,7 +40,7 @@ Focado 100% no agro, no canal que o produtor já usa (WhatsApp), com IA multimod
 | `/cadastro` | Operate | Cadastro gratuito com OTP SMS |
 | `/planos` | Operate | Checkout com OTP + Asaas |
 | `/area-do-cliente` | Operate | Portal do **assinante** (e-mail + senha do checkout) |
-| `/admin` | Operate | BI, usuários, orgs, planos |
+| `/admin` | Operate | Backoffice do proprietário: dashboard, usuários/trials, assinaturas, orgs, conversas, planos, notícias, configurações |
 | WhatsApp | Operate | Produto principal |
 
 **Trial:** `FREE_TRIAL_DAYS` (padrão 14) e `FREE_USAGE_LIMIT` (padrão 10 análises).

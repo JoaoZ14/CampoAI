@@ -335,8 +335,9 @@ export async function getUserById(userId) {
  *   trialEndsAt?: string|null,
  *   welcomeSentAt?: string|null,
  *   trialExpiredNotifiedAt?: string|null,
- *   signupSource?: string|null,
- * }} patch
+   *   signupSource?: string|null,
+   *   usageCount?: number,
+   * }} patch
  */
 export async function updateUserById(userId, patch) {
   const supabase = getClient();
@@ -363,6 +364,7 @@ export async function updateUserById(userId, patch) {
     row.trial_expired_notified_at = patch.trialExpiredNotifiedAt;
   }
   if (patch.signupSource !== undefined) row.signup_source = patch.signupSource;
+  if (patch.usageCount !== undefined) row.usage_count = patch.usageCount;
 
   if (Object.keys(row).length === 0) {
     throw new AppError('Nenhum campo para atualizar.', 400);

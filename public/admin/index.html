@@ -2,222 +2,76 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AG Assist — Painel do proprietário</title>
-    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2a382a" />
+    <title>AG Assist — Admin</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/planos/styles.css" />
+    <link rel="stylesheet" href="/admin/styles.css" />
   </head>
   <body>
-    <div id="banner" class="banner" hidden></div>
+    <a href="#app-main" class="skip-link">Ir para o conteúdo</a>
+    <div id="toast-root" class="toast-root" aria-live="polite"></div>
 
-    <div id="view-login" class="login-wrap">
-      <div class="card login-card">
-        <h1>AG Assist</h1>
-        <p class="muted small">
-          Acesso restrito. Use o e-mail cadastrado no Supabase Auth e listado em
-          <code>ADMIN_EMAILS</code> no servidor.
-        </p>
-        <div id="login-gate-msg" class="gate-msg" hidden role="alert"></div>
-        <form id="form-login" class="form">
-          <label>
-            E-mail
-            <input type="email" name="email" autocomplete="username" required />
-          </label>
-          <label>
-            Senha
-            <input type="password" name="password" autocomplete="current-password" required />
-          </label>
-          <button type="submit" class="btn">Entrar</button>
-        </form>
-        <p class="muted small" style="margin-top: 1rem; text-align: center">
-          <a href="/legal/termos-de-uso">Termos de uso</a>
-          ·
-          <a href="/legal/politica-de-privacidade">Política de privacidade</a>
-        </p>
-      </div>
-    </div>
-
-    <div id="view-dash" class="admin-shell" hidden>
-      <aside class="sidebar">
-        <div class="brand">
-          <strong>AG Assist</strong>
-          <span class="muted small">Painel</span>
+    <div id="view-app" class="admin-app">
+      <div id="sidebar-backdrop" class="sidebar-backdrop" hidden aria-hidden="true"></div>
+      <aside id="sidebar" class="sidebar" aria-label="Navegação principal">
+        <div class="sidebar-brand">
+          <img
+            src="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
+            alt=""
+            width="140"
+            height="38"
+            decoding="async"
+          />
+          <span class="brand-text">AG Assist</span>
+          <span class="sidebar-sub">Admin</span>
         </div>
-        <nav class="side-nav">
-          <a href="#sec-overview">Visão geral</a>
-          <a href="#sec-bi">BI &amp; métricas</a>
-          <a href="#sec-users">Usuários</a>
-          <a href="#sec-orgs">Organizações</a>
-          <a href="#sec-messages">Conversas (IA)</a>
-          <a href="#sec-plans">Planos</a>
-        </nav>
-        <div class="side-footer">
-          <button type="button" id="btn-refresh" class="btn secondary sm" style="width: 100%">
-            Atualizar dados
-          </button>
-          <button type="button" id="btn-logout" class="btn secondary sm" style="width: 100%; margin-top: 0.5rem">
-            Sair
+        <nav class="side-nav" id="side-nav"></nav>
+        <div class="sidebar-foot">
+          <button type="button" id="btn-sidebar-toggle" class="btn btn-secondary sm sidebar-toggle">
+            Fechar menu
           </button>
         </div>
       </aside>
-
-      <div class="admin-main">
+      <div class="admin-body">
         <header class="topbar">
-          <div>
-            <h1 class="topbar-title">Dashboard</h1>
-            <p class="muted small" id="dash-subtitle">Gestão completa — usuários, equipes, conversas e indicadores.</p>
+          <button type="button" id="btn-menu" class="btn-icon" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">☰</button>
+          <div class="topbar-titles">
+            <h1 id="page-title" class="topbar-title">Painel</h1>
+            <p id="page-subtitle" class="muted small"></p>
+          </div>
+          <div class="topbar-actions">
+            <span id="admin-email" class="admin-email muted small" title=""></span>
+            <button type="button" id="btn-refresh" class="btn btn-secondary sm" aria-label="Atualizar dados">Atualizar</button>
+            <button type="button" id="btn-logout" class="btn btn-secondary sm">Sair</button>
           </div>
         </header>
-
-        <div class="admin-scroll">
-          <section id="sec-warnings" class="card warn-card" hidden>
-            <h2>Avisos</h2>
-            <ul id="warnings-list" class="warn-list"></ul>
-          </section>
-
-          <section id="sec-overview" class="anchor-section">
-            <h2 class="section-title">Visão geral</h2>
-            <div class="grid kpi-grid" id="stats-grid"></div>
-            <div class="card">
-              <h3>Integrações (ambiente)</h3>
-              <div id="integrations" class="badges"></div>
-            </div>
-          </section>
-
-          <section id="sec-bi" class="anchor-section">
-            <h2 class="section-title">BI &amp; análises</h2>
-            <div class="grid bi-grid">
-              <div class="card">
-                <h3>Usuários por tipo de cobrança</h3>
-                <div id="billing-breakdown" class="muted small">Carregando…</div>
-              </div>
-              <div class="card">
-                <h3>Cadastros (últimos 14 dias)</h3>
-                <div id="signups-chart" class="chart-wrap">Carregando…</div>
-              </div>
-              <div class="card span-2">
-                <h3>Top uso da IA (mensagens analisadas)</h3>
-                <div class="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Telefone</th>
-                        <th>Uso</th>
-                        <th>Tipo</th>
-                      </tr>
-                    </thead>
-                    <tbody id="top-users-body"></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section id="sec-users" class="anchor-section">
-            <div class="card">
-              <div class="row-between">
-                <h2 class="section-title" style="margin: 0">Usuários (WhatsApp)</h2>
-                <div class="pager">
-                  <button type="button" id="btn-prev" class="btn secondary sm">Anterior</button>
-                  <span id="page-label" class="muted small"></span>
-                  <button type="button" id="btn-next" class="btn secondary sm">Próximo</button>
-                </div>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Telefone</th>
-                      <th>Uso (IA)</th>
-                      <th>Pago</th>
-                      <th>Tipo</th>
-                      <th>Criado em</th>
-                      <th>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody id="users-body"></tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section id="sec-orgs" class="anchor-section">
-            <div class="card">
-              <h2 class="section-title">Organizações (família / empresa)</h2>
-              <p class="muted small">
-                Crie o grupo com o número máximo de WhatsApp do plano e adicione os números autorizados.
-              </p>
-              <form id="form-org" class="form form-row">
-                <label>
-                  Nome (opcional)
-                  <input type="text" name="orgName" placeholder="Fazenda Silva" />
-                </label>
-                <label>
-                  Máx. números
-                  <input type="number" name="maxSeats" min="1" max="100" value="3" required />
-                </label>
-                <button type="submit" class="btn">Criar organização</button>
-              </form>
-              <div id="orgs-list" style="margin-top: 1rem"></div>
-            </div>
-          </section>
-
-          <section id="sec-messages" class="anchor-section">
-            <div class="card">
-              <div class="row-between">
-                <h2 class="section-title" style="margin: 0">Histórico de mensagens (memória)</h2>
-                <div class="pager">
-                  <button type="button" id="btn-msg-prev" class="btn secondary sm">Anterior</button>
-                  <span id="msg-page-label" class="muted small"></span>
-                  <button type="button" id="btn-msg-next" class="btn secondary sm">Próximo</button>
-                </div>
-              </div>
-              <p class="muted small">Últimas linhas salvas no Supabase para contexto da IA (texto truncado).</p>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Quando</th>
-                      <th>Telefone</th>
-                      <th>Papel</th>
-                      <th>Texto</th>
-                    </tr>
-                  </thead>
-                  <tbody id="messages-body"></tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section id="sec-plans" class="anchor-section">
-            <div class="card">
-              <h2 class="section-title">Planos (referência / landing)</h2>
-              <p class="muted small">
-                Público em <code>GET /api/plans</code>. Os textos e preços vêm da tabela
-                <code>plan_catalog</code> no Supabase (linha <code>id = default</code>); se estiver vazia ou
-                inválida, a API usa o padrão do código.
-              </p>
-              <div id="plan-ref" class="muted small"></div>
-              <p class="muted small" style="margin-top: 1rem">Editar no banco (JSON)</p>
-              <textarea
-                id="plan-catalog-editor"
-                class="code-area"
-                rows="18"
-                spellcheck="false"
-                aria-label="JSON do catálogo: version, plans, notes"
-              ></textarea>
-              <div class="flex-gap" style="margin-top: 0.5rem">
-                <button type="button" id="btn-plan-catalog-save" class="btn">Salvar no banco</button>
-                <button type="button" id="btn-plan-catalog-reload" class="btn secondary">
-                  Recarregar do banco
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
+        <main id="app-main" class="app-main" tabindex="-1">
+          <p class="muted">Verificando sessão…</p>
+        </main>
       </div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <dialog id="modal" class="admin-modal" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title"></h2>
+        <button type="button" id="modal-close" class="btn-icon" aria-label="Fechar">×</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </dialog>
+
+    <dialog id="drawer" class="admin-drawer" aria-labelledby="drawer-title">
+      <div class="drawer-head">
+        <h2 id="drawer-title"></h2>
+        <button type="button" id="drawer-close" class="btn-icon" aria-label="Fechar">×</button>
+      </div>
+      <div id="drawer-body" class="drawer-body"></div>
+    </dialog>
+
+    <script type="module" src="/admin/app.js"></script>
   </body>
 </html>

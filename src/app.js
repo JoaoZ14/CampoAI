@@ -2,6 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import webhookRoutes from './routes/whatsappRoutes.js';
 import asaasWebhookRoutes from './routes/asaasWebhookRoutes.js';
@@ -25,6 +26,12 @@ export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    })
+  );
   app.use(cors());
   // urlencoded antes de json — Twilio WhatsApp manda application/x-www-form-urlencoded
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
@@ -126,6 +133,9 @@ export function createApp() {
   );
 
   app.use('/admin', adminRoutes);
+  app.get(['/admin/login', '/admin/login/'], (_req, res) => {
+    res.sendFile(path.join(adminDir, 'login.html'));
+  });
   app.get(['/admin', '/admin/'], (_req, res) => {
     res.sendFile(path.join(adminDir, 'index.html'));
   });

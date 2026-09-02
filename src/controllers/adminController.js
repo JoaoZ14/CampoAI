@@ -4,8 +4,11 @@ import {
 } from '../services/planCatalogService.js';
 import {
   getAdminOverview,
+  getAdminSettings,
+  getAdminUserDetail,
+  listAdminSubscriptionRequests,
   listAdminUsers,
-  patchAdminUserBilling,
+  patchAdminUser,
 } from '../services/adminService.js';
 import {
   getAdminAnalytics,
@@ -18,7 +21,12 @@ import {
   listOrganizations,
   listSeatsForOrganization,
   removeSeatFromOrganization,
+  updateOrganization,
 } from '../services/organizationService.js';
+import {
+  forceRefreshLandingNews,
+  getAdminNewsList,
+} from '../services/landingNewsService.js';
 
 /**
  * GET /admin/api/config — chaves públicas para o cliente Supabase (login no navegador).
@@ -96,7 +104,8 @@ export async function handleAdminChatMessages(req, res, next) {
     const rawOffset = Number.parseInt(String(req.query.offset ?? '0'), 10);
     const limit = Math.min(100, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 40));
     const offset = Math.max(0, Number.isFinite(rawOffset) ? rawOffset : 0);
-    const { rows, total } = await listAdminChatMessages({ limit, offset });
+    const phone = typeof req.query.phone === 'string' ? req.query.phone.trim() : '';
+    const { rows, total } = await listAdminChatMessages({ limit, offset, phone: phone || undefined });
     return res.json({ ok: true, limit, offset, total, messages: rows });
   } catch (err) {
     next(err);
@@ -112,8 +121,15 @@ export async function handleAdminUsers(req, res, next) {
     const rawOffset = Number.parseInt(String(req.query.offset ?? '0'), 10);
     const limit = Math.min(100, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 50));
     const offset = Math.max(0, Number.isFinite(rawOffset) ? rawOffset : 0);
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
 
-    const { rows, total } = await listAdminUsers({ limit, offset });
+    const { rows, total } = await listAdminUsers({
+      limit,
+      offset,
+      q: q || undefined,
+      status: status || undefined,
+    });
 
     return res.json({
       ok: true,
@@ -128,7 +144,23 @@ export async function handleAdminUsers(req, res, next) {
 }
 
 /**
- * PATCH /admin/api/users/:userId — plano pessoal (isPaid + billingKind).
+ * GET /admin/api/users/:userId
+ */
+export async function handleAdminUserDetail(req, res, next) {
+  try {
+    const userId = String(req.params.userId ?? '').trim();
+    if (!userId) {
+      return res.status(400).json({ ok: false, error: 'userId obrigatório.' });
+    }
+    const detail = await getAdminUserDetail(userId);
+    return res.json({ ok: true, ...detail });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * PATCH /admin/api/users/:userId
  */
 export async function handleAdminPatchUser(req, res, next) {
   try {
@@ -137,14 +169,7 @@ export async function handleAdminPatchUser(req, res, next) {
       return res.status(400).json({ ok: false, error: 'userId obrigatório.' });
     }
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    if (typeof body.isPaid !== 'boolean') {
-      return res.status(400).json({ ok: false, error: 'isPaid (boolean) obrigatório.' });
-    }
-    const billingKind = typeof body.billingKind === 'string' ? body.billingKind.trim() : undefined;
-    const user = await patchAdminUserBilling(userId, {
-      isPaid: body.isPaid,
-      billingKind,
-    });
+    const user = await patchAdminUser(userId, body);
     return res.json({ ok: true, user });
   } catch (err) {
     next(err);
@@ -266,6 +291,75 @@ export async function handleAdminPlanCatalogPut(req, res, next) {
       notes: body.notes,
     });
     return res.json({ ok: true, catalog });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /admin/api/subscription-requests
+ */
+export async function handleAdminSubscriptionRequests(req, res, next) {
+  try {
+    const rawLimit = Number.parseInt(String(req.query.limit ?? '50'), 10);
+    const rawOffset = Number.parseInt(String(req.query.offset ?? '0'), 10);
+    const limit = Math.min(100, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 50));
+    const offset = Math.max(0, Number.isFinite(rawOffset) ? rawOffset : 0);
+    const { rows, total } = await listAdminSubscriptionRequests({ limit, offset });
+    return res.json({ ok: true, limit, offset, total, requests: rows });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /admin/api/news
+ */
+export async function handleAdminNews(req, res, next) {
+  try {
+    const { items, fetchedAt } = await getAdminNewsList();
+    return res.json({ ok: true, items, fetchedAt });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /admin/api/news/refresh
+ */
+export async function handleAdminNewsRefresh(req, res, next) {
+  try {
+    const { items, fetchedAt } = await forceRefreshLandingNews();
+    return res.json({ ok: true, items, fetchedAt, message: 'Notícias atualizadas.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /admin/api/settings
+ */
+export function handleAdminSettings(req, res) {
+  return res.json({ ok: true, settings: getAdminSettings() });
+}
+
+/**
+ * PATCH /admin/api/organizations/:orgId
+ */
+export async function handleAdminOrganizationPatch(req, res, next) {
+  try {
+    const orgId = String(req.params.orgId ?? '').trim();
+    if (!orgId) {
+      return res.status(400).json({ ok: false, error: 'orgId obrigatório.' });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const org = await updateOrganization(orgId, {
+      name: body.name,
+      maxSeats: body.maxSeats ?? body.max_seats,
+      isActive: body.isActive ?? body.is_active,
+    });
+    console.info(`[admin] org updated orgId=${orgId}`);
+    return res.json({ ok: true, organization: org });
   } catch (err) {
     next(err);
   }

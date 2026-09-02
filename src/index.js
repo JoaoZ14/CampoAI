@@ -1,7 +1,10 @@
 import 'dotenv/config';
+import { initSentry } from './lib/sentry.js';
 import { createApp } from './app.js';
 import { startWeeklyNewsCron, stopWeeklyNewsCron } from './jobs/weeklyNewsCron.js';
 import { startTrialExpiryCron, stopTrialExpiryCron } from './jobs/trialExpiryCron.js';
+
+initSentry();
 
 const port = Number(process.env.PORT) || 3001;
 const app = createApp();
