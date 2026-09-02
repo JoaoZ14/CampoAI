@@ -95,4 +95,14 @@ assert.ok(email.subject.includes('Maria'));
 assert.ok(email.html.includes('Começar no WhatsApp'));
 assert.ok(email.html.includes('https://wa.me/5524999999999'));
 
+const emailWithoutUrl = buildSignupWelcomeEmail({ name: 'Maria Silva', whatsappUrl: '' });
+assert.ok(!emailWithoutUrl.html.includes('Começar no WhatsApp'));
+
+const waUrl = 'https://wa.me/5524999999999?text=Oi';
+const emailViaOpenUrlAlias = buildSignupWelcomeEmail({
+  name: 'Maria Silva',
+  whatsappUrl: waUrl,
+});
+assert.ok(emailViaOpenUrlAlias.html.includes('Começar no WhatsApp'));
+
 console.log('test-signup-flow: OK');
