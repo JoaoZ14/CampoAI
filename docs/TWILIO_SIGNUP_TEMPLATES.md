@@ -48,4 +48,5 @@ Para continuar, escolha um plano: {{2}}
 1. Criar e aprovar os dois templates no Meta
 2. Copiar os Content SIDs para `.env`
 3. Definir `SIGNUP_URL` e `PAYWALL_URL` com domínio público HTTPS
+4. Ver checklist completo em [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md)
 4. Ativar `TRIAL_EXPIRY_CRON_ENABLED=true` quando estiver pronto para avisos proativos

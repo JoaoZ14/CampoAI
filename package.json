@@ -10,7 +10,8 @@
     "weekly-news": "node scripts/sendWeeklyNewsOnce.mjs",
     "weekly-news:send": "node scripts/sendWeeklyNewsOnce.mjs",
     "test:signup-flow": "node scripts/test-signup-flow.mjs",
-    "test:signup-email": "node scripts/sendSignupWelcomeEmailOnce.mjs"
+    "test:signup-email": "node scripts/sendSignupWelcomeEmailOnce.mjs",
+    "smoke:deploy": "node scripts/smoke-deploy.mjs"
   },
   "engines": {
     "node": ">=18"
