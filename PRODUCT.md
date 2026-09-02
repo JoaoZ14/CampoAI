@@ -28,7 +28,7 @@ Focado 100% no agro, no canal que o produtor já usa (WhatsApp), com IA multimod
 
 - **Campo:** celular com internet; WhatsApp como único canal de atendimento do assistente.
 - **Aquisição:** landing em Netlify (`agassist.netlify.app`) → cadastro em `/cadastro` no backend.
-- **Backend:** API Express na VPS (`agassist.duckdns.org`).
+- **Backend:** API Express no Railway (`campoai-production-b7c7.up.railway.app`).
 - **Pós-cadastro:** boas-vindas no WhatsApp (+ e-mail opcional via Resend); uso bloqueado até `signup_completed_at`.
 - **Conversão:** paywall ao atingir limite do trial → `/planos` → Asaas → portal `/area-do-cliente` (assinantes).
 

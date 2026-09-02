@@ -15,9 +15,9 @@ Validar colunas em `public.users`: `signup_completed_at`, `trial_started_at`, `t
 ## 2. Variáveis de ambiente (VPS)
 
 ```env
-PUBLIC_APP_URL=https://agassist.duckdns.org
-SIGNUP_URL=https://agassist.duckdns.org/cadastro
-PAYWALL_URL=https://agassist.duckdns.org/planos
+PUBLIC_APP_URL=https://campoai-production-b7c7.up.railway.app
+SIGNUP_URL=https://campoai-production-b7c7.up.railway.app/cadastro
+PAYWALL_URL=https://campoai-production-b7c7.up.railway.app/planos
 FREE_TRIAL_DAYS=14
 FREE_USAGE_LIMIT=10
 ```
@@ -59,7 +59,7 @@ Reiniciar o processo Node após alterar. Usuários com `trial_ends_at` no passad
 
 Confirmar CTAs apontando para:
 
-`https://agassist.duckdns.org/cadastro?origin=landing`
+`https://campoai-production-b7c7.up.railway.app/cadastro?origin=landing`
 
 Arquivo: `CampoAILanding/index.html`.
 
@@ -67,7 +67,7 @@ Arquivo: `CampoAILanding/index.html`.
 
 ```bash
 # Health
-curl -s https://agassist.duckdns.org/health
+curl -s https://campoai-production-b7c7.up.railway.app/health
 
 # Testes locais (antes do deploy)
 npm run test:signup-flow

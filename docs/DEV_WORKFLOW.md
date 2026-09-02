@@ -50,8 +50,8 @@ PRODUCT.md (escopo) → código + migração → testes → UI (se houver)
 
 | Repo | Destino | Quando |
 |------|---------|--------|
-| CampoAI | VPS (`agassist.duckdns.org`) | API, cadastro, planos, admin |
-| CampoAILanding | Netlify | Landing, CTAs |
+| CampoAI | Railway (`campoai-production-b7c7.up.railway.app`) | API, cadastro, planos, admin |
+| CampoAILanding | Netlify (`agassist.netlify.app`) | Landing, CTAs |
 
 **Coordenação de URLs:** mudou `SIGNUP_URL` ou `PAYWALL_URL`? Atualize CTAs na landing.
 

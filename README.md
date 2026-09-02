@@ -190,7 +190,7 @@ Página pública para criar conta e iniciar o **trial** (14 dias **ou** 10 anál
 
 ### Variáveis `.env`
 
-- **`SIGNUP_URL`** — link enviado no WhatsApp quando o usuário ainda não cadastrou (ex.: `https://agassist.duckdns.org/cadastro`)
+- **`SIGNUP_URL`** — link enviado no WhatsApp quando o usuário ainda não cadastrou (ex.: `https://campoai-production-b7c7.up.railway.app/cadastro`)
 - **`FREE_TRIAL_DAYS`** — padrão `14`
 - **`FREE_USAGE_LIMIT`** — padrão `10` (análises com IA)
 - **`RESEND_API_KEY`**, **`SIGNUP_EMAIL_FROM`**, **`SIGNUP_EMAIL_ENABLED`** — e-mail de boas-vindas (ver `docs/SIGNUP_WELCOME_EMAIL.md`)
