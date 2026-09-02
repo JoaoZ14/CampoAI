@@ -109,7 +109,7 @@ export async function completeSignup(input) {
   const whatsappOpenUrl = getSignupWhatsappOpenUrl() || null;
 
   if (email) {
-    void sendSignupWelcomeEmail({ name, email, whatsappOpenUrl }).catch((err) => {
+    void sendSignupWelcomeEmail({ name, email, whatsappUrl: whatsappOpenUrl ?? '' }).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('[signup] Falha no e-mail de boas-vindas:', msg);
     });
