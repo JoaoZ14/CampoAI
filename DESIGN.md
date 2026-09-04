@@ -48,7 +48,7 @@ components:
 
 ## Overview
 
-Sistema visual alinhado à landing (`agassist.netlify.app`) e reutilizado em `/planos` e `/cadastro`. Paleta verde campo + acento terroso (field). Tipografia: Inter para corpo, Source Serif 4 para títulos. Logo CampoLead com texto de marca **AG Assist**.
+Sistema visual alinhado à landing (`agassist.netlify.app`) e reutilizado em `/planos`, `/cadastro`, `/entrar` e `/area-do-cliente`. Paleta verde campo + acento terroso (field). Tipografia: Inter para corpo, Source Serif 4 para títulos. Logo CampoLead com texto de marca **AG Assist**.
 
 Fonte de tokens: `public/planos/styles.css` (`:root`).
 

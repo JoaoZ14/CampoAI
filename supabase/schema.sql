@@ -41,6 +41,9 @@ create table if not exists public.users (
   billing_kind text not null default 'free',
   name text,
   email text,
+  auth_user_id uuid unique,
+  phone_verified_at timestamptz,
+  cpf text,
   signup_completed_at timestamptz,
   trial_started_at timestamptz,
   trial_ends_at timestamptz,
@@ -53,9 +56,14 @@ create table if not exists public.users (
 
 create index if not exists users_phone_idx on public.users (phone);
 create index if not exists users_organization_id_idx on public.users (organization_id);
+create index if not exists users_auth_user_id_idx on public.users (auth_user_id)
+  where auth_user_id is not null;
 
 comment on table public.users is 'Usuários do AG Assist identificados pelo telefone WhatsApp';
 comment on column public.users.billing_kind is 'free | personal (assinante individual) | team (assento de organização)';
+comment on column public.users.auth_user_id is 'UUID de auth.users (login web Google ou e-mail/senha)';
+comment on column public.users.phone_verified_at is 'Preenchido após OTP SMS no cadastro, vínculo ou checkout';
+comment on column public.users.cpf is 'CPF só dígitos (opcional; perfil web)';
 
 alter table public.users
   add column if not exists asaas_customer_id text,
@@ -267,7 +275,7 @@ create table if not exists public.subscription_requests (
   plan_code text not null check (plan_code in ('lite', 'basic', 'pro', 'premium')),
   name text not null,
   phone text not null,
-  password_hash text not null,
+  password_hash text,
   company_name text,
   cnpj text,
   contact_name text,

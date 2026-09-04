@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Confirma se as migrações 017–019 estão aplicadas no Supabase de produção.
+ * Confirma se as migrações 017–020 estão aplicadas no Supabase de produção.
  * Uso: node scripts/confirm-migrations.mjs
  * Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env ou ambiente.
  */
@@ -30,7 +30,7 @@ function fail(name, detail = '') {
   failed += 1;
 }
 
-console.log(`\nVerificando migrações 017–019 em: ${url}\n`);
+console.log(`\nVerificando migrações 017–020 em: ${url}\n`);
 
 // migration_017: plan_catalog version 2026-04
 const { data: catalogRows, error: catalogErr } = await supabase
@@ -89,6 +89,11 @@ if (legacyErr) {
   pass('migration_019', 'backfill legado ok (nenhum usuário pendente)');
 }
 
+const authCols = ['auth_user_id', 'phone_verified_at', 'cpf'];
+const { error: authColErr } = await supabase.from('users').select(authCols.join(', ')).limit(1);
+if (authColErr) fail('migration_020', `users auth columns: ${authColErr.message}`);
+else pass('migration_020', 'colunas auth_user_id, phone_verified_at, cpf');
+
 // Resumo de usuários para beta
 const { count: totalUsers } = await supabase
   .from('users')
@@ -110,9 +115,9 @@ console.log(`Cadastros concluídos: ${signedUp ?? 0}`);
 console.log(`Assinantes pagos: ${paidUsers ?? 0}`);
 
 if (failed) {
-  console.error(`\n${failed} verificação(ões) falharam. Rode as migrações em supabase/migration_017–019.`);
+  console.error(`\n${failed} verificação(ões) falharam. Rode as migrações em supabase/migration_017–020.`);
   process.exit(1);
 }
 
-console.log('\nMigrações 017–019 confirmadas.');
+console.log('\nMigrações 017–020 confirmadas.');
 process.exit(0);

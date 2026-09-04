@@ -8,6 +8,7 @@ import {
   REPORT_SYSTEM_INSTRUCTION,
 } from './llmPrompts.js';
 import { generateWithOllama, isOllamaConfigured } from './ollamaService.js';
+import { formatWhatsAppReply } from '../utils/whatsappFormat.js';
 
 /**
  * Tokens de saída do Gemini. Padrão alto para não cortar resposta no meio da frase.
@@ -44,10 +45,14 @@ function mockAgriculturalReply({ text, imageUrl, audioUrl, fieldCalcMode }) {
     : '(sem texto)';
   return (
     '[TESTE — MOCK_LLM]\n\n' +
-    '• Possíveis causas: falta de nutrientes, rega em excesso ou praga.\n' +
-    '• O que observar: manchas, bichos e resposta da planta à rega moderada.\n' +
-    '• O que fazer agora: isolar área afetada e evitar produto sem orientação.\n' +
-    '• Quando chamar um profissional: se piorar em 48h ou houver surto no rebanho.\n' +
+    'POSSÍVEIS CAUSAS\n' +
+    '- Falta de nutrientes ou praga nas folhas.\n\n' +
+    'O QUE OBSERVAR\n' +
+    '- Manchas, bichos e resposta da planta à rega moderada.\n\n' +
+    'O QUE FAZER AGORA\n' +
+    '- Isolar área afetada e evitar produto sem orientação.\n\n' +
+    '⚠️ QUANDO CHAMAR UM PROFISSIONAL\n' +
+    '- Se piorar em 48h ou houver surto no rebanho.\n' +
     (imageUrl ? '\n(Imagem recebida — em produção o Gemini analisaria a foto.)\n' : '') +
     (audioUrl ? '\n(Áudio recebido — em produção o Gemini transcreveria e responderia.)\n' : '') +
     `\nContexto: ${excerpt}`
@@ -300,13 +305,19 @@ function geminiFallbackEnabled() {
   return process.env.OLLAMA_FALLBACK_GEMINI !== 'false';
 }
 
+function finalizeAgriculturalReply(reply, fieldCalcMode = false) {
+  return formatWhatsAppReply(reply, { fieldCalcMode });
+}
+
 /**
  * Texto → Ollama (Qwen local). Foto/áudio → Gemini.
  * @param {{ text?: string, imageUrl?: string, audioUrl?: string, history?: { role: 'user' | 'assistant', text: string }[], fieldCalcMode?: boolean }} input
  */
 export async function generateAgriculturalReply(input) {
+  const fieldCalcMode = Boolean(input.fieldCalcMode);
+
   if (process.env.MOCK_LLM === 'true') {
-    return mockAgriculturalReply(input);
+    return finalizeAgriculturalReply(mockAgriculturalReply(input), fieldCalcMode);
   }
 
   if (hasMultimodalInput(input)) {
@@ -317,7 +328,8 @@ export async function generateAgriculturalReply(input) {
       );
     }
     console.log('[LLM] rota: Gemini (mídia)');
-    return generateWithGemini(input);
+    const reply = await generateWithGemini(input);
+    return finalizeAgriculturalReply(reply, fieldCalcMode);
   }
 
   const textProvider = resolveTextProvider();
@@ -325,11 +337,12 @@ export async function generateAgriculturalReply(input) {
   if (textProvider === 'ollama') {
     console.log('[LLM] rota: Ollama (texto)');
     try {
-      return await generateWithOllama({
+      const reply = await generateWithOllama({
         text: input.text ?? '',
         history: input.history ?? [],
-        fieldCalcMode: Boolean(input.fieldCalcMode),
+        fieldCalcMode,
       });
+      return finalizeAgriculturalReply(reply, fieldCalcMode);
     } catch (err) {
       const canFallback =
         geminiFallbackEnabled() && process.env.GEMINI_API_KEY?.trim();
@@ -337,7 +350,8 @@ export async function generateAgriculturalReply(input) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn('[LLM] Ollama falhou; fallback Gemini (texto):', msg.slice(0, 200));
       console.log('[LLM] rota: Gemini (texto — fallback Ollama)');
-      return generateWithGemini(input);
+      const reply = await generateWithGemini(input);
+      return finalizeAgriculturalReply(reply, fieldCalcMode);
     }
   }
 
@@ -349,7 +363,8 @@ export async function generateAgriculturalReply(input) {
   }
 
   console.log('[LLM] rota: Gemini (texto)');
-  return generateWithGemini(input);
+  const reply = await generateWithGemini(input);
+  return finalizeAgriculturalReply(reply, fieldCalcMode);
 }
 
 export async function generateConversationReportText(input) {

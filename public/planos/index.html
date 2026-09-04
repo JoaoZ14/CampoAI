@@ -22,6 +22,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/planos/styles.css" />
+    <link rel="stylesheet" href="/shared/authForms.css" />
   </head>
   <body>
     <header class="site-header">
@@ -38,8 +39,8 @@
         <nav class="site-nav" aria-label="Principal">
           <a class="site-nav-link" href="https://agassist.netlify.app/">Início</a>
           <a class="site-nav-link is-current" href="/planos" aria-current="page">Planos</a>
-          <a class="site-nav-link" href="/legal/termos-de-uso">Termos</a>
-          <a class="site-nav-link" href="/legal/politica-de-privacidade">Privacidade</a>
+          <a class="site-nav-link" href="/cadastro">Cadastro</a>
+          <a class="site-nav-link" href="/entrar">Entrar</a>
         </nav>
       </div>
     </header>
@@ -129,6 +130,12 @@
           <p class="muted flow-intro">
             Celular → código por SMS → dados e cartão. Sem etapa extra: o plano você já escolheu nos
             cards.
+          </p>
+          <p id="checkout-auth-gate" class="auth-gate" hidden>
+            Entre ou crie uma conta web para assinar.
+            <a href="/entrar?next=/planos">Entrar</a>
+            ·
+            <a href="/cadastro">Cadastro</a>
           </p>
 
           <form id="flow-form">
@@ -235,16 +242,6 @@
                   maxlength="14"
                   placeholder="000.000.000-00"
                   autocomplete="off"
-                />
-              </label>
-              <label>Senha da conta
-                <input
-                  type="password"
-                  name="password"
-                  id="password"
-                  required
-                  minlength="4"
-                  autocomplete="new-password"
                 />
               </label>
 

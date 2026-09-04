@@ -9,8 +9,9 @@ Executar na ordem, se ainda não aplicadas:
 1. `supabase/migration_017_sync_plan_catalog.sql`
 2. `supabase/migration_018_signup_trial.sql`
 3. `supabase/migration_019_legacy_signup_backfill.sql`
+4. `supabase/migration_020_user_auth_profile.sql`
 
-Validar colunas em `public.users`: `signup_completed_at`, `trial_started_at`, `trial_ends_at`, `welcome_sent_at`, `trial_expired_notified_at`, `signup_source`.
+Validar colunas em `public.users`: `signup_completed_at`, `trial_started_at`, `trial_ends_at`, `welcome_sent_at`, `trial_expired_notified_at`, `signup_source`, `auth_user_id`, `phone_verified_at`, `cpf`.
 
 ## 2. Variáveis de ambiente (VPS)
 
@@ -84,8 +85,8 @@ npm run test:signup-flow
 
 **Manual em produção:**
 
-1. `POST /api/signup/otp/send` com número de teste
-2. Fluxo completo `/cadastro` até painel de sucesso
+1. Fluxo completo `/cadastro` (conta web + OTP) até painel de sucesso
+2. Login em `/entrar` → `/area-do-cliente`
 3. Mensagem no WhatsApp **sem** cadastro → recebe link `SIGNUP_URL`
 4. Admin `/admin` → gráfico de cadastros usa `signup_completed_at`
 

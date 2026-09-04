@@ -69,6 +69,42 @@ export async function findUserByPhone(phone) {
 }
 
 /**
+ * Busca usuário pelo UUID do Supabase Auth (login web).
+ * @param {string} authUserId
+ */
+export async function findUserByAuthUserId(authUserId) {
+  const id = String(authUserId ?? '').trim();
+  if (!id) return null;
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('auth_user_id', id)
+    .maybeSingle();
+  if (error) {
+    throw new AppError(`Erro ao buscar usuário autenticado: ${error.message}`, 500);
+  }
+  return data ? mapUserRow(data) : null;
+}
+
+/**
+ * Garante que o WhatsApp e a conta Auth possam ser ligados sem conflito.
+ * @param {ReturnType<typeof mapUserRow>} user
+ * @param {string} authUserId
+ */
+export async function assertCanAttachAuthUser(user, authUserId) {
+  const authId = String(authUserId ?? '').trim();
+  if (!authId) throw new AppError('Sessão web inválida.', 401);
+  if (user.authUserId && user.authUserId !== authId) {
+    throw new AppError('Este WhatsApp já está vinculado a outra conta web.', 409);
+  }
+  const other = await findUserByAuthUserId(authId);
+  if (other && other.id !== user.id) {
+    throw new AppError('Esta conta web já está vinculada a outro WhatsApp.', 409);
+  }
+}
+
+/**
  * @param {ReturnType<typeof mapUserRow>} user
  */
 export function hasCompletedSignup(user) {
@@ -330,6 +366,9 @@ export async function getUserById(userId) {
  *   billingUsageCount?: number,
  *   name?: string|null,
  *   email?: string|null,
+ *   authUserId?: string|null,
+ *   phoneVerifiedAt?: string|null,
+ *   cpf?: string|null,
  *   signupCompletedAt?: string|null,
  *   trialStartedAt?: string|null,
  *   trialEndsAt?: string|null,
@@ -356,6 +395,9 @@ export async function updateUserById(userId, patch) {
   if (patch.billingUsageCount !== undefined) row.billing_usage_count = patch.billingUsageCount;
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.email !== undefined) row.email = patch.email;
+  if (patch.authUserId !== undefined) row.auth_user_id = patch.authUserId;
+  if (patch.phoneVerifiedAt !== undefined) row.phone_verified_at = patch.phoneVerifiedAt;
+  if (patch.cpf !== undefined) row.cpf = patch.cpf;
   if (patch.signupCompletedAt !== undefined) row.signup_completed_at = patch.signupCompletedAt;
   if (patch.trialStartedAt !== undefined) row.trial_started_at = patch.trialStartedAt;
   if (patch.trialEndsAt !== undefined) row.trial_ends_at = patch.trialEndsAt;

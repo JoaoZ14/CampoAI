@@ -65,7 +65,10 @@ export async function handleAsaasSubscribe(req, res, next) {
  */
 export async function handleCreateSubscriptionRequest(req, res, next) {
   try {
-    const data = await createSubscriptionRequest(req.body ?? {});
+    const data = await createSubscriptionRequest({
+      ...(req.body ?? {}),
+      email: req.body?.email || req.authUser?.email,
+    });
     res.status(201).json({
       ok: true,
       message:
@@ -130,9 +133,10 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       planCode: body.planCode,
       customerType,
       billingCycle: body.billingCycle,
+      authUserId: req.authUser.id,
       customer: {
         name: body.name,
-        email: body.email,
+        email: body.email || req.authUser.email,
         cpfCnpj: body.cpfCnpj,
         mobilePhone: body.phone,
       },

@@ -20,6 +20,7 @@
     />
     <link rel="stylesheet" href="/planos/styles.css" />
     <link rel="stylesheet" href="/cadastro/styles.css" />
+    <link rel="stylesheet" href="/shared/authForms.css" />
   </head>
   <body>
     <a class="skip-link" href="#signup-form">Pular para o cadastro</a>
@@ -39,8 +40,8 @@
         <nav class="site-nav" aria-label="Principal">
           <a class="site-nav-link" href="https://agassist.netlify.app/">Início</a>
           <a class="site-nav-link" href="/planos">Planos</a>
-          <a class="site-nav-link" href="/legal/termos-de-uso">Termos</a>
-          <a class="site-nav-link" href="/legal/politica-de-privacidade">Privacidade</a>
+          <a class="site-nav-link is-current" href="/cadastro" aria-current="page">Cadastro</a>
+          <a class="site-nav-link" href="/entrar">Entrar</a>
         </nav>
       </div>
     </header>
@@ -59,10 +60,14 @@
           <ol class="signup-stepper-list">
             <li class="signup-stepper-item is-active" data-step-indicator="1">
               <span class="signup-stepper-num" aria-hidden="true">1</span>
-              <span class="signup-stepper-label">Seus dados</span>
+              <span class="signup-stepper-label">Conta web</span>
             </li>
             <li class="signup-stepper-item" data-step-indicator="2">
               <span class="signup-stepper-num" aria-hidden="true">2</span>
+              <span class="signup-stepper-label">Seus dados</span>
+            </li>
+            <li class="signup-stepper-item" data-step-indicator="3">
+              <span class="signup-stepper-num" aria-hidden="true">3</span>
               <span class="signup-stepper-label">Confirme o SMS</span>
             </li>
           </ol>
@@ -72,7 +77,46 @@
 
         <form id="signup-form" class="signup-form card-panel" novalidate>
           <div data-step="1">
-            <h2 id="step-1-title">Seus dados</h2>
+            <h2 id="step-1-title">Crie o acesso web</h2>
+            <p class="hint">Google ou e-mail. Depois você confirma o WhatsApp por SMS.</p>
+            <button type="button" id="google-btn" class="btn-google">
+              <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/>
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/>
+                <path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.6-11.3-8.4l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.2-3.5 5.7-6.6 7.1l.1.1 6.3 5.3C36.7 41.3 44 36 44 24c0-1.3-.1-2.7-.4-3.5z"/>
+              </svg>
+              Continuar com Google
+            </button>
+            <p class="auth-divider">ou e-mail e senha</p>
+            <label for="auth-email">E-mail
+              <input
+                type="email"
+                name="authEmail"
+                id="auth-email"
+                required
+                autocomplete="email"
+                placeholder="voce@email.com"
+              />
+            </label>
+            <label for="auth-password">Senha
+              <input
+                type="password"
+                name="authPassword"
+                id="auth-password"
+                required
+                minlength="6"
+                autocomplete="new-password"
+                placeholder="Mínimo 6 caracteres"
+              />
+            </label>
+            <button type="button" id="signup-email-btn" class="btn-primary">Criar conta com e-mail</button>
+            <p class="auth-footnote">Já tem conta? <a href="/entrar">Entrar</a></p>
+          </div>
+
+          <div data-step="2" hidden>
+            <h2 id="step-2-title">Seus dados</h2>
+            <p id="session-email" class="auth-session" hidden></p>
             <label for="name">Seu nome
               <input
                 type="text"
@@ -99,7 +143,7 @@
               />
               <span id="phone-error" class="field-error" hidden></span>
             </label>
-            <label for="email">E-mail <span class="optional">(opcional)</span>
+            <label for="email">E-mail
               <input
                 type="email"
                 name="email"
@@ -107,8 +151,9 @@
                 inputmode="email"
                 autocomplete="email"
                 placeholder="voce@email.com"
+                readonly
               />
-              <span class="field-hint">Se informar, enviamos um lembrete com link para começar no WhatsApp.</span>
+              <span class="field-hint">Vem da conta web. Usamos para avisos da conta.</span>
             </label>
 
             <div class="legal-accept-wrap">
@@ -130,8 +175,8 @@
             <button type="button" id="send-otp" class="btn-primary">Enviar código por SMS</button>
           </div>
 
-          <div data-step="2" hidden aria-labelledby="step-2-title">
-            <h2 id="step-2-title">Confirme o telefone</h2>
+          <div data-step="3" hidden aria-labelledby="step-3-title">
+            <h2 id="step-3-title">Confirme o telefone</h2>
             <p class="phone-recap">
               Código enviado para <strong id="phone-recap-value"></strong>.
               <button type="button" id="edit-phone" class="link-btn">Alterar número</button>
@@ -152,7 +197,7 @@
             </label>
             <div class="signup-actions">
               <button type="button" id="verify-otp" class="btn-primary">Validar e concluir cadastro</button>
-              <button type="button" id="back-step-1" class="btn-secondary">Voltar</button>
+              <button type="button" id="back-step-2" class="btn-secondary">Voltar</button>
             </div>
             <p class="resend-wrap">
               <button type="button" id="resend-otp" class="link-btn" disabled>Reenviar código</button>
@@ -170,7 +215,7 @@
           <p class="hint">Responda com uma foto, áudio ou pergunta do campo.</p>
           <div class="success-actions">
             <a id="open-whatsapp" class="btn-primary" href="#" rel="noopener noreferrer">Abrir WhatsApp</a>
-            <a href="https://agassist.netlify.app/" class="btn-secondary">Voltar ao site</a>
+            <a href="/area-do-cliente" class="btn-secondary">Abrir área do cliente</a>
           </div>
           <p class="hint success-fallback">Não chegou em um minuto? Toque em Abrir WhatsApp ou mande qualquer mensagem no app.</p>
         </section>

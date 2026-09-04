@@ -19,8 +19,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const adminDir = path.join(__dirname, '../public/admin');
 const plansDir = path.join(__dirname, '../public/planos');
 const signupDir = path.join(__dirname, '../public/cadastro');
+const loginDir = path.join(__dirname, '../public/entrar');
 const legalDir = path.join(__dirname, '../public/legal');
 const customerDir = path.join(__dirname, '../public/area-do-cliente');
+const sharedDir = path.join(__dirname, '../public/shared');
 
 export function createApp() {
   const app = express();
@@ -82,6 +84,14 @@ export function createApp() {
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
   // remover a barra final).
+  app.use(
+    '/shared',
+    express.static(sharedDir, {
+      index: false,
+      redirect: false,
+    })
+  );
+
   app.get(['/planos', '/planos/'], (_req, res) => {
     res.sendFile(path.join(plansDir, 'index.html'));
   });
@@ -99,6 +109,17 @@ export function createApp() {
   app.use(
     '/cadastro',
     express.static(signupDir, {
+      index: false,
+      redirect: false,
+    })
+  );
+
+  app.get(['/entrar', '/entrar/'], (_req, res) => {
+    res.sendFile(path.join(loginDir, 'index.html'));
+  });
+  app.use(
+    '/entrar',
+    express.static(loginDir, {
       index: false,
       redirect: false,
     })

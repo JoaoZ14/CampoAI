@@ -1,4 +1,9 @@
 import { getPlanIconSvg } from './planIcons.js';
+import {
+  getSession,
+  initCustomerSupabase,
+  apiFetch,
+} from '../shared/supabaseAuth.js';
 
 function byId(id) {
   return document.getElementById(id);
@@ -10,8 +15,24 @@ let cachedCatalogPlans = null;
 /** @type {'personal'|'company'} */
 let activeSegmentTab = 'personal';
 
-/** Evita cliques repetidos (planos, OTP, finalizar). */
-let flowInteractionLock = false;
+/** @type {boolean} */
+let customerAuthed = false;
+
+function syncCheckoutAuthGate() {
+  const gate = byId('checkout-auth-gate');
+  if (gate) gate.hidden = customerAuthed;
+}
+
+async function requireCustomerSession() {
+  if (customerAuthed) return true;
+  showFeedback('Entre ou crie uma conta web para assinar.', true);
+  const gate = byId('checkout-auth-gate');
+  if (gate) {
+    gate.hidden = false;
+    gate.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  return false;
+}
 
 /** Fallback se /api/plans falhar (alinhado à oferta atual: PF dois níveis + PJ). */
 const PLAN_CONTENT = {
@@ -299,14 +320,11 @@ async function apiGet(path) {
 }
 
 async function apiPost(path, body) {
-  const res = await fetch(path, {
+  return apiFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || 'Não foi possível enviar.');
-  return json;
 }
 
 /** Alinhado a `src/config/billing.js` (ANNUAL_DISCOUNT_FRACTION = 0,2). */
@@ -482,6 +500,16 @@ function applySelectedPlan(code, segment, opts = {}) {
   refreshCompanyFields();
 
   if (fromUserClick && !silent) {
+    if (!customerAuthed) {
+      syncCheckoutAuthGate();
+      showFeedback('Entre ou crie uma conta web para assinar.', true);
+      enterCheckout();
+      setStep(null);
+      requestAnimationFrame(() => {
+        byId('checkout-auth-gate')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      return;
+    }
     enterCheckout();
     setStep(2);
     requestAnimationFrame(() => {
@@ -692,6 +720,7 @@ function bindFlow() {
       submitBtn.disabled = true;
     }
     try {
+      if (!(await requireCustomerSession())) return;
       if (!state.verificationToken) {
         throw new Error('Valide o código SMS antes de pagar.');
       }
@@ -701,7 +730,6 @@ function bindFlow() {
         planCode: getText(fd, 'planCode'),
         name: normalizeSpaces(getText(fd, 'name')),
         phone: onlyDigits(getText(fd, 'phone')),
-        password: getText(fd, 'password'),
         companyName: normalizeSpaces(getText(fd, 'companyName')),
         cnpj: onlyDigits(getText(fd, 'cnpj')),
         contactName: normalizeSpaces(getText(fd, 'contactName')),
@@ -758,6 +786,24 @@ function bindFlow() {
 }
 
 async function init() {
+  try {
+    await initCustomerSupabase();
+    const session = await getSession();
+    customerAuthed = Boolean(session);
+    syncCheckoutAuthGate();
+    if (session?.user?.email) {
+      const emailEl = byId('email');
+      if (emailEl) {
+        emailEl.value = session.user.email;
+        emailEl.readOnly = true;
+      }
+    }
+  } catch (e) {
+    customerAuthed = false;
+    syncCheckoutAuthGate();
+    console.warn('[planos] login web indisponível:', e);
+  }
+
   try {
     const payload = await apiGet('/api/plans');
     cachedCatalogPlans = Array.isArray(payload.plans) ? payload.plans : null;

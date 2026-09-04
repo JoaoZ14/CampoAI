@@ -32,6 +32,9 @@ const baseUser = {
   welcomeSentAt: null,
   trialExpiredNotifiedAt: null,
   signupSource: null,
+  authUserId: null,
+  phoneVerifiedAt: null,
+  cpf: null,
   createdAt: new Date().toISOString(),
 };
 
