@@ -1,3 +1,12 @@
+import {
+  apiPost,
+  displayNameFromUser,
+  getSession,
+  initCustomerSupabase,
+  signInWithGoogle,
+  signUpWithPassword,
+} from '../shared/supabaseAuth.js';
+
 const RESEND_COOLDOWN_SEC = 45;
 
 function byId(id) {
@@ -50,7 +59,17 @@ function clearFieldErrors() {
 function setFieldError(fieldId, message) {
   const input = byId(fieldId);
   const errorEl = byId(`${fieldId}-error`);
-  if (!input || !errorEl) return;
+  if (fieldId === 'otpCode') {
+    const otpErr = byId('otp-error');
+    if (otpErr) {
+      otpErr.hidden = false;
+      otpErr.textContent = message;
+    }
+  }
+  if (!input || !errorEl) {
+    if (input) input.focus();
+    return;
+  }
   input.setAttribute('aria-invalid', 'true');
   errorEl.hidden = false;
   errorEl.textContent = message;
@@ -87,7 +106,7 @@ function focusStep(step) {
   const panel = document.querySelector(`[data-step="${step}"]`);
   if (!panel) return;
   const target =
-    panel.querySelector('input:not([type="checkbox"])') ||
+    panel.querySelector('input:not([type="checkbox"]):not([readonly])') ||
     panel.querySelector('button') ||
     panel.querySelector('h2');
   target?.focus();
@@ -101,19 +120,6 @@ function setStep(step) {
   focusStep(step);
 }
 
-async function apiPost(path, body) {
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || data.message || `Erro ${res.status}`);
-  }
-  return data;
-}
-
 /** @type {{ verificationToken: string }} */
 const state = { verificationToken: '' };
 
@@ -124,6 +130,8 @@ function setLock(v) {
   lock = v;
   byId('send-otp')?.toggleAttribute('disabled', v);
   byId('verify-otp')?.toggleAttribute('disabled', v);
+  byId('signup-email-btn')?.toggleAttribute('disabled', v);
+  byId('google-btn')?.toggleAttribute('disabled', v);
   byId('resend-otp')?.toggleAttribute('disabled', v || byId('resend-otp')?.hasAttribute('data-cooldown'));
 }
 
@@ -180,7 +188,7 @@ function wireMasks() {
   });
 }
 
-function readStep1Fields() {
+function readStep2Fields() {
   const form = byId('signup-form');
   const fd = new FormData(form);
   return {
@@ -190,10 +198,10 @@ function readStep1Fields() {
   };
 }
 
-function validateStep1() {
+function validateStep2() {
   clearFieldErrors();
   showFeedback('');
-  const { name, phone } = readStep1Fields();
+  const { name, phone } = readStep2Fields();
   const terms = byId('accept-terms');
 
   let valid = true;
@@ -219,7 +227,7 @@ function validateStep1() {
 
 function updatePhoneRecap() {
   const recap = byId('phone-recap-value');
-  const { phone } = readStep1Fields();
+  const { phone } = readStep2Fields();
   if (recap) recap.textContent = formatPhoneDisplay(phone) || '—';
 }
 
@@ -235,8 +243,25 @@ function showSuccess(whatsappOpenUrl) {
   if (wa) wa.href = whatsappOpenUrl || defaultWhatsappOpenUrl();
 }
 
+function applySessionToForm(session) {
+  const user = session?.user;
+  const email = user?.email || '';
+  const emailEl = byId('email');
+  if (emailEl && email) emailEl.value = email;
+  const nameEl = byId('name');
+  if (nameEl && !nameEl.value) {
+    const guessed = displayNameFromUser(user);
+    if (guessed) nameEl.value = guessed;
+  }
+  const recap = byId('session-email');
+  if (recap && email) {
+    recap.hidden = false;
+    recap.textContent = `Conta web: ${email}`;
+  }
+}
+
 async function completeSignup() {
-  const { name, phone, email } = readStep1Fields();
+  const { name, phone, email } = readStep2Fields();
   const btn = byId('verify-otp');
   setButtonLoading(btn, true, 'Concluindo cadastro…');
   setLock(true);
@@ -249,6 +274,10 @@ async function completeSignup() {
       signupSource: signupSourceFromQuery(),
     });
     showFeedback('');
+    if (out.linkedExisting) {
+      window.location.replace('/area-do-cliente');
+      return;
+    }
     showSuccess(out.whatsappOpenUrl);
   } catch (e) {
     showFeedback(e.message || String(e), true);
@@ -258,11 +287,27 @@ async function completeSignup() {
   }
 }
 
+async function afterAuthSession(session) {
+  applySessionToForm(session);
+  try {
+    const me = await fetch('/api/customer/me', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    }).then((r) => r.json());
+    if (me.linked) {
+      window.location.replace('/area-do-cliente');
+      return;
+    }
+  } catch {
+    /* segue o cadastro */
+  }
+  setStep(2);
+}
+
 byId('send-otp')?.addEventListener('click', async () => {
   if (lock) return;
-  if (!validateStep1()) return;
+  if (!validateStep2()) return;
 
-  const { phone } = readStep1Fields();
+  const { phone } = readStep2Fields();
   const btn = byId('send-otp');
   setButtonLoading(btn, true, 'Enviando SMS…');
   setLock(true);
@@ -271,7 +316,7 @@ byId('send-otp')?.addEventListener('click', async () => {
     showFeedback(`Código enviado por SMS para ${formatPhoneDisplay(out.phone || phone)}.`);
     updatePhoneRecap();
     byId('otpCode').value = '';
-    setStep(2);
+    setStep(3);
     startResendCooldown();
   } catch (e) {
     showFeedback(e.message || String(e), true);
@@ -288,7 +333,7 @@ byId('verify-otp')?.addEventListener('click', async () => {
   clearFieldErrors();
   showFeedback('');
 
-  const { phone } = readStep1Fields();
+  const { phone } = readStep2Fields();
   const code = onlyDigits(byId('otpCode')?.value);
   if (code.length !== 6) {
     setFieldError('otpCode', 'Digite o código de 6 dígitos enviado por SMS.');
@@ -311,7 +356,7 @@ byId('verify-otp')?.addEventListener('click', async () => {
 
 byId('resend-otp')?.addEventListener('click', async () => {
   if (lock || byId('resend-otp')?.hasAttribute('data-cooldown')) return;
-  const { phone } = readStep1Fields();
+  const { phone } = readStep2Fields();
   if (phone.length < 10) {
     showFeedback('Volte e informe um WhatsApp válido.', true);
     return;
@@ -332,25 +377,68 @@ byId('resend-otp')?.addEventListener('click', async () => {
   }
 });
 
-byId('back-step-1')?.addEventListener('click', () => {
+byId('back-step-2')?.addEventListener('click', () => {
   state.verificationToken = '';
-  setStep(1);
+  setStep(2);
   showFeedback('');
   clearFieldErrors();
 });
 
 byId('edit-phone')?.addEventListener('click', () => {
   state.verificationToken = '';
-  setStep(1);
+  setStep(2);
   showFeedback('');
   clearFieldErrors();
   byId('phone')?.focus();
 });
 
+byId('google-btn')?.addEventListener('click', async () => {
+  showFeedback('');
+  try {
+    await signInWithGoogle(`${window.location.origin}/cadastro`);
+  } catch (e) {
+    showFeedback(e.message || String(e), true);
+  }
+});
+
+byId('signup-email-btn')?.addEventListener('click', async () => {
+  if (lock) return;
+  const email = byId('auth-email')?.value.trim();
+  const password = byId('auth-password')?.value;
+  if (!email || !email.includes('@')) {
+    showFeedback('Informe um e-mail válido.', true);
+    byId('auth-email')?.focus();
+    return;
+  }
+  if (!password || password.length < 6) {
+    showFeedback('A senha precisa ter no mínimo 6 caracteres.', true);
+    byId('auth-password')?.focus();
+    return;
+  }
+  const btn = byId('signup-email-btn');
+  setButtonLoading(btn, true, 'Criando conta…');
+  setLock(true);
+  try {
+    const data = await signUpWithPassword(email, password);
+    if (data.session) {
+      await afterAuthSession(data.session);
+      return;
+    }
+    showFeedback(
+      'Enviamos um e-mail de confirmação. Depois de confirmar, volte em Entrar para continuar o cadastro.'
+    );
+  } catch (e) {
+    showFeedback(e.message || String(e), true);
+  } finally {
+    setButtonLoading(btn, false);
+    setLock(false);
+  }
+});
+
 byId('signup-form')?.addEventListener('keydown', (ev) => {
   if (ev.key !== 'Enter') return;
-  const step1 = document.querySelector('[data-step="1"]');
-  if (!step1 || step1.hidden) return;
+  const step2 = document.querySelector('[data-step="2"]');
+  if (!step2 || step2.hidden) return;
   const tag = ev.target?.tagName?.toLowerCase();
   if (tag === 'textarea') return;
   ev.preventDefault();
@@ -358,4 +446,17 @@ byId('signup-form')?.addEventListener('keydown', (ev) => {
 });
 
 wireMasks();
-setStep(1);
+
+initCustomerSupabase()
+  .then(async () => {
+    const session = await getSession();
+    if (session) {
+      await afterAuthSession(session);
+      return;
+    }
+    setStep(1);
+  })
+  .catch((e) => {
+    showFeedback(e.message || String(e), true);
+    setStep(1);
+  });

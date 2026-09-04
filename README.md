@@ -63,8 +63,9 @@ API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/
 | POST | `/webhook/whatsapp` | Teste com JSON (Postman / Swagger) |
 | POST | `/webhook/whatsapp/twilio` | **Webhook do Twilio** — mensagens reais do WhatsApp |
 | GET | `/admin/` | **Painel do proprietário** — dashboard, BI, usuários, organizações e histórico de mensagens |
-| GET | `/cadastro/` | **Cadastro gratuito** — trial com OTP SMS |
-| GET | `/area-do-cliente/` | **Portal do assinante** — login, plano, uso e gestão de números (titular empresa) |
+| GET | `/cadastro/` | **Cadastro gratuito** — conta web (Google ou e-mail) + OTP SMS |
+| GET | `/entrar/` | **Login web** — Google ou e-mail/senha (Supabase Auth) |
+| GET | `/area-do-cliente/` | **Área do cliente** — plano, uso, dados e gestão de números |
 | GET | `/api/plans` | Catálogo público de planos (JSON, sem login) |
 | GET | `/admin/api/dashboard` | Resumo agregado (overview + analytics + organizações + avisos) — **recomendado** para o painel |
 | GET | `/admin/api/analytics` | Métricas de BI (pagamento, mensagens, cadastros, top uso) |
@@ -81,7 +82,7 @@ Substitua os placeholders `[RAZÃO SOCIAL]`, `[CNPJ]`, etc. antes de divulgar em
 
 1. No **Supabase** → **Authentication** → **Providers**, mantenha **Email** ativo e crie um usuário (e-mail + senha) para você.
 2. No `.env`, defina `ADMIN_EMAILS` com **o mesmo e-mail** (minúsculas; pode listar vários separados por vírgula).
-3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** a URL do painel, por exemplo `http://localhost:3001/admin/` e, em produção, `https://SEU-DOMINIO/admin/`.
+3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** as páginas web: `http://localhost:3001/admin/`, `/entrar`, `/cadastro`, `/area-do-cliente` e, em produção, as equivalentes HTTPS.
 4. Opcional: `PUBLIC_APP_URL` — URL pública do app (redirect do Supabase Auth, **links de Termos e Privacidade na boas-vindas do WhatsApp**, etc.). O painel `/admin` **sempre** chama a API no **mesmo host** da página; não use `PUBLIC_APP_URL` para apontar o painel a outro servidor.
 5. Acesse `http://localhost:PORT/admin/` (ou `/admin` — redireciona para `/admin/`).
 
@@ -89,13 +90,16 @@ As rotas `/admin/api/*` (exceto `/admin/api/config`) exigem header `Authorizatio
 
 ### Área do cliente `/area-do-cliente/`
 
-- Destinada a **assinantes** (checkout em `/planos`). Usuários que só fizeram `/cadastro` (trial grátis) usam o produto pelo WhatsApp — não há login web para trial.
-- Login por **e-mail + senha** cadastrados no checkout da página `/planos`.
-- Defina `CUSTOMER_AUTH_SECRET` no `.env` para assinar sessão do cliente.
+- Login em **`/entrar`** com **Google** ou **e-mail/senha** (Supabase Auth). Trial e assinantes acessam o mesmo painel.
+- WhatsApp **não exige** login web: basta existir registro em `users` com o telefone e `signup_completed_at`.
+- Usuários legado (só WhatsApp) vinculam o número na área do cliente após o primeiro login.
+- Checkout em `/planos` usa a mesma sessão Auth (sem senha própria do checkout).
 - API do portal:
-  - `POST /api/customer/auth/login`
-  - `GET /api/customer/me`
-  - `POST /api/customer/seats` e `DELETE /api/customer/seats` (somente titular da conta empresa).
+  - `GET /api/customer/config`
+  - `GET /api/customer/me` (Bearer)
+  - `POST /api/customer/link-phone`
+  - `PATCH /api/customer/profile`
+  - `POST /api/customer/seats` e `DELETE /api/customer/seats` (titular empresa)
 
 **Se o painel vier vazio ou der erro de coluna/tabela:** confira `SUPABASE_SERVICE_ROLE_KEY` no servidor, rode a migração SQL acima e confira se `ADMIN_EMAILS` inclui o e-mail com que você faz login.
 
@@ -172,13 +176,14 @@ Se o usuário pedir um **relatório ou PDF da conversa** (ex.: “gera um relat�
 
 ## Cadastro gratuito `/cadastro`
 
-Página pública para criar conta e iniciar o **trial** (14 dias **ou** 10 análises — o que acabar primeiro). O usuário precisa estar cadastrado (`signup_completed_at`) para usar o assistente no WhatsApp.
+Página pública para criar conta e iniciar o **trial** (14 dias **ou** 10 análises — o que acabar primeiro). O usuário precisa estar cadastrado (`signup_completed_at`) para usar o assistente no WhatsApp. O login web **não** é exigido no WhatsApp.
 
 ### Fluxo
 
-1. Nome + WhatsApp + e-mail opcional + aceite dos termos
-2. OTP por SMS (Twilio) para validar o telefone
-3. Conclusão → trial iniciado, boas-vindas no WhatsApp (+ e-mail se informado)
+1. Conta web: Google ou e-mail/senha (Supabase Auth)
+2. Nome + WhatsApp + aceite dos termos
+3. OTP por SMS (Twilio) para validar o telefone
+4. Conclusão → trial iniciado, boas-vindas no WhatsApp (+ e-mail da conta)
 
 ### Endpoints
 
@@ -186,7 +191,7 @@ Página pública para criar conta e iniciar o **trial** (14 dias **ou** 10 anál
 |--------|------|-----------|
 | POST | `/api/signup/otp/send` | Envia código SMS (`{ "phone": "5511999999999" }`) |
 | POST | `/api/signup/otp/verify` | Valida código (`{ "phone", "code" }`) → `verificationToken` |
-| POST | `/api/signup/complete` | Finaliza cadastro (`name`, `phone`, `verificationToken`, `email?`, `signupSource?`) |
+| POST | `/api/signup/complete` | Finaliza cadastro (Bearer + `name`, `phone`, `verificationToken`) |
 
 ### Variáveis `.env`
 
@@ -211,6 +216,7 @@ Se o banco já existia antes do cadastro gratuito, rode no **SQL Editor** do Sup
 1. `supabase/migration_017_sync_plan_catalog.sql`
 2. `supabase/migration_018_signup_trial.sql`
 3. `supabase/migration_019_legacy_signup_backfill.sql`
+4. `supabase/migration_020_user_auth_profile.sql`
 
 Checklist completo de produção: **`docs/PRODUCTION_CHECKLIST.md`**.
 

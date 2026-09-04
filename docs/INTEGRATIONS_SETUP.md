@@ -84,7 +84,27 @@ ASAAS_API_KEY=<chave de produção>
 3. Token: mesmo valor de `ASAAS_WEBHOOK_TOKEN`
 4. Eventos: `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`
 
-## 4. Verificação pós-configuração
+## 4. Supabase Auth — Google e e-mail (login web)
+
+Usado em `/entrar`, `/cadastro`, `/area-do-cliente` e checkout `/planos`.
+
+1. Authentication → Providers → **Email** ativo
+2. Authentication → Providers → **Google**: cole Client ID e Client Secret do Google Cloud (OAuth 2.0)
+3. Authentication → URL Configuration:
+   - **Site URL:** URL pública da API (ex. `https://campoai-production-b7c7.up.railway.app`)
+   - **Redirect URLs:**
+     - `https://SEU-DOMINIO/entrar`
+     - `https://SEU-DOMINIO/cadastro`
+     - `https://SEU-DOMINIO/area-do-cliente`
+     - `https://SEU-DOMINIO/planos`
+     - `https://SEU-DOMINIO/admin`
+     - equivalentes `http://localhost:3001/...` em desenvolvimento
+4. Confirme `SUPABASE_URL` e `SUPABASE_ANON_KEY` no Railway (a anon key já é usada no `/admin`)
+5. Rode `supabase/migration_020_user_auth_profile.sql` no SQL Editor
+
+O WhatsApp continua independente: o produtor só precisa da linha em `users` com o telefone. Login web é para a área do cliente.
+
+## 5. Verificação pós-configuração
 
 ```bash
 npm run verify:integrations

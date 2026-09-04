@@ -8,9 +8,11 @@ import { getProductPlanPriceByCode } from './productPlanRepository.js';
 import { normalizePhone } from '../utils/phone.js';
 import {
   findOrCreateUser,
+  getUserById,
   updateUserById,
   claimAsaasCheckoutLock,
   releaseAsaasCheckoutClaim,
+  assertCanAttachAuthUser,
 } from './userService.js';
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { AppError } from '../utils/errors.js';
@@ -58,6 +60,7 @@ async function loadUserBillingRow(phone) {
  *   creditCardHolderInfo: Record<string, string>,
  *   remoteIp: string,
  *   billingCycle?: 'MONTHLY'|'YEARLY'|string,
+ *   authUserId?: string,
  * }} input
  */
 export async function subscribeUserWithCreditCardMonthly(input) {
@@ -89,6 +92,12 @@ export async function subscribeUserWithCreditCardMonthly(input) {
   const row = await loadUserBillingRow(phone);
   if (!row) {
     throw new AppError('Usuário não encontrado após criação.', 500);
+  }
+
+  const authUserId = String(input.authUserId ?? '').trim() || null;
+  if (authUserId) {
+    const mapped = await getUserById(row.id);
+    await assertCanAttachAuthUser(mapped, authUserId);
   }
 
   if (row.asaas_subscription_id) {
@@ -196,6 +205,7 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       throw new AppError('Asaas não retornou o id da assinatura.', 502);
     }
 
+    const cpfDigits = digits(cust.cpfCnpj);
     await updateUserById(userId, {
       isPaid: true,
       billingKind: customerType === 'company' ? 'team' : 'personal',
@@ -206,6 +216,11 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       asaasCheckoutStartedAt: null,
       billingUsageYm: brazilMonthYm(),
       billingUsageCount: 0,
+      ...(authUserId ? { authUserId } : {}),
+      phoneVerifiedAt: new Date().toISOString(),
+      ...(cpfDigits.length === 11 ? { cpf: cpfDigits } : {}),
+      email: cust.email.trim().toLowerCase(),
+      name: cust.name.trim(),
     });
 
     if (customerType === 'company') {

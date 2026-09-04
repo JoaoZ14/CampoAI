@@ -30,22 +30,23 @@ Focado 100% no agro, no canal que o produtor já usa (WhatsApp), com IA multimod
 - **Aquisição:** landing em Netlify (`agassist.netlify.app`) → cadastro em `/cadastro` no backend.
 - **Backend:** API Express no Railway (`campoai-production-b7c7.up.railway.app`).
 - **Pós-cadastro:** boas-vindas no WhatsApp (+ e-mail opcional via Resend); uso bloqueado até `signup_completed_at`.
-- **Conversão:** paywall ao atingir limite do trial → `/planos` → Asaas → portal `/area-do-cliente` (assinantes).
+- **Conversão:** paywall ao atingir limite do trial → `/planos` → Asaas → portal `/area-do-cliente`.
 
 ## Capabilities and Constraints
 
 | Superfície | Modo | Função |
 |------------|------|--------|
 | CampoAILanding | Persuade | Aquisição, planos, FAQ, notícias |
-| `/cadastro` | Operate | Cadastro gratuito com OTP SMS |
-| `/planos` | Operate | Checkout com OTP + Asaas |
-| `/area-do-cliente` | Operate | Portal do **assinante** (e-mail + senha do checkout) |
+| `/cadastro` | Operate | Conta web (Google ou e-mail) + OTP SMS + trial |
+| `/entrar` | Operate | Login web (Google ou e-mail/senha) |
+| `/planos` | Operate | Checkout com sessão Auth + OTP + Asaas |
+| `/area-do-cliente` | Operate | Portal do cliente (trial e pago): plano, uso, dados, números |
 | `/admin` | Operate | Backoffice do proprietário: dashboard, usuários/trials, assinaturas, orgs, conversas, planos, notícias, configurações |
 | WhatsApp | Operate | Produto principal |
 
 **Trial:** `FREE_TRIAL_DAYS` (padrão 14) e `FREE_USAGE_LIMIT` (padrão 10 análises).
 
-**Portal do cliente e trial:** usuário que só fez `/cadastro` **não** acessa `/area-do-cliente` (decisão MVP). Trial é 100% via WhatsApp. O portal é explicitamente para assinantes.
+**Portal e WhatsApp:** o assistente no WhatsApp só exige linha em `users` com telefone + `signup_completed_at`. Login web é opcional para abrir a área do cliente. A conta titular tem um número principal; números extras ficam em `organization_seats`.
 
 **Terminologia técnica:** repositório backend = `CampoAI` (nome de código, não exposto ao usuário final).
 

@@ -1,84 +1,11 @@
-import crypto from 'node:crypto';
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { AppError } from '../utils/errors.js';
-import { normalizePhone } from '../utils/phone.js';
-import { createCustomerSessionToken } from '../utils/customerSession.js';
-import { buildUsageAccessContext, getUserById } from './userService.js';
+import { FREE_TRIAL_DAYS } from '../models/userModel.js';
+import { buildUsageAccessContext, getUserById, updateUserById } from './userService.js';
 import { addSeatToOrganization, listSeatsForOrganization, removeSeatFromOrganization } from './organizationService.js';
 
 function getClient() {
   return createSupabaseClient();
-}
-
-function verifyPassword(rawPassword, storedHash) {
-  const txt = String(storedHash ?? '');
-  if (!txt.startsWith('scrypt$')) return false;
-  const parts = txt.split('$');
-  if (parts.length !== 3) return false;
-  const salt = parts[1];
-  const digest = parts[2];
-  if (!salt || !digest) return false;
-  const probe = crypto.scryptSync(String(rawPassword ?? ''), salt, 64).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(probe), Buffer.from(digest));
-}
-
-function safeRole(billingKind) {
-  return billingKind === 'team' ? 'company' : 'personal';
-}
-
-async function getLatestCredentialByEmail(email) {
-  const supabase = getClient();
-  const { data, error } = await supabase
-    .from('subscription_requests')
-    .select('email, phone, password_hash, created_at')
-    .eq('email', email)
-    .order('created_at', { ascending: false })
-    .limit(1);
-  if (error) throw new AppError(`Erro ao autenticar: ${error.message}`, 500);
-  return data?.[0] ?? null;
-}
-
-export async function loginCustomerByEmailPassword(emailRaw, passwordRaw) {
-  const email = String(emailRaw ?? '').trim().toLowerCase();
-  const password = String(passwordRaw ?? '');
-  if (!email || !email.includes('@')) throw new AppError('E-mail inválido.', 400);
-  if (password.length < 4) throw new AppError('Senha inválida.', 400);
-
-  const credential = await getLatestCredentialByEmail(email);
-  if (!credential || !verifyPassword(password, credential.password_hash)) {
-    throw new AppError('Credenciais inválidas.', 401);
-  }
-
-  const phone = normalizePhone(String(credential.phone ?? '').trim());
-  if (!phone) throw new AppError('Telefone da conta inválido.', 400);
-
-  const supabase = getClient();
-  const { data: userRow, error } = await supabase.from('users').select('*').eq('phone', phone).maybeSingle();
-  if (error) throw new AppError(`Erro ao carregar conta: ${error.message}`, 500);
-  if (!userRow) throw new AppError('Conta não encontrada para esse telefone.', 404);
-
-  const user = {
-    id: userRow.id,
-    phone: userRow.phone,
-    billingKind: userRow.billing_kind,
-  };
-
-  const token = createCustomerSessionToken({
-    sub: user.id,
-    phone: user.phone,
-    email,
-    role: safeRole(user.billingKind),
-  });
-
-  return {
-    token,
-    account: {
-      userId: user.id,
-      phone: user.phone,
-      email,
-      role: safeRole(user.billingKind),
-    },
-  };
 }
 
 async function getPlanMetaForUser(user) {
@@ -131,10 +58,16 @@ export async function getCustomerDashboard(userId) {
     profile: {
       id: user.id,
       phone: user.phone,
+      name: user.name,
+      email: user.email,
+      cpf: user.cpf,
       billingKind: user.billingKind,
       isPaid: user.isPaid,
       subscriptionPlanCode: user.subscriptionPlanCode,
       asaasSubscriptionStatus: user.asaasSubscriptionStatus,
+      trialEndsAt: user.trialEndsAt,
+      trialDays: FREE_TRIAL_DAYS,
+      phoneVerifiedAt: user.phoneVerifiedAt,
     },
     usage,
     plan,
@@ -149,6 +82,30 @@ export async function getCustomerDashboard(userId) {
         }
       : null,
   };
+}
+
+function digitsOnly(s) {
+  return String(s ?? '').replace(/\D/g, '');
+}
+
+export async function updateCustomerProfile(userId, patch) {
+  const next = {};
+  if (patch.cpf !== undefined) {
+    const cpf = digitsOnly(patch.cpf);
+    if (cpf && cpf.length !== 11) {
+      throw new AppError('CPF deve ter 11 dígitos.', 400);
+    }
+    next.cpf = cpf || null;
+  }
+  if (patch.name !== undefined) {
+    const name = String(patch.name ?? '').trim();
+    if (name && name.length < 3) throw new AppError('Informe um nome válido.', 400);
+    if (name) next.name = name;
+  }
+  if (Object.keys(next).length === 0) {
+    throw new AppError('Nenhum campo para atualizar.', 400);
+  }
+  return updateUserById(userId, next);
 }
 
 async function requireOwnedOrganization(userId) {

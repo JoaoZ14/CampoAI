@@ -13,6 +13,11 @@ const checks = [
   { name: 'health', path: '/health', expect: (d) => d.ok === true },
   { name: 'openapi', path: '/openapi.json', expect: (d) => d.openapi?.startsWith('3.') },
   { name: 'plans', path: '/api/plans', expect: (d) => Array.isArray(d.plans) || Array.isArray(d) },
+  {
+    name: 'customer-config',
+    path: '/api/customer/config',
+    expect: (d) => d.ok === true && Boolean(d.supabaseUrl) && Boolean(d.supabaseAnonKey),
+  },
 ];
 
 let failed = 0;

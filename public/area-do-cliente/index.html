@@ -2,82 +2,118 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AG Assist - Area do Cliente</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#2a382a" />
+    <title>Área do cliente — AG Assist</title>
+    <link
+      rel="icon"
+      href="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
+      type="image/png"
+    />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/planos/styles.css" />
+    <link rel="stylesheet" href="/cadastro/styles.css" />
+    <link rel="stylesheet" href="/shared/authForms.css" />
     <link rel="stylesheet" href="/area-do-cliente/styles.css" />
   </head>
   <body>
-    <main class="wrap">
-      <section id="login-card" class="login-shell">
-        <aside class="hero">
-          <div class="hero-content">
-            <h1>Area do Cliente</h1>
-            <p>
-              Acompanhe seu plano, consumo mensal e gerenciamento de numeros em um painel simples e
-              profissional.
-            </p>
-          </div>
-        </aside>
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="site-logo" href="https://agassist.netlify.app/" aria-label="AG Assist — início">
+          <img
+            src="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
+            alt="AG Assist"
+            width="200"
+            height="54"
+            decoding="async"
+          />
+          <span class="brand-text">AG Assist</span>
+        </a>
+        <nav class="site-nav" aria-label="Principal">
+          <a class="site-nav-link" href="/planos">Planos</a>
+          <a class="site-nav-link is-current" href="/area-do-cliente" aria-current="page">Minha conta</a>
+          <button type="button" id="logout-btn" class="site-nav-link nav-btn">Sair</button>
+        </nav>
+      </div>
+    </header>
 
-        <section class="login-panel">
-          <a class="brand-logo" href="https://agassist.netlify.app/" aria-label="AG Assist - Inicio">
-            <img
-              src="https://agassist.netlify.app/assets/Logo%20CampoLead%20(1)-Photoroom.png"
-              alt="AG Assist"
-              width="200"
-              height="54"
-              decoding="async"
-            />
-            <span class="brand-text">AG Assist</span>
-          </a>
-          <div class="login-header">
-            <h2>Entrar na sua conta</h2>
-            <p>Área exclusiva para <strong>assinantes</strong>. Use o e-mail e senha definidos no checkout em <a href="/planos">/planos</a>.</p>
-          </div>
-          <form id="login-form" class="login-form">
-            <label>
-              E-mail
-              <input id="email" type="email" required placeholder="voce@empresa.com" />
-            </label>
-            <label>
-              Senha
-              <input id="password" type="password" required minlength="4" placeholder="Sua senha" />
-            </label>
-            <button type="submit">Entrar</button>
-          </form>
-          <p class="login-footnote">
-            Ainda não assinou? Veja os <a href="/planos">planos</a> ou
-            <a href="/cadastro">comece grátis</a> pelo WhatsApp (trial sem login web).
+    <main class="page-main">
+      <div class="container portal-wrap">
+        <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+
+        <section id="link-card" class="card-panel" hidden>
+          <h1>Vincule seu WhatsApp</h1>
+          <p>
+            Sua conta web está pronta. Confirme o número que você já usa no AG Assist para ver plano e limites.
+            Se ainda não cadastrou o WhatsApp, <a href="/cadastro">crie o cadastro</a>.
           </p>
+          <form id="link-form" class="signup-form" novalidate>
+            <label for="link-phone">WhatsApp
+              <input id="link-phone" type="tel" required inputmode="tel" placeholder="(00) 00000-0000" />
+            </label>
+            <button type="button" id="link-send-otp" class="btn-primary">Enviar código por SMS</button>
+            <label for="link-otp" id="link-otp-wrap" hidden>
+              Código de 6 dígitos
+              <input id="link-otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+            </label>
+            <button type="submit" id="link-confirm" class="btn-primary" hidden>Vincular número</button>
+          </form>
         </section>
-      </section>
 
-      <section id="dashboard-card" class="card" hidden>
-        <div class="row">
-          <h2>Minha conta</h2>
-          <button id="logout-btn" type="button">Sair</button>
-        </div>
-        <p>
-          Gerenciar plano: <a href="/planos">ir para pagina de planos</a>
-        </p>
-        <pre id="summary" class="summary"></pre>
-      </section>
+        <section id="dashboard-card" hidden>
+          <header class="portal-hero">
+            <h1>Minha conta</h1>
+            <p id="portal-email" class="muted"></p>
+          </header>
 
-      <section id="seats-card" class="card" hidden>
-        <h2>Gerenciar numeros</h2>
-        <form id="seat-form">
-          <label>Telefone (E.164) <input id="seat-phone" placeholder="+5511999999999" required /></label>
-          <button type="submit">Adicionar numero</button>
-        </form>
-        <ul id="seat-list"></ul>
-      </section>
+          <div class="portal-grid">
+            <article class="card-panel">
+              <h2>Plano e uso</h2>
+              <dl id="plan-dl" class="portal-dl"></dl>
+              <p class="hint">
+                Para assinar ou trocar de plano: <a href="/planos">ver planos</a>.
+                Cancelamento e troca de cartão: WhatsApp de suporte
+                <a href="https://wa.me/5524988685043">(24) 98868-5043</a>.
+              </p>
+            </article>
 
-      <p id="feedback" role="status"></p>
+            <article class="card-panel">
+              <h2>Meus dados</h2>
+              <form id="profile-form" class="signup-form" novalidate>
+                <label>Nome
+                  <input id="profile-name" type="text" minlength="3" autocomplete="name" />
+                </label>
+                <label>WhatsApp
+                  <input id="profile-phone" type="text" readonly />
+                </label>
+                <label>E-mail
+                  <input id="profile-email" type="email" readonly />
+                </label>
+                <label>CPF <span class="optional">(opcional)</span>
+                  <input id="profile-cpf" type="text" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" />
+                </label>
+                <button type="submit" class="btn-primary">Salvar dados</button>
+              </form>
+            </article>
+          </div>
+
+          <section id="seats-card" class="card-panel" hidden>
+            <h2>Gerenciar números</h2>
+            <p class="hint">Plano equipe: adicione WhatsApps extra no mesmo contrato. A conta principal continua sendo a sua.</p>
+            <form id="seat-form" class="signup-form">
+              <label>Telefone (E.164)
+                <input id="seat-phone" placeholder="+5511999999999" required />
+              </label>
+              <button type="submit" class="btn-primary">Adicionar número</button>
+            </form>
+            <ul id="seat-list" class="seat-list"></ul>
+          </section>
+        </section>
+      </div>
     </main>
     <script type="module" src="/area-do-cliente/app.js"></script>
   </body>
-  </html>
+</html>

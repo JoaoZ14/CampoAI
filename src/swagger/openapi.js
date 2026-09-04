@@ -20,6 +20,7 @@ export const openapiSpec = {
     { name: 'Health', description: 'Verificação do serviço' },
     { name: 'Landing', description: 'Endpoints públicos do site (notícias, planos)' },
     { name: 'Signup', description: 'Cadastro gratuito com OTP SMS' },
+    { name: 'Customer', description: 'Área do cliente (Bearer Supabase Auth)' },
     { name: 'Admin', description: 'Painel administrativo (Bearer Supabase + ADMIN_EMAILS)' },
     { name: 'Webhook', description: 'Simulação do webhook WhatsApp (Postman-style)' },
   ],
@@ -148,7 +149,9 @@ export const openapiSpec = {
       post: {
         tags: ['Signup'],
         summary: 'Concluir cadastro e iniciar trial',
+        description: 'Exige `Authorization: Bearer` do Supabase Auth. Vincula `auth_user_id` ao telefone verificado.',
         operationId: 'postSignupComplete',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -184,7 +187,44 @@ export const openapiSpec = {
               },
             },
           },
-          '400': { description: 'Token inválido ou dados incompletos' },
+          '401': { description: 'Sessão web ausente' },
+        },
+      },
+    },
+    '/api/customer/config': {
+      get: {
+        tags: ['Customer'],
+        summary: 'Chaves públicas do Supabase para login web',
+        operationId: 'getCustomerConfig',
+        responses: {
+          '200': {
+            description: 'URL e anon key',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    ok: { type: 'boolean' },
+                    supabaseUrl: { type: 'string' },
+                    supabaseAnonKey: { type: 'string' },
+                    siteUrl: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/customer/me': {
+      get: {
+        tags: ['Customer'],
+        summary: 'Perfil, plano e uso da conta logada',
+        operationId: 'getCustomerMe',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': { description: 'Dashboard (linked true/false)' },
+          '401': { description: 'Sessão inválida' },
         },
       },
     },
@@ -423,7 +463,7 @@ export const openapiSpec = {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Token Supabase Auth (mesmo do login /admin)',
+        description: 'Token Supabase Auth (login /entrar, /cadastro ou /admin)',
       },
     },
   },

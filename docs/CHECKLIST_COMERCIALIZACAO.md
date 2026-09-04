@@ -50,12 +50,12 @@ npm run smoke:deploy -- https://campoai-production-b7c7.up.railway.app
 
 ### Teste manual obrigatório (1 vez)
 
-- [ ] Cadastro real em `/cadastro` com OTP SMS
+- [ ] Cadastro real em `/cadastro` (Google ou e-mail) com OTP SMS
+- [ ] Login no portal `/entrar` → `/area-do-cliente` (trial ou pago)
 - [ ] Mensagem de boas-vindas chegou no WhatsApp
 - [ ] Enviei foto/texto no WhatsApp e recebi resposta da IA
 - [ ] Paywall apareceu ao atingir limite (ou simulei usuário expirado)
 - [ ] Checkout em `/planos` com cartão (sandbox ou produção)
-- [ ] Login no portal `/area-do-cliente` após assinatura
 - [ ] Assinatura refletida no `/admin`
 
 ---
@@ -165,8 +165,9 @@ Só avance para lançamento ativo quando todos estiverem marcados:
 |-------|------|
 | Admin | `/admin` |
 | Cadastro | `/cadastro` |
+| Entrar | `/entrar` |
 | Planos / checkout | `/planos` |
-| Portal assinante | `/area-do-cliente` |
+| Área do cliente | `/area-do-cliente` |
 | Termos | `/legal/termos-de-uso` |
 | Privacidade | `/legal/politica-de-privacidade` |
 | API health | `/health` |

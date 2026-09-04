@@ -28,7 +28,8 @@ export async function handleSignupComplete(req, res, next) {
     const out = await completeSignup({
       name: body.name,
       phone: body.phone,
-      email: body.email,
+      email: body.email || req.authUser?.email,
+      authUserId: req.authUser.id,
       verificationToken: body.verificationToken,
       signupSource: body.signupSource || body.origin,
     });

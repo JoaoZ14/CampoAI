@@ -17,6 +17,9 @@
  * @property {number} [billing_usage_count]
  * @property {string|null} [name]
  * @property {string|null} [email]
+ * @property {string|null} [auth_user_id]
+ * @property {string|null} [phone_verified_at]
+ * @property {string|null} [cpf]
  * @property {string|null} [signup_completed_at]
  * @property {string|null} [trial_started_at]
  * @property {string|null} [trial_ends_at]
@@ -43,6 +46,9 @@ export function mapUserRow(row) {
     billingUsageCount: row.billing_usage_count ?? 0,
     name: row.name ?? null,
     email: row.email ?? null,
+    authUserId: row.auth_user_id ?? null,
+    phoneVerifiedAt: row.phone_verified_at ?? null,
+    cpf: row.cpf ?? null,
     signupCompletedAt: row.signup_completed_at ?? null,
     trialStartedAt: row.trial_started_at ?? null,
     trialEndsAt: row.trial_ends_at ?? null,

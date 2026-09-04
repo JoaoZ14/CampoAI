@@ -3,7 +3,9 @@ import { mapUserRow } from '../../models/userModel.js';
 import { AppError } from '../../utils/errors.js';
 import { normalizePhone } from '../../utils/phone.js';
 import {
+  assertCanAttachAuthUser,
   computeTrialEndsAt,
+  findUserByAuthUserId,
   findUserByPhone,
   updateUserById,
 } from '../userService.js';
@@ -20,11 +22,15 @@ function getClient() {
  *   name: string,
  *   phone: string,
  *   email?: string,
+ *   authUserId: string,
  *   verificationToken: string,
  *   signupSource?: string,
  * }} input
  */
 export async function completeSignup(input) {
+  const authUserId = String(input.authUserId ?? '').trim();
+  if (!authUserId) throw new AppError('Sessão web ausente. Entre ou crie a conta no site.', 401);
+
   const name = String(input.name ?? '').trim();
   if (name.length < 3) throw new AppError('Informe um nome válido.', 400);
 
@@ -32,22 +38,47 @@ export async function completeSignup(input) {
   if (!phone || phone.length < 10) throw new AppError('Telefone inválido.', 400);
 
   const emailRaw = String(input.email ?? '').trim();
-  const email = emailRaw && emailRaw.includes('@') ? emailRaw : null;
+  const email = emailRaw && emailRaw.includes('@') ? emailRaw.toLowerCase() : null;
 
   await assertSignupVerification({
     phone,
     verificationToken: input.verificationToken,
   });
 
+  const linkedAlready = await findUserByAuthUserId(authUserId);
   const existing = await findUserByPhone(phone);
-  if (existing?.signupCompletedAt && !existing.isPaid) {
-    throw new AppError('Este telefone já possui cadastro no AG Assist.', 409);
+
+  if (linkedAlready && existing && linkedAlready.id !== existing.id) {
+    throw new AppError('Esta conta web já está vinculada a outro WhatsApp.', 409);
   }
-  if (existing?.isPaid) {
-    throw new AppError(
-      'Este telefone já possui assinatura ativa. Use o WhatsApp ou a área do cliente.',
-      409
-    );
+  if (linkedAlready && !existing) {
+    throw new AppError('Esta conta web já está vinculada a outro WhatsApp.', 409);
+  }
+
+  if (existing?.authUserId && existing.authUserId !== authUserId) {
+    throw new AppError('Este WhatsApp já está vinculado a outra conta web.', 409);
+  }
+
+  // Conta WhatsApp já existente (trial ou pago) sem vínculo web: só liga o Auth.
+  if (existing?.signupCompletedAt) {
+    await assertCanAttachAuthUser(existing, authUserId);
+    const nowIso = new Date().toISOString();
+    const updated = await updateUserById(existing.id, {
+      authUserId,
+      phoneVerifiedAt: existing.phoneVerifiedAt || nowIso,
+      ...(email ? { email } : {}),
+      ...(name ? { name } : {}),
+    });
+    return {
+      ok: true,
+      userId: updated.id,
+      phone,
+      trialEndsAt: updated.trialEndsAt,
+      welcomeChannel: null,
+      whatsappOpenUrl: getSignupWhatsappOpenUrl() || null,
+      welcomeEmailQueued: false,
+      linkedExisting: true,
+    };
   }
 
   const now = new Date().toISOString();
@@ -57,11 +88,14 @@ export async function completeSignup(input) {
 
   let user;
   if (existing) {
+    await assertCanAttachAuthUser(existing, authUserId);
     const { data, error } = await supabase
       .from('users')
       .update({
         name,
         email,
+        auth_user_id: authUserId,
+        phone_verified_at: now,
         usage_count: 0,
         is_paid: false,
         billing_kind: 'free',
@@ -84,6 +118,8 @@ export async function completeSignup(input) {
         phone,
         name,
         email,
+        auth_user_id: authUserId,
+        phone_verified_at: now,
         usage_count: 0,
         is_paid: false,
         billing_kind: 'free',
@@ -96,6 +132,9 @@ export async function completeSignup(input) {
       .single();
     if (error) {
       if (error.code === '23505') {
+        if (/auth_user_id/i.test(String(error.message || ''))) {
+          throw new AppError('Esta conta web já está vinculada a outro WhatsApp.', 409);
+        }
         throw new AppError('Este telefone já possui cadastro no AG Assist.', 409);
       }
       throw new AppError(`Erro ao criar cadastro: ${error.message}`, 500);

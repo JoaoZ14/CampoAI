@@ -1,16 +1,9 @@
-import crypto from 'node:crypto';
 import { createSupabaseClient } from '../../models/supabaseClient.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { AppError } from '../../utils/errors.js';
 
 function getClient() {
   return createSupabaseClient();
-}
-
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const digest = crypto.scryptSync(password, salt, 64).toString('hex');
-  return `scrypt$${salt}$${digest}`;
 }
 
 function normalizePlanCode(planCode) {
@@ -42,7 +35,6 @@ async function assertProductPlanPair(planCode, customerType) {
  *  planCode: string,
  *  name: string,
  *  phone: string,
- *  password: string,
  *  companyName?: string,
  *  cnpj?: string,
  *  contactName?: string,
@@ -64,18 +56,12 @@ export async function createSubscriptionRequest(body) {
     throw new AppError('Telefone inválido.', 400);
   }
 
-  const password = String(body.password ?? '');
-  if (password.length < 4) {
-    throw new AppError('Senha deve ter no mínimo 4 caracteres.', 400);
-  }
-  const passwordHash = hashPassword(password);
-
   const payload = {
     customer_type: customerType,
     plan_code: planCode,
     name,
     phone,
-    password_hash: passwordHash,
+    password_hash: null,
     company_name: null,
     cnpj: null,
     contact_name: null,

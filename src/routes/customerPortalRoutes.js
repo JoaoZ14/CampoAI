@@ -1,17 +1,21 @@
 import express from 'express';
 import {
-  handleCustomerDashboard,
-  handleCustomerLogin,
+  handleCustomerConfig,
+  handleCustomerLinkPhone,
+  handleCustomerMe,
+  handleCustomerProfilePatch,
   handleCustomerSeatAdd,
   handleCustomerSeatRemove,
 } from '../controllers/customerPortalController.js';
-import { requireCustomerAuth } from '../middleware/customerAuth.js';
+import { requireCustomerAuth, requireLinkedCustomer } from '../middleware/customerAuth.js';
 
 const router = express.Router();
 
-router.post('/auth/login', handleCustomerLogin);
-router.get('/me', requireCustomerAuth, handleCustomerDashboard);
-router.post('/seats', requireCustomerAuth, handleCustomerSeatAdd);
-router.delete('/seats', requireCustomerAuth, handleCustomerSeatRemove);
+router.get('/config', handleCustomerConfig);
+router.get('/me', requireCustomerAuth, handleCustomerMe);
+router.post('/link-phone', requireCustomerAuth, handleCustomerLinkPhone);
+router.patch('/profile', requireLinkedCustomer, handleCustomerProfilePatch);
+router.post('/seats', requireLinkedCustomer, handleCustomerSeatAdd);
+router.delete('/seats', requireLinkedCustomer, handleCustomerSeatRemove);
 
 export default router;

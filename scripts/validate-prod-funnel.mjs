@@ -86,8 +86,9 @@ await checkJson('noticias', '/api/noticias', (d) => Array.isArray(d.items) || Ar
 
 // 2. Páginas do funil
 await checkHtml('cadastro-page', '/cadastro', 'AG Assist');
+await checkHtml('entrar-page', '/entrar', 'Entrar');
 await checkHtml('planos-page', '/planos', 'planos');
-await checkHtml('portal-page', '/area-do-cliente', 'Area do Cliente');
+await checkHtml('portal-page', '/area-do-cliente', 'Minha conta');
 await checkHtml('termos-page', '/legal/termos-de-uso', 'Termos de uso');
 await checkHtml('privacidade-page', '/legal/politica-de-privacidade', 'Privacidade');
 
@@ -122,21 +123,18 @@ if (asaasNoToken.res.status === 401) pass('asaas-webhook-guard', 'token obrigat�
 else if (asaasNoToken.res.status === 200) warn('asaas-webhook-guard', 'webhook desprotegido (ASAAS_WEBHOOK_TOKEN vazio)');
 else fail('asaas-webhook-guard', `HTTP ${asaasNoToken.res.status}`);
 
-// 6. Portal — login sem credenciais
-const portalLogin = await fetchJson('/api/customer/auth/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'test@example.com', password: 'wrong' }),
-});
-if ([400, 401].includes(portalLogin.res.status)) pass('portal-login-guard', `HTTP ${portalLogin.res.status}`);
-else warn('portal-login-guard', `HTTP ${portalLogin.res.status}`);
+await checkJson('customer-config', '/api/customer/config', (d) => d.ok === true && Boolean(d.supabaseUrl));
+
+const portalMe = await fetchJson('/api/customer/me');
+if (portalMe.res.status === 401) pass('portal-auth-guard', 'GET /me exige Bearer');
+else warn('portal-auth-guard', `HTTP ${portalMe.res.status}`);
 
 console.log('\n--- Etapas manuais (não automatizáveis) ---');
-console.log('• Cadastro real com OTP SMS em /cadastro');
+console.log('• Cadastro real com conta web + OTP SMS em /cadastro');
 console.log('• Mensagem no WhatsApp após cadastro');
 console.log('• Paywall após 10 análises ou 14 dias');
-console.log('• Checkout com cartão Asaas em /planos');
-console.log('• Login no portal /area-do-cliente após assinatura');
+console.log('• Checkout com cartão Asaas em /planos (logado)');
+console.log('• Login em /entrar e painel em /area-do-cliente');
 
 if (failed) {
   console.error(`\n${failed} check(s) falharam, ${warned} aviso(s).`);
