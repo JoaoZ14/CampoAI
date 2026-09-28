@@ -49,7 +49,7 @@ export function buildSignupWelcomeBody(name) {
   const firstName = String(name ?? '').trim().split(/\s+/)[0] || 'produtor';
   return (
     `Olá, ${firstName}! Que bom ter você aqui.\n\n` +
-    'Sou o AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.\n\n' +
+    'Sou a Lida, assistente do AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.\n\n' +
     'Mande uma foto, um áudio ou sua pergunta — vamos começar?'
   );
 }

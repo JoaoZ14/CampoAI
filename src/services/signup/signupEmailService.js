@@ -25,7 +25,7 @@ export function buildSignupWelcomeEmail(input) {
   const textLines = [
     `Olá, ${nome}! Que bom ter você aqui.`,
     '',
-    'Sou o AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.',
+    'Sou a Lida, assistente do AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.',
     '',
     'Mande uma foto, um áudio ou sua pergunta — vamos começar?',
   ];
@@ -65,7 +65,7 @@ export function buildSignupWelcomeEmail(input) {
           <tr>
             <td style="padding:24px 32px 0;color:#3a3a38;font-size:16px;line-height:1.65;">
               <p style="margin:0 0 16px;">Olá, <strong>${escapeHtml(nome)}</strong>! Que bom ter você aqui.</p>
-              <p style="margin:0 0 16px;">Sou o AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.</p>
+              <p style="margin:0 0 16px;">Sou a Lida, assistente do AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.</p>
               <p style="margin:0;">Mande uma foto, um áudio ou sua pergunta — vamos começar?</p>
             </td>
           </tr>

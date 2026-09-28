@@ -10,6 +10,7 @@ import billingRoutes from './routes/billingRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import signupRoutes from './routes/signupRoutes.js';
 import customerPortalRoutes from './routes/customerPortalRoutes.js';
+import ruralRoutes from './routes/ruralRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { getPublicPlanCatalogPayload } from './services/planCatalogService.js';
 import { getLandingNewsPayload } from './services/landingNewsService.js';
@@ -81,6 +82,7 @@ export function createApp() {
   app.use('/api/billing', billingRoutes);
   app.use('/api/signup', signupRoutes);
   app.use('/api/customer', customerPortalRoutes);
+  app.use('/api/rural', ruralRoutes);
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
   // remover a barra final).

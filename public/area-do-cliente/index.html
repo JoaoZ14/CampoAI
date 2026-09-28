@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#2a382a" />
+    <meta name="theme-color" content="#17362d" />
     <title>Área do cliente — AG Assist</title>
     <link
       rel="icon"
@@ -11,7 +11,7 @@
       type="image/png"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/planos/styles.css" />
@@ -68,6 +68,30 @@
             <h1>Minha conta</h1>
             <p id="portal-email" class="muted"></p>
           </header>
+
+          <section id="rural-overview" class="rural-overview" aria-labelledby="rural-heading" hidden>
+            <div class="rural-heading-row">
+              <h2 id="rural-heading">Sua propriedade</h2>
+              <button id="rural-refresh" type="button" class="btn-secondary">Atualizar</button>
+            </div>
+            <p id="rural-status" role="status" aria-live="polite">Carregando seus registros…</p>
+            <label for="rural-farm-select">Propriedade</label>
+            <select id="rural-farm-select" hidden></select>
+            <div id="rural-content"></div>
+            <details id="rural-create">
+              <summary>Cadastrar propriedade</summary>
+              <p>Você também pode dizer no WhatsApp: “Tenho uma fazenda de 40 hectares em Resende”.</p>
+              <form id="rural-create-form" class="signup-form">
+                <label for="rural-name">Nome da propriedade<input id="rural-name" name="name" required maxlength="120" /></label>
+                <div class="rural-form-row">
+                  <label for="rural-city">Cidade<input id="rural-city" name="city" maxlength="120" /></label>
+                  <label for="rural-state">UF<input id="rural-state" name="state" minlength="2" maxlength="2" /></label>
+                  <label for="rural-area">Área em hectares<input id="rural-area" name="total_area_ha" type="number" min="0.0001" step="any" /></label>
+                </div>
+                <button type="submit" class="btn-primary">Salvar propriedade</button>
+              </form>
+            </details>
+          </section>
 
           <div class="portal-grid">
             <article class="card-panel">

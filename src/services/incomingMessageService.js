@@ -1,4 +1,6 @@
 import { normalizePhone } from '../utils/phone.js';
+import { runAgent } from '../ai/agent/runAgent.js';
+import { hasFeature } from '../rural/features.js';
 import { detectMessageType } from '../utils/messageType.js';
 import {
   findUserByPhone,
@@ -30,7 +32,7 @@ import { isSimpleGreeting, MSG_SIMPLE_GREETING } from '../utils/greeting.js';
 
 const MSG_WELCOME_CORE =
   `Você tem *${FREE_TRIAL_DAYS} dias* ou *${FREE_USAGE_LIMIT} análises* grátis para testar — o que acabar primeiro.\n\n` +
-  'Sou o AG Assist, seu parceiro no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
+  'Sou a Lida, assistente do AG Assist — sua parceira no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
   'Objetivo: te ajudar a decidir melhor, evitar erro bobo e ganhar tempo (sem ficar caçando informação solta).\n\n' +
   'Para ver *plano*, *uso* e *status da assinatura*, mande: *plano* ou *meu plano* (não gasta análise).\n\n' +
   'Para contas de área, semente, tanque, vazão etc.: envie uma linha começando com calc ajuda\n\n' +
@@ -61,7 +63,7 @@ export const MSG_LIMIT_BASE =
 
 export const MSG_SIGNUP_REQUIRED_BASE =
   'Este número ainda não está cadastrado no AG Assist.\n\n' +
-  'Crie sua conta grátis no site para começar a usar o assistente pelo WhatsApp:';
+  'Crie sua conta grátis no site para começar a conversar com a Lida pelo WhatsApp:';
 
 /**
  * URL pública da página de cadastro.
@@ -548,6 +550,7 @@ export async function processIncomingMessage({
     !type.hasImage &&
     !type.hasAudio &&
     wantsConversationPdfReport(textRaw) &&
+    !(hasFeature(user, 'agent') && /\b(fazenda|propriedade|safra|talh[aã]o|financeiro)\b/i.test(textRaw)) &&
     process.env.REPORTS_ENABLED !== 'false';
 
   if (reportRequested) {
@@ -614,7 +617,7 @@ export async function processIncomingMessage({
 
   const calcIntent = textRaw && type.hasText && !type.hasImage && !type.hasAudio ? fieldCalcIntent(textRaw) : 'none';
 
-  if (calcIntent === 'help_or_intro') {
+  if (calcIntent !== 'none') {
     const calcReply = tryResolveFieldCalcMessage(textRaw);
     if (calcReply) {
       await incrementUsage(user.id);
@@ -647,14 +650,19 @@ export async function processIncomingMessage({
   const history = await getChatHistoryForModel(user.id);
 
   let reply;
+  let charge = true;
+  const reportMedia = [];
   try {
-    reply = await generateAgriculturalReply({
+    const aiInput = {
       text: type.hasText ? String(message).trim() : undefined,
       imageUrl: type.hasImage ? String(imageUrl).trim() : undefined,
       audioUrl: type.hasAudio ? String(audioUrl).trim() : undefined,
       history,
       fieldCalcMode: calcIntent === 'compute',
-    });
+    };
+    reply = hasFeature(user, 'agent')
+      ? await runAgent({ ...aiInput, user, messageSid, onOutcome: outcome => { charge = outcome.charge; }, onArtifact: url => { reportMedia.push(url); } })
+      : await generateAgriculturalReply(aiInput);
   } catch (err) {
     console.error('[incoming] Falha na IA:', err);
     const fallback =
@@ -672,15 +680,16 @@ export async function processIncomingMessage({
     };
   }
 
-  await incrementUsage(user.id);
+  if (charge) await incrementUsage(user.id);
   await saveChatTurn(
     user.id,
     buildUserTurnSummary(type, message),
     reply
   );
-  await sendWhatsAppMessage(phone, reply);
+  if (reportMedia.length) await sendWhatsAppWithMedia(phone, reply.slice(0,1500), reportMedia.slice(0,1));
+  else await sendWhatsAppMessage(phone, reply);
 
-  const updatedUsage = user.usageCount + 1;
+  const updatedUsage = user.usageCount + (charge ? 1 : 0);
 
   return {
     step: 'ai_reply',

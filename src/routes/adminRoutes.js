@@ -22,6 +22,7 @@ import {
   handleAdminUsers,
 } from '../controllers/adminController.js';
 import { requireAdminAuth } from '../middleware/adminAuth.js';
+import { RuralRepository } from '../rural/repository.js';
 
 const router = express.Router();
 
@@ -40,6 +41,16 @@ router.get('/api/analytics', requireAdminAuth, handleAdminAnalytics);
 router.get('/api/chat-messages', requireAdminAuth, handleAdminChatMessages);
 router.get('/api/users', requireAdminAuth, handleAdminUsers);
 router.get('/api/users/:userId', requireAdminAuth, handleAdminUserDetail);
+router.get('/api/users/:userId/rural', requireAdminAuth, async (req,res,next) => {
+  try {
+    if(process.env.AGENT_TOOLS_ENABLED !== 'true') return res.status(404).json({ok:false});
+    const repo=new RuralRepository();
+    const farms=await repo.farms(req.params.userId);
+    const actions=await repo.result(repo.db.from('assistant_actions').select('id,tool_name,status,created_at').eq('user_id',req.params.userId).order('created_at',{ascending:false}).limit(30));
+    const jobs=await repo.result(repo.db.from('scheduled_jobs').select('id,status,attempts,run_at,last_error').eq('user_id',req.params.userId).order('created_at',{ascending:false}).limit(20));
+    res.json({ok:true,farm_count:farms.length,farms:await Promise.all(farms.map(async f=>({id:f.id,field_count:(await repo.all('fields',f.id)).length,recent_operations:(await repo.list('farm_operations',f.id,{},5)).map(o=>({id:o.id,type:o.operation_type,date:o.operation_date}))}))),actions,jobs});
+  } catch(e) { next(e); }
+});
 router.patch('/api/users/:userId', requireAdminAuth, handleAdminPatchUser);
 
 router.get('/api/subscription-requests', requireAdminAuth, handleAdminSubscriptionRequests);

@@ -1,3 +1,23 @@
+.rural-overview { margin-block: 2rem; padding-block: 1.5rem; border-block: 1px solid var(--border-subtle); }
+.rural-heading-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.rural-heading-row h2 { margin:0; }
+.rural-overview h3 { margin-block:1.7rem .6rem; color:var(--green-dark); }
+.rural-overview .rural-farm-name { font-family:var(--font-display,'DM Serif Display',Georgia,serif); font-weight:400; font-size:1.8rem; }
+.rural-overview select { width:100%; min-height:44px; margin-block:.5rem; padding:.6rem; font:inherit; background:#fff; border:1px solid #d6dfc9; border-radius:12px; }
+.rural-facts { display:flex; flex-wrap:wrap; gap:1rem 2.5rem; padding-block:1rem; border-block:1px solid var(--border-subtle); }
+.rural-facts dt { color:var(--text-muted); font-size:.875rem; }
+.rural-facts dd { margin:0; font-weight:600; font-variant-numeric:tabular-nums; }
+.rural-list { list-style:none; padding:0; }
+.rural-list li { display:flex; justify-content:space-between; align-items:baseline; gap:1rem; padding-block:.8rem; border-bottom:1px solid var(--border-subtle); overflow-wrap:anywhere; }
+.rural-list button { flex-shrink:0; }
+.rural-overview summary { cursor:pointer; min-height:44px; padding-block:.7rem; color:var(--green-dark); text-decoration:underline; text-underline-offset:.2em; }
+.rural-overview :focus-visible { outline:2px solid var(--green-dark); outline-offset:3px; }
+.rural-overview .is-error { color:#8a2a2a; }
+.rural-overview button:disabled { opacity:.6; cursor:wait; }
+.rural-form-row { display:grid; grid-template-columns:2fr 1fr 1fr; gap:1rem; }
+.rural-correction { min-width:100px; }
+@media(max-width:600px) { .rural-form-row { grid-template-columns:1fr; } .rural-list li { flex-direction:column; gap:.4rem; } .rural-heading-row { align-items:flex-start; } }
+
 .portal-wrap {
   max-width: 920px;
   margin: 0 auto;
@@ -5,8 +25,9 @@
 }
 
 .portal-hero h1 {
-  font-family: 'Source Serif 4', Georgia, serif;
-  color: var(--green-dark, #2a382a);
+  font-family: var(--font-display, 'DM Serif Display', Georgia, serif);
+  font-weight: 400;
+  color: var(--green-dark, #17362d);
   margin: 0 0 0.35rem;
 }
 
@@ -32,7 +53,7 @@
 .portal-dl dd {
   margin: 0.2rem 0 0;
   font-weight: 600;
-  color: #2a382a;
+  color: #17362d;
 }
 
 .nav-btn {

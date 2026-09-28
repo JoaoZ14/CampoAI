@@ -106,7 +106,7 @@ export function formatWhatsAppReply(text, opts = {}) {
 
   if (!fieldCalcMode) {
     const lines = s.split('\n');
-    s = structureAgriculturalReply(lines);
+    if (lines.some(matchSectionTitle)) s = structureAgriculturalReply(lines);
   }
 
   s = s.replace(/\n{3,}/g, '\n\n');

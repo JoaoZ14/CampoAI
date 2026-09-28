@@ -24,17 +24,17 @@
   min-height: 48px;
   margin-top: 0.5rem;
   padding: 0.7rem 1.2rem;
-  border: 1px solid rgba(42, 56, 42, 0.18);
-  border-radius: 10px;
+  border: 1px solid #d6dfc9;
+  border-radius: 999px;
   background: #fff;
-  color: #2a382a;
+  color: #17362d;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
 .btn-google:hover {
-  background: #f6f3ec;
+  background: #e9f0df;
 }
 
 .btn-google svg {
@@ -44,9 +44,9 @@
 .auth-session {
   margin: 0 0 1rem;
   padding: 0.85rem 1rem;
-  border-radius: 10px;
-  background: var(--field-soft, #eef3ea);
-  color: #2a382a;
+  border-radius: 12px;
+  background: #eaf0df;
+  color: #17362d;
   font-size: 0.95rem;
 }
 
@@ -57,7 +57,7 @@
 }
 
 .auth-footnote a {
-  color: #8a5f36;
+  color: #214c34;
   font-weight: 700;
   text-decoration: none;
 }
@@ -65,13 +65,13 @@
 .auth-gate {
   margin: 0 0 1rem;
   padding: 0.9rem 1rem;
-  border: 1px solid rgba(169, 116, 64, 0.35);
-  border-radius: 10px;
-  background: #fbf6ee;
-  color: #2a382a;
+  border: 0;
+  border-radius: 12px;
+  background: #eaf0df;
+  color: #17362d;
 }
 
 .auth-gate a {
-  color: #8a5f36;
+  color: #214c34;
   font-weight: 700;
 }

@@ -1,6 +1,12 @@
 # AG Assist — Backend (Node.js)
 
-API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
+## Assistente operacional rural
+
+O núcleo operacional acrescenta propriedades, talhões, safras/ciclos, operações, custos, estoque, ocorrências, tarefas, lembretes, clima e PDFs estruturados, com Gemini como interface de ferramentas. Funcionalidades novas são opt-in por flags; cobrança e cadastro continuam no fluxo existente.
+
+Leia [arquitetura](docs/OPERATIONAL_ARCHITECTURE.md) e [ativação, segurança e limitações](docs/OPERATIONAL_ROLLOUT.md). Aplique migrations 021–023 antes de ativar as flags de [.env.rural.example](.env.rural.example). Testes locais: `npm test` e `npm run test:signup-flow`.
+
+API do **AG Assist** via WhatsApp. A assistente se chama **Lida**. Recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
 
 ## Pré-requisitos
 
@@ -166,7 +172,7 @@ Constante `FREE_USAGE_LIMIT` em `src/models/userModel.js` (padrão: **10** inter
 
 ## Memória da conversa
 
-Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou o AG Assist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
+Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou a Lida, assistente do AG Assist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
 
 ## Relatório em PDF
 

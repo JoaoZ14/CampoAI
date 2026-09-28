@@ -21,7 +21,7 @@ function fmt(n, dec = 4) {
   if (!Number.isFinite(n)) return '—';
   const f = 10 ** dec;
   const r = Math.round(n * f) / f;
-  return String(r).replace(/\.?0+$/, (m) => (m === '.' ? '' : m));
+  return String(r);
 }
 
 const MSG_INTRO =
