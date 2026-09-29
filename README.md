@@ -88,7 +88,7 @@ Substitua os placeholders `[RAZÃO SOCIAL]`, `[CNPJ]`, etc. antes de divulgar em
 
 1. No **Supabase** → **Authentication** → **Providers**, mantenha **Email** ativo e crie um usuário (e-mail + senha) para você.
 2. No `.env`, defina `ADMIN_EMAILS` com **o mesmo e-mail** (minúsculas; pode listar vários separados por vírgula).
-3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** as páginas web: `http://localhost:3001/admin/`, `/entrar`, `/cadastro`, `/area-do-cliente` e, em produção, as equivalentes HTTPS.
+3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** as páginas web: `http://localhost:3001/admin/`, `/entrar`, `/cadastro`, `/area-do-cliente`, `/app/` e, em produção, as equivalentes HTTPS. Para testar o app local em `127.0.0.1:8767`, inclua também `http://127.0.0.1:8767/app/`.
 4. Opcional: `PUBLIC_APP_URL` — URL pública do app (redirect do Supabase Auth, **links de Termos e Privacidade na boas-vindas do WhatsApp**, etc.). O painel `/admin` **sempre** chama a API no **mesmo host** da página; não use `PUBLIC_APP_URL` para apontar o painel a outro servidor.
 5. Acesse `http://localhost:PORT/admin/` (ou `/admin` — redireciona para `/admin/`).
 

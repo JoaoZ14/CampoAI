@@ -29,7 +29,24 @@ import {
   geminiSchema,
 } from "../src/ai/agent/geminiProvider.js";
 import { actionReceipt } from "../src/ai/policies/receipts.js";
+import { publicActivity } from "../src/rural/activity.js";
 let pg, repo, user, service, other, farm, field, season;
+test("customer activity exposes a safe summary of persisted changes", () => {
+  const row = {
+    id: "action-1",
+    created_at: "2026-09-28T12:00:00Z",
+    source_message_id: "SMexample",
+    status: "success",
+    input_json: { changes: [{ table: "farm_tasks", before: null, after: { id: "task-1", title: "Conferir bomba", private_note: "secret" } }] },
+    output_json: { private_note: "secret" },
+  };
+  const result = publicActivity(row);
+  assert.equal(result.source, "lida");
+  assert.equal(result.changes[0].title, "Conferir bomba");
+  assert.equal(result.changes[0].entity_id, "task-1");
+  assert.equal(JSON.stringify(result).includes("secret"), false);
+  assert.equal(JSON.stringify(result).includes("SMexample"), false);
+});
 before(async () => {
   for (const flag of [
     "AGENT_TOOLS_ENABLED",

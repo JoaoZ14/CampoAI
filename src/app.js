@@ -24,6 +24,7 @@ const loginDir = path.join(__dirname, '../public/entrar');
 const legalDir = path.join(__dirname, '../public/legal');
 const customerDir = path.join(__dirname, '../public/area-do-cliente');
 const sharedDir = path.join(__dirname, '../public/shared');
+const reactAppDir = path.join(__dirname, '../app/dist');
 
 export function createApp() {
   const app = express();
@@ -83,6 +84,12 @@ export function createApp() {
   app.use('/api/signup', signupRoutes);
   app.use('/api/customer', customerPortalRoutes);
   app.use('/api/rural', ruralRoutes);
+
+  app.use('/app', express.static(reactAppDir, { index: false, redirect: false }));
+  app.get(['/app', '/app/'], (req, res) => {
+    if (req.path === '/app') return res.redirect(308, '/app/');
+    res.sendFile(path.join(reactAppDir, 'index.html'));
+  });
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
   // remover a barra final).

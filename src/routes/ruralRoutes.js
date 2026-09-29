@@ -5,6 +5,8 @@ import { RuralService } from "../rural/service.js";
 import { hasFeature } from "../rural/features.js";
 import { WeatherService } from "../rural/weather.js";
 import { generateFarmReport } from "../rural/reports.js";
+import { publicActivity } from "../rural/activity.js";
+import { AppError } from "../utils/errors.js";
 const router = express.Router();
 router.use(requireLinkedCustomer);
 router.use((req, res, next) => {
@@ -51,6 +53,26 @@ router.get(
   handle((req) => req.rural.summary(req.params.farmId)),
 );
 router.get(
+  "/farms/:farmId/activity",
+  handle(async (req) => {
+    const farm = await req.rural.farm(req.params.farmId);
+    const offset = Number(req.query.offset ?? 0);
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000)
+      throw new AppError("Página inválida.", 400);
+    const rows = await req.rural.repo.result(
+      req.rural.repo.db
+        .from("assistant_actions")
+        .select("id,created_at,source_message_id,status,input_json")
+        .eq("user_id", req.customerUser.id)
+        .eq("farm_id", farm.id)
+        .eq("action_type", "WRITE")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + 20),
+    );
+    return { items: rows.slice(0, 20).map(publicActivity), has_more: rows.length > 20 };
+  }),
+);
+router.get(
   "/farms/:farmId/weather",
   handle(async (req) => {
     req.rural.feature("weather");
@@ -68,6 +90,17 @@ router.post(
   handle((req) => {
     req.rural.feature("reports");
     return generateFarmReport(req.rural, req.params.farmId, req.body || {});
+  }),
+);
+router.get(
+  "/farms/:farmId/:entity/:recordId",
+  handle(async (req) => {
+    if (req.params.entity === "farms") {
+      if (req.params.farmId !== req.params.recordId)
+        throw new AppError("Registro não encontrado nesta propriedade.", 404);
+      return req.rural.farm(req.params.farmId);
+    }
+    return req.rural.one(req.params.entity, req.params.farmId, req.params.recordId);
   }),
 );
 router.get(

@@ -5,6 +5,8 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
+    "build": "npm --prefix app ci --offline=false && npm --prefix app run build",
+    "preview:app": "node --import dotenv/config scripts/previewApp.mjs",
     "test": "node test/rural.test.js",
     "test:rural": "node test/rural.test.js",
     "worker:rural": "node scripts/runRuralWorker.mjs",
