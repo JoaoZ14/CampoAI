@@ -29,6 +29,7 @@ import {
   geminiSchema,
 } from "../src/ai/agent/geminiProvider.js";
 import { actionReceipt } from "../src/ai/policies/receipts.js";
+import { firstContactReply } from "../src/ai/policies/onboarding.js";
 import { publicActivity } from "../src/rural/activity.js";
 let pg, repo, user, service, other, farm, field, season;
 test("customer activity exposes a safe summary of persisted changes", () => {
@@ -75,6 +76,25 @@ before(async () => {
 });
 after(async () => {
   await pg?.close();
+});
+test("first contact guides a new producer without inventing records or spending an analysis", async () => {
+  const empty = { farms: [] };
+  assert.match(firstContactReply("Oi, acabei de conhecer vocês, tenho um sítio e queria entender como vc pode me ajudar", empty), /como você chama sua propriedade/i);
+  assert.match(firstContactReply("Eu planto alface, milho, cebolinha e crio umas galinhas", empty), /ainda não registrei/i);
+  assert.equal(firstContactReply("Cadastre minha propriedade Sítio Boa Vista", empty), null);
+  assert.equal(firstContactReply("Minha alface está com manchas, o que faço?", empty), null);
+  assert.equal(firstContactReply("Acabei de conhecer vocês", { farms: [{ id: randomUUID() }] }), null);
+  let charge;
+  const reply = await runAgent({
+    user: other,
+    service: new RuralService(other, repo, randomUUID()),
+    text: "Oi, acabei de conhecer vocês, tenho um sítio e queria entender como vc pode me ajudar",
+    provider: { turn: () => { throw new Error("O modelo não deve ser chamado no primeiro contato."); } },
+    onOutcome: outcome => { charge = outcome.charge; },
+  });
+  assert.match(reply, /propriedade/i);
+  assert.equal(charge, false);
+  assert.equal((await repo.farms(other.id)).length, 0);
 });
 test("migrations: server-only permissions and RLS", async () => {
   const r = await pg.query(
