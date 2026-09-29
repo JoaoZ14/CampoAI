@@ -2,30 +2,32 @@
 name: AG Assist
 description: Assistente rural no WhatsApp — tokens compartilhados entre cadastro, planos e landing
 colors:
-  green-dark: "#2a382a"
-  green-light: "#3d4f3d"
-  bg-page: "#fdfcfa"
-  bg-light: "#f6f3ec"
-  text: "#3a3a38"
-  text-muted: "#5c5c58"
-  field: "#a97440"
-  field-dark: "#8a5f36"
-  field-soft: "rgba(169, 116, 64, 0.14)"
+  green-dark: "#17362d"
+  green-light: "#285447"
+  bg-page: "#f8f9f4"
+  bg-light: "#edf1e7"
+  text: "#20362e"
+  text-muted: "#52645a"
+  field: "#b8d66b"
+  lime: "#bddb70"
+  field-dark: "#214c34"
+  field-soft: "#e2ebce"
   card: "#ffffff"
   error-bg: "#fdecea"
   error-text: "#8a2a2a"
 typography:
   body:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "'DM Sans', sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.65
   display:
-    fontFamily: "'Source Serif 4', Georgia, serif"
-    fontWeight: 700
-    lineHeight: 1.1
+    fontFamily: "'DM Serif Display', Georgia, serif"
+    fontWeight: 400
+    lineHeight: 1.05
 rounded:
-  default: "6px"
+  default: "14px"
+  pill: "999px"
 spacing:
   card-padding: "1.5rem"
   container-inline: "clamp(1.25rem, 5vw, 2.5rem)"
@@ -48,7 +50,7 @@ components:
 
 ## Overview
 
-Sistema visual alinhado à landing (`agassist.netlify.app`) e reutilizado em `/planos`, `/cadastro`, `/entrar` e `/area-do-cliente`. Paleta verde campo + acento terroso (field). Tipografia: Inter para corpo, Source Serif 4 para títulos. Logo CampoLead com texto de marca **AG Assist**.
+Sistema visual alinhado à landing (`agassist.netlify.app`) e reutilizado em `/planos`, `/cadastro`, `/entrar`, `/area-do-cliente` e `/legal`. Paleta verde campo com acento lima. Tipografia: DM Sans no corpo, DM Serif Display nos títulos e na marca. Logo CampoLead com texto **AG Assist**. O admin mantém o visual interno anterior.
 
 Fonte de tokens: `public/planos/styles.css` (`:root`).
 
@@ -56,21 +58,21 @@ Fonte de tokens: `public/planos/styles.css` (`:root`).
 
 | Token | Valor | Uso |
 |-------|-------|-----|
-| `--green-dark` | `#2a382a` | Header, botões primários, títulos |
-| `--green-light` | `#3d4f3d` | Hover, acentos secundários |
-| `--bg-page` | `#fdfcfa` | Fundo da página |
-| `--bg-light` | `#f6f3ec` | Painéis secundários, stepper inativo |
-| `--text` | `#3a3a38` | Corpo |
-| `--text-muted` | `#5c5c58` | Hints, legendas |
-| `--field` | `#a97440` | Foco, links, stepper ativo |
-| `--field-soft` | `rgba(169,116,64,0.14)` | Feedback, seleção |
+| `--green-dark` | `#17362d` | Títulos, texto de botão, foco |
+| `--green-light` | `#285447` | Hover de texto |
+| `--bg-page` | `#f8f9f4` | Fundo da página |
+| `--bg-light` | `#edf1e7` | Faixas e stepper inativo |
+| `--lime` | `#bddb70` | Botão primário |
+| `--text` | `#20362e` | Corpo |
+| `--text-muted` | `#52645a` | Hints, legendas |
+| `--field` | `#b8d66b` | Destaque, não usar como cor de texto |
 | `--card` | `#ffffff` | Cards e formulários |
 
 ## Typography
 
-- **Corpo:** Inter 400, 1rem, line-height 1.65
-- **Títulos (h1, h2):** Source Serif 4, 600–700, cor `--green-dark`
-- **Marca no header:** Source Serif 4 700, ~1.15rem, ao lado do logo
+- **Corpo:** DM Sans 400, 1rem, line-height 1.65
+- **Títulos (h1, h2):** DM Serif Display 400, cor `--green-dark`
+- **Marca no header:** DM Serif Display 400, ~1.42rem, ao lado do logo
 
 ## Layout
 
@@ -87,7 +89,7 @@ Fonte de tokens: `public/planos/styles.css` (`:root`).
 
 ## Shapes
 
-- Border radius padrão: `6px` (`--radius`)
+- Border radius padrão: `14px` (`--radius`); botões em pílula (`999px`)
 - Inputs e botões: min-height 44px (alvo de toque)
 - Stepper: pills com número circular
 

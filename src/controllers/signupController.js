@@ -36,7 +36,7 @@ export async function handleSignupComplete(req, res, next) {
     res.status(201).json({
       ok: true,
       message:
-        'Cadastro concluído! Abra o WhatsApp — o AG Assist já enviou uma mensagem para você começar.',
+        'Cadastro concluído! Abra o WhatsApp — a Lida já enviou uma mensagem para você começar.',
       ...out,
     });
   } catch (e) {

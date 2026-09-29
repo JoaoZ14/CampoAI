@@ -155,7 +155,7 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       `Plano: ${planLabel}\n` +
       `Status: ${result.status}\n` +
       `Próximo vencimento (referência): ${result.nextDueDate}\n\n` +
-      `Use o AG Assist pelo WhatsApp do número cadastrado para análises no campo, notícias do agro e suporte no dia a dia. ` +
+      `Converse com a Lida pelo WhatsApp do número cadastrado para análises no campo, notícias do agro e suporte no dia a dia. ` +
       `${billingLine}\n\n` +
       `Bem-vindo e bom trabalho na roça.`;
 

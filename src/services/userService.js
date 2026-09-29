@@ -82,6 +82,9 @@ export async function findUserByAuthUserId(authUserId) {
     .eq('auth_user_id', id)
     .maybeSingle();
   if (error) {
+    if (/column users\.auth_user_id does not exist/i.test(error.message || '')) {
+      throw new AppError('O banco do AG Assist precisa da migração 020 para conectar sua conta ao app. Seus dados e sua conta permanecem salvos.', 503);
+    }
     throw new AppError(`Erro ao buscar usuário autenticado: ${error.message}`, 500);
   }
   return data ? mapUserRow(data) : null;
@@ -469,4 +472,3 @@ export async function listUsersPendingTrialExpiryNotification() {
   }
   return (data ?? []).map(mapUserRow);
 }
-

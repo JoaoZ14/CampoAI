@@ -16,7 +16,7 @@ web
 
 ## Product Purpose
 
-O **AG Assist** é um assistente rural acessível pelo WhatsApp. O usuário descreve uma situação (texto, foto ou áudio) e recebe orientação direta: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Não substitui receituário, ART ou parecer formal.
+O **AG Assist** é o sistema. No WhatsApp, a assistente se chama **Lida**. O usuário descreve uma situação (texto, foto ou áudio) e recebe orientação direta: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Não substitui receituário, ART ou parecer formal.
 
 **Sucesso** significa: usuário cadastrado usa o trial, entende o valor no campo e converte para plano pago quando o trial acaba — sem fricção desnecessária no cadastro nem abandono no OTP.
 
@@ -54,7 +54,8 @@ Focado 100% no agro, no canal que o produtor já usa (WhatsApp), com IA multimod
 
 | Elemento | Uso |
 |----------|-----|
-| Nome do produto | **AG Assist** — copy, títulos, e-mails, WhatsApp, UI |
+| Nome do produto | **AG Assist** — sistema, copy institucional, títulos, planos, e-mails e UI |
+| Nome da assistente | **Lida** — persona do WhatsApp. O sistema continua AG Assist; só a assistente tem nome |
 | Logo visual | **CampoLead** — arquivo `Logo CampoLead (1)-Photoroom.png`; `alt` e texto adjacente devem dizer "AG Assist" |
 | Tom | Direto, prático, rural; sem jargão de IA; sem prometer dosagem ou receita |
 | Legal | Termos e privacidade em `/legal/*` (placeholders legais ainda pendentes) |

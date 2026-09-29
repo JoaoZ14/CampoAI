@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#2a382a" />
+    <meta name="theme-color" content="#17362d" />
     <meta
       name="description"
       content="Planos AG Assist — lavoura e pecuária no WhatsApp. CPF ou CNPJ, confirmação por SMS e preços claros."
@@ -18,7 +18,7 @@
       type="image/png"
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/planos/styles.css" />
@@ -49,46 +49,23 @@
       <div class="container">
       <header class="hero">
         <div class="hero-inner">
-        <p class="eyebrow">Planos</p>
-        <h1>Limite e preço na mesa — para decidir com mais confiança no talhão</h1>
-        <p class="subtitle">
-          Da lavoura ao curral, orientação no <strong>WhatsApp</strong> em português que aguenta a
-          correria do dia — técnica quando a dúvida pede, clara quando o relógio aperta.
-          <strong>10 análises grátis</strong> para você sentir o serviço no bolso antes de pagar
-          nada. Ao assinar, <strong>preço e limite de uso</strong> estão no card: nada de letrinha
-          miúda nem promessa de “crédito infinito” que some na hora H.
-          <strong>Código por SMS no seu celular</strong> antes de qualquer cobrança no cartão; na vitrine
-          você já escolhe <strong>Pessoal ou Empresa</strong> (CPF ou CNPJ) — contrato alinhado ao
-          jeito que você fatura, sem gambiarra no cadastro.
-        </p>
+          <h1>Preço na mesa.<br><em>Sem letrinha miúda.</em></h1>
+          <p class="subtitle">10 análises grátis pra sentir no bolso. O limite está no card, antes de pagar.</p>
         </div>
       </header>
 
-      <section class="value-strip" aria-labelledby="value-strip-title">
-        <h2 id="value-strip-title" class="value-strip-title">Por que o AG Assist se destaca</h2>
-        <ul class="value-grid">
-          <li>
-            <strong>Foco no que importa na roça</strong>
-            <span>Orientação técnica em planta e animal, calculadora de campo (<code>calc</code>),
-              notícias do agro no Brasil e relatório em PDF da conversa quando o servidor oferece —
-              sem empilhar dezenas de funções que desviam do trabalho.</span>
-          </li>
-          <li>
-            <strong>Transparência de uso e cobrança</strong>
-            <span>Limite gratuito claro; nos planos, faixas de análises definidas. Checkout com OTP
-              por SMS no seu celular: ninguém assina por engano no teclado.</span>
-          </li>
-          <li>
-            <strong>CPF e CNPJ na mesma página</strong>
-            <span>Abas Pessoal e Empresa com preços e textos alinhados ao tipo de contrato — menos
-              surpresa na hora de preencher dados e nota fiscal.</span>
-          </li>
-          <li>
-            <strong>Seriedade técnica</strong>
-            <span>O assistente deixa claro que orientação não substitui visita de agrônomo ou médico
-              veterinário em casos graves — parceiro da decisão, não substituto do profissional.</span>
-          </li>
-        </ul>
+      <section class="plan-reasons" aria-labelledby="plan-reasons-title">
+        <h2 id="plan-reasons-title" class="visually-hidden">A Lida resume</h2>
+        <div class="plan-reasons__options" role="group" aria-label="Pergunte pra Lida">
+          <button type="button" class="plan-reason is-active" data-reason="roca" aria-pressed="true">Na roça</button>
+          <button type="button" class="plan-reason" data-reason="cobranca" aria-pressed="false">Cobrança</button>
+          <button type="button" class="plan-reason" data-reason="doc" aria-pressed="false">CPF ou CNPJ</button>
+          <button type="button" class="plan-reason" data-reason="lida" aria-pressed="false">A Lida</button>
+        </div>
+        <div class="plan-reasons__reply">
+          <span class="plan-reasons__avatar" aria-hidden="true">Li</span>
+          <p id="plan-reason-copy" class="plan-reasons__copy" aria-live="polite">Planta, bicho ou conta de área. Eu respondo no WhatsApp.</p>
+        </div>
       </section>
 
       <div id="plans-merchandise" class="plans-merchandise">
@@ -127,10 +104,7 @@
           </button>
           <h2 class="section-heading">Assinar com segurança</h2>
           <p id="plan-selected-summary" class="plan-picked checkout-summary muted" aria-live="polite"></p>
-          <p class="muted flow-intro">
-            Celular → código por SMS → dados e cartão. Sem etapa extra: o plano você já escolheu nos
-            cards.
-          </p>
+          <p class="muted flow-intro">Celular, código por SMS e o cartão.</p>
           <p id="checkout-auth-gate" class="auth-gate" hidden>
             Entre ou crie uma conta web para assinar.
             <a href="/entrar?next=/planos">Entrar</a>
@@ -362,12 +336,8 @@
 
         <div id="subscription-success" class="subscription-success card flow-card" hidden>
           <p class="success-eyebrow" aria-hidden="true">Tudo certo</p>
-          <h2 class="section-heading success-title">Parabéns — você faz parte do AG Assist</h2>
-          <p class="success-lead">
-            Sua assinatura foi registrada. Daqui pra frente você conta com orientação no WhatsApp para a
-            lavoura e a pecuária, com limites claros de uso e cobrança recorrente no cartão cadastrado
-            (mensal ou anual, conforme você escolheu).
-          </p>
+          <h2 class="section-heading success-title">Assinatura confirmada</h2>
+          <p class="success-lead">A Lida segue no WhatsApp do número cadastrado.</p>
           <p id="success-plan-detail" class="success-plan-detail muted" aria-live="polite"></p>
           <p class="success-sms muted">
             Enviamos também um SMS para este número com o resumo do plano e o status da assinatura.

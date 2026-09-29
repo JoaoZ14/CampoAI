@@ -1,0 +1,160 @@
+import { str, id, positive, date, instant, object } from "./validation.js";
+const zero = { type: "number", minimum: 0, maximum: 1e9 };
+export const schemas = {
+  alert_rules: object(
+    {
+      type: { type: "string", enum: ["low_stock"] },
+      config_json: object({ inventory_item_id: id }, ["inventory_item_id"]),
+      active: { type: "boolean" },
+    },
+    ["type", "config_json"],
+  ),
+  farms: object({
+    name: str,
+    nickname: str,
+    city: str,
+    state: { type: "string", maxLength: 2 },
+    country: { type: "string", enum: ["BR"] },
+    latitude: { type: "number", minimum: -90, maximum: 90 },
+    longitude: { type: "number", minimum: -180, maximum: 180 },
+    total_area_ha: positive,
+    timezone: str,
+    main_activity: str,
+    notes: str,
+  }),
+  fields: object(
+    {
+      name: str,
+      area_ha: positive,
+      description: str,
+      is_active: { type: "boolean" },
+    },
+    ["name"],
+  ),
+  crop_seasons: object(
+    {
+      name: str,
+      start_date: date,
+      end_date: date,
+      status: { type: "string", enum: ["planned", "active", "completed"] },
+      notes: str,
+    },
+    ["name"],
+  ),
+  field_cycles: object(
+    {
+      field_id: id,
+      crop_season_id: id,
+      crop_name: str,
+      cultivar: str,
+      planting_date: date,
+      expected_harvest_date: date,
+      area_ha: positive,
+      status: { type: "string", enum: ["planned", "active", "completed"] },
+      notes: str,
+    },
+    ["field_id", "crop_name"],
+  ),
+  farm_operations: object(
+    {
+      field_id: id,
+      field_cycle_id: id,
+      operation_type: str,
+      operation_date: date,
+      area_ha: positive,
+      description: str,
+      quantity: positive,
+      unit: str,
+      cost: zero,
+    },
+    ["operation_type", "operation_date", "description"],
+  ),
+  farm_expenses: object(
+    {
+      field_id: id,
+      field_cycle_id: id,
+      crop_season_id: id,
+      category: str,
+      description: str,
+      amount: positive,
+      quantity: positive,
+      unit: str,
+      expense_date: date,
+      supplier: str,
+    },
+    ["category", "description", "amount", "expense_date"],
+  ),
+  farm_tasks: object(
+    {
+      field_id: id,
+      field_cycle_id: id,
+      title: str,
+      description: str,
+      due_at: instant,
+      priority: { type: "string", enum: ["low", "normal", "high"] },
+      remind: { type: "boolean" },
+      status: { type: "string", enum: ["pending", "completed", "cancelled"] },
+    },
+    ["title", "due_at"],
+  ),
+  field_occurrences: object(
+    {
+      field_id: id,
+      field_cycle_id: id,
+      type: str,
+      title: str,
+      description: str,
+      detected_at: instant,
+      status: { type: "string", enum: ["open", "monitoring", "resolved"] },
+      severity: { type: "string", enum: ["low", "medium", "high"] },
+    },
+    ["field_id", "type", "title", "description", "detected_at"],
+  ),
+  occurrence_followups: object({ occurrence_id: id, description: str }, [
+    "occurrence_id",
+    "description",
+  ]),
+  inventory_items: object(
+    { name: str, category: str, unit: str, minimum_quantity: zero, notes: str },
+    ["name", "category", "unit"],
+  ),
+  inventory_movements: object(
+    {
+      inventory_item_id: id,
+      type: { type: "string", enum: ["entry", "usage"] },
+      quantity: positive,
+      operation_id: id,
+    },
+    ["inventory_item_id", "type", "quantity"],
+  ),
+  field_aliases: object({ field_id: id, alias: str }, ["field_id", "alias"]),
+  assistant_memories: object(
+    {
+      field_id: id,
+      type: { type: "string", enum: ["preference", "operational_fact"] },
+      key: str,
+      value_json: object({ text: str }, ["text"]),
+      confirmed: { type: "boolean" },
+      expires_at: instant,
+    },
+    ["type", "key", "value_json", "confirmed"],
+  ),
+};
+export const tableFeatures = {
+  farm_expenses: "financial",
+  inventory_items: "inventory",
+  inventory_movements: "inventory",
+  field_occurrences: "occurrences",
+  occurrence_followups: "occurrences",
+  assistant_memories: "memory",
+};
+export const filtersSchema = object({
+  field_id: id,
+  field_cycle_id: id,
+  crop_season_id: id,
+  status: str,
+  category: str,
+  from: date,
+  to: date,
+  offset: { type: "integer", minimum: 0, maximum: 100000 },
+});

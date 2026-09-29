@@ -1,6 +1,12 @@
 # AG Assist — Backend (Node.js)
 
-API para o assistente rural **AG Assist** via WhatsApp: recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
+## Assistente operacional rural
+
+O núcleo operacional acrescenta propriedades, talhões, safras/ciclos, operações, custos, estoque, ocorrências, tarefas, lembretes, clima e PDFs estruturados, com Gemini como interface de ferramentas. Funcionalidades novas são opt-in por flags; cobrança e cadastro continuam no fluxo existente.
+
+Leia [arquitetura](docs/OPERATIONAL_ARCHITECTURE.md) e [ativação, segurança e limitações](docs/OPERATIONAL_ROLLOUT.md). Aplique migrations 021–023 antes de ativar as flags de [.env.rural.example](.env.rural.example). Testes locais: `npm test` e `npm run test:signup-flow`.
+
+API do **AG Assist** via WhatsApp. A assistente se chama **Lida**. Recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
 
 ## Pré-requisitos
 
@@ -82,7 +88,7 @@ Substitua os placeholders `[RAZÃO SOCIAL]`, `[CNPJ]`, etc. antes de divulgar em
 
 1. No **Supabase** → **Authentication** → **Providers**, mantenha **Email** ativo e crie um usuário (e-mail + senha) para você.
 2. No `.env`, defina `ADMIN_EMAILS` com **o mesmo e-mail** (minúsculas; pode listar vários separados por vírgula).
-3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** as páginas web: `http://localhost:3001/admin/`, `/entrar`, `/cadastro`, `/area-do-cliente` e, em produção, as equivalentes HTTPS.
+3. Em **Authentication** → **URL Configuration**, inclua nas **Redirect URLs** as páginas web: `http://localhost:3001/admin/`, `/entrar`, `/cadastro`, `/area-do-cliente`, `/app/` e, em produção, as equivalentes HTTPS. Para testar o app local em `127.0.0.1:8767`, inclua também `http://127.0.0.1:8767/app/`.
 4. Opcional: `PUBLIC_APP_URL` — URL pública do app (redirect do Supabase Auth, **links de Termos e Privacidade na boas-vindas do WhatsApp**, etc.). O painel `/admin` **sempre** chama a API no **mesmo host** da página; não use `PUBLIC_APP_URL` para apontar o painel a outro servidor.
 5. Acesse `http://localhost:PORT/admin/` (ou `/admin` — redireciona para `/admin/`).
 
@@ -166,7 +172,7 @@ Constante `FREE_USAGE_LIMIT` em `src/models/userModel.js` (padrão: **10** inter
 
 ## Memória da conversa
 
-Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou o AG Assist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
+Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou a Lida, assistente do AG Assist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
 
 ## Relatório em PDF
 

@@ -513,6 +513,11 @@ async function loadRevenueView() {
 
 async function showUserDrawer(userId) {
   const data = await apiGet(`/admin/api/users/${userId}`);
+  let ruralHtml = '';
+  try {
+    const rural = await apiGet(`/admin/api/users/${userId}/rural`);
+    ruralHtml = `<h3>Operação rural</h3><p>${Number(rural.farm_count)} propriedades · ${rural.farms.reduce((n,f)=>n+Number(f.field_count),0)} talhões</p><ul>${rural.actions.map(a=>`<li>${esc(a.tool_name)} · ${esc(a.status)} · ${fmtDate(a.created_at)}</li>`).join('')||'<li>Nenhuma ação registrada.</li>'}</ul><h4>Lembretes</h4><ul>${rural.jobs.map(j=>`<li>${esc(j.status)} · ${fmtDate(j.run_at)}${j.last_error?' · '+esc(j.last_error):''}</li>`).join('')||'<li>Nenhum lembrete.</li>'}</ul>`;
+  } catch (e) { if(e.status!==404) ruralHtml='<p>Dados operacionais indisponíveis.</p>'; }
   const u = data.user;
   const t = trialLabel(u);
   const msgs = (data.recentMessages || [])
@@ -536,6 +541,7 @@ async function showUserDrawer(userId) {
       <dt>Boas-vindas WA</dt><dd>${fmtDate(u.welcomeSentAt)}</dd>
     </dl>
     ${orgLink}
+    ${ruralHtml}
     <h3>Últimas mensagens</h3><ul>${msgs || '<li>Nenhuma</li>'}</ul>
     <div class="drawer-actions">
       <button type="button" class="btn btn-secondary sm" data-action="extend-7" data-uid="${esc(u.id)}">+7 dias trial</button>

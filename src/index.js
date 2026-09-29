@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { startRuralWorker, stopRuralWorker } from './jobs/ruralWorker.js';
 import { initSentry } from './lib/sentry.js';
 import { createApp } from './app.js';
 import { startWeeklyNewsCron, stopWeeklyNewsCron } from './jobs/weeklyNewsCron.js';
@@ -18,9 +19,11 @@ const server = app.listen(port, () => {
   console.log(`Painel dev: http://localhost:${port}/admin/`);
   startWeeklyNewsCron();
   startTrialExpiryCron();
+  startRuralWorker();
 });
 
 function shutdown() {
+  stopRuralWorker();
   stopWeeklyNewsCron();
   stopTrialExpiryCron();
   server.close(() => process.exit(0));

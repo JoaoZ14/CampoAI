@@ -64,7 +64,7 @@ const PLAN_CONTENT = {
       'Um titular; você distribui o acesso à equipe ou família',
       'Mesmo padrão de resposta para todos os números',
     ],
-    summary: 'Quando mais de uma pessoa precisa do assistente no mesmo contrato.',
+    summary: 'Quando mais de uma pessoa precisa da Lida no mesmo contrato.',
   },
 };
 
@@ -821,4 +821,52 @@ async function init() {
   if (prePhone) byId('phone').value = formatPhoneDisplay(prePhone);
 }
 
+const PLAN_REASONS = {
+  roca: 'Planta, bicho ou conta de área. Eu respondo no WhatsApp.',
+  cobranca: 'Mando um SMS antes de qualquer real sair do cartão.',
+  doc: 'Pessoal ou Empresa. O contrato segue como você fatura.',
+  lida: 'Eu ajudo a decidir. Agrônomo e veterinário continuam no comando.',
+};
+
+function initPlanReasons() {
+  const copy = byId('plan-reason-copy');
+  const buttons = [...document.querySelectorAll('.plan-reason')];
+  if (!copy || !buttons.length) return;
+
+  function select(button) {
+    for (const item of buttons) {
+      const active = item === button;
+      item.classList.toggle('is-active', active);
+      item.setAttribute('aria-pressed', String(active));
+    }
+    const next = PLAN_REASONS[button.dataset.reason] || '';
+    if (copy.textContent === next) return;
+    copy.textContent = next;
+    copy.classList.remove('is-fresh');
+    void copy.offsetWidth;
+    copy.classList.add('is-fresh');
+  }
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => select(button));
+  }
+
+  const group = document.querySelector('.plan-reasons__options');
+  group?.addEventListener('keydown', (event) => {
+    const current = buttons.indexOf(document.activeElement);
+    if (current < 0) return;
+    const next =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? buttons[(current + 1) % buttons.length]
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? buttons[(current - 1 + buttons.length) % buttons.length]
+          : null;
+    if (!next) return;
+    event.preventDefault();
+    next.focus();
+    select(next);
+  });
+}
+
+initPlanReasons();
 await init();

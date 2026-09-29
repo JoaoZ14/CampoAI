@@ -1,4 +1,5 @@
 import { processIncomingMessage } from '../services/incomingMessageService.js';
+import { enqueueRuralMessage } from '../jobs/ruralWorker.js';
 
 /**
  * Primeira mídia do Twilio: separa imagem vs áudio (WhatsApp voz = áudio/ogg em geral).
@@ -118,6 +119,11 @@ export async function handleTwilioInbound(req, res, next) {
       messageSid:
         typeof req.body?.MessageSid === 'string' ? req.body.MessageSid : undefined,
     };
+
+    if (process.env.AGENT_TOOLS_ENABLED === 'true') {
+      await enqueueRuralMessage(payload);
+      return res.status(200).type('text/xml').send('<Response></Response>');
+    }
 
     console.log('[Twilio webhook] processando', {
       MessageSid: req.body?.MessageSid,

@@ -5,6 +5,11 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
+    "build": "npm --prefix app ci --offline=false && npm --prefix app run build",
+    "preview:app": "node --import dotenv/config scripts/previewApp.mjs",
+    "test": "node test/rural.test.js",
+    "test:rural": "node test/rural.test.js",
+    "worker:rural": "node scripts/runRuralWorker.mjs",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "weekly-news": "node scripts/sendWeeklyNewsOnce.mjs",
@@ -40,5 +45,8 @@
     "pdfkit": "^0.18.0",
     "swagger-ui-express": "^5.0.1",
     "twilio": "^5.4.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }

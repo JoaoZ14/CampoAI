@@ -1,3 +1,4 @@
+import { loadRural } from './rural.js';
 import {
   apiDelete,
   apiGet,
@@ -150,6 +151,7 @@ async function loadDashboard() {
   renderPlan(out);
   renderProfile(out, out.email);
   renderSeats(out);
+  void loadRural();
 }
 
 const linkState = { verificationToken: '' };

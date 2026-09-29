@@ -1,13 +1,13 @@
-/* Páginas legais — tokens alinhados ao /planos */
+/* Páginas legais — mesmo sistema da landing */
 :root {
-  --green-dark: #2a382a;
-  --green-light: #3d4f3d;
-  --bg-page: #fdfcfa;
-  --text: #3a3a38;
-  --text-muted: #5c5c58;
-  --field: #a97440;
-  --radius: 6px;
-  --border: rgba(42, 56, 42, 0.12);
+  --green-dark: #17362d;
+  --green-light: #285447;
+  --bg-page: #f8f9f4;
+  --text: #20362e;
+  --text-muted: #52645a;
+  --field: #214c34;
+  --radius: 14px;
+  --border: #dce4d8;
 }
 
 * {
@@ -16,7 +16,7 @@
 
 body {
   margin: 0;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: 'DM Sans', sans-serif;
   color: var(--text);
   line-height: 1.65;
   background: var(--bg-page);
@@ -31,8 +31,8 @@ body {
 }
 
 .site-header {
-  border-bottom: 1px solid var(--border);
-  background: #fff;
+  border-bottom: 1px solid #e4e9df;
+  background: rgba(248, 249, 244, 0.95);
 }
 
 .site-header-inner {
@@ -83,7 +83,9 @@ body {
 }
 
 .doc-title {
-  font-family: 'Source Serif 4', Georgia, serif;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.03em;
   font-size: clamp(1.5rem, 4vw, 1.85rem);
   color: var(--green-dark);
   margin: 0 0 0.5rem;
@@ -98,9 +100,9 @@ body {
 
 .notice-box {
   padding: 1rem 1.1rem;
-  border: 1px dashed var(--field);
-  border-radius: var(--radius);
-  background: rgba(169, 116, 64, 0.08);
+  border: 0;
+  border-radius: 12px;
+  background: #eaf0df;
   font-size: 0.9rem;
   margin-bottom: 2rem;
 }

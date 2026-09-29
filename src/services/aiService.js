@@ -90,7 +90,7 @@ function buildMediaFetchHeaders(mediaUrl, opts = {}) {
   return headers;
 }
 
-async function fetchMediaAsInlineData(mediaUrl, kind) {
+export async function fetchMediaAsInlineData(mediaUrl, kind) {
   const maxAttempts = 2;
   let lastStatus = 0;
   const accept =
@@ -121,7 +121,16 @@ async function fetchMediaAsInlineData(mediaUrl, kind) {
         );
       }
 
-      const buf = Buffer.from(await res.arrayBuffer());
+      const maxBytes = 10 * 1024 * 1024;
+      if (Number(res.headers.get('content-length')) > maxBytes) throw new AppError('Mídia acima de 10 MB.', 400);
+      const chunks = [];
+      let size = 0;
+      for await (const chunk of res.body) {
+        size += chunk.length;
+        if (size > maxBytes) throw new AppError('Mídia acima de 10 MB.', 400);
+        chunks.push(chunk);
+      }
+      const buf = Buffer.concat(chunks);
       const rawMime = res.headers.get('content-type') || (kind === 'image' ? 'image/jpeg' : 'audio/ogg');
       let mimeType = rawMime.split(';')[0].trim() || (kind === 'image' ? 'image/jpeg' : 'audio/ogg');
 

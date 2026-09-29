@@ -6,10 +6,11 @@ import twilio from 'twilio';
  * Desligar validação (ex.: testes locais): TWILIO_SKIP_SIGNATURE=true
  */
 export function validateTwilioSignature(req, res, next) {
-  if (process.env.TWILIO_SKIP_SIGNATURE === 'true') return next();
+  if (process.env.TWILIO_SKIP_SIGNATURE === 'true' && process.env.NODE_ENV !== 'production') return next();
 
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
   if (!authToken) {
+    if (process.env.AGENT_TOOLS_ENABLED === 'true') return res.status(503).json({ ok: false, error: 'Twilio não configurado.' });
     if (process.env.NODE_ENV === 'production') {
       console.warn('[twilio] TWILIO_AUTH_TOKEN ausente — assinatura não validada.');
     }
