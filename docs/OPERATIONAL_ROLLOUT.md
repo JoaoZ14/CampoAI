@@ -38,6 +38,8 @@ Aplicar, depois das migrations existentes até 020, **021_rural_domain**, **022_
 
 ## Configuração e rollout
 
+**Primeiro contato da Lida:** o template Twilio `boas_vindas` aprovado ainda apresenta o produto como suporte a dúvidas. A nova versão `boas_vindas_lida_operacional_v1` (`HXd85352daec5453eba1c39aa00807bff2`) foi enviada para aprovação do WhatsApp em 2026-09-29. Depois de aprovado e com o agente operacional validado no servidor, trocar `WELCOME_SIGNUP_CONTENT_SID` para esse SID. Até lá, manter o template antigo ativo; o fallback em texto usa o modo realmente habilitado por `AGENT_TOOLS_ENABLED`. O primeiro contato com a Lida não cria plantios ou animais a partir de uma apresentação informal: pergunta o nome da propriedade e grava apenas após resposta que autorize o cadastro.
+
 1. Fazer backup e aplicar migrations em homologação.
 2. Rodar `npm ci`, `npm test` e `npm run test:signup-flow`.
 3. Copiar as variáveis desejadas de `.env.rural.example` para a configuração do servidor; o arquivo `.env` existente não foi alterado.

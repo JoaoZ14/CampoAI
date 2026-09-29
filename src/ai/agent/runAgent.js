@@ -7,6 +7,7 @@ import { GeminiAgentProvider } from "./geminiProvider.js";
 import { rememberIncomingMedia } from "../../rural/media.js";
 import { intentHint, deterministicSafety } from "../policies/intent.js";
 import { actionReceipt } from "../policies/receipts.js";
+import { firstContactReply } from "../policies/onboarding.js";
 export async function runAgent({
   user,
   text,
@@ -25,6 +26,13 @@ export async function runAgent({
   if (safety) return safety;
   service ||= new RuralService(user, undefined, correlation);
   const context = await buildContext(service);
+  if (!imageUrl && !audioUrl) {
+    const welcome = firstContactReply(text, context);
+    if (welcome) {
+      onOutcome({ charge: false });
+      return welcome;
+    }
+  }
   await rememberIncomingMedia(service, context, { imageUrl, audioUrl });
   const tools = createTools(service, { text });
   const events = [];

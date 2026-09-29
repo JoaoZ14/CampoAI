@@ -47,10 +47,12 @@ export function getSignupWhatsappOpenUrl() {
 
 export function buildSignupWelcomeBody(name) {
   const firstName = String(name ?? '').trim().split(/\s+/)[0] || 'produtor';
+  const introduction = process.env.AGENT_TOOLS_ENABLED === 'true'
+    ? 'Sou a Lida, sua assistente do AG Assist. Posso tirar dúvidas e ajudar a organizar o sítio: cadastrar a propriedade, talhões e tarefas para você acompanhar no app.\n\nPara começar, como você chama sua propriedade?'
+    : 'Sou a Lida, assistente do AG Assist. Posso ajudar com dúvidas sobre o campo; no app você também pode organizar sua propriedade e tarefas.\n\nO que você gostaria de fazer primeiro?';
   return (
     `Olá, ${firstName}! Que bom ter você aqui.\n\n` +
-    'Sou a Lida, assistente do AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.\n\n' +
-    'Mande uma foto, um áudio ou sua pergunta — vamos começar?'
+    introduction
   );
 }
 
