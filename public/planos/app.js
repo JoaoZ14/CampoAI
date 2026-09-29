@@ -18,6 +18,9 @@ let activeSegmentTab = 'personal';
 /** @type {boolean} */
 let customerAuthed = false;
 
+/** Impede escolhas repetidas enquanto uma etapa do checkout está em andamento. */
+let flowInteractionLock = false;
+
 function syncCheckoutAuthGate() {
   const gate = byId('checkout-auth-gate');
   if (gate) gate.hidden = customerAuthed;
@@ -495,7 +498,12 @@ function applySelectedPlan(code, segment, opts = {}) {
     segment === 'company'
       ? 'Contrato em nome de empresa (CNPJ)'
       : 'Pagamento e titularidade em CPF (produtor ou família)';
-  summary.textContent = `Plano: ${label} — ${doc}`;
+  const annualMode = byId('billing-toggle-btn')?.getAttribute('aria-pressed') === 'true';
+  const selected = plansForRender().find((plan) => plan.code === code && plan.customerSegment === segment);
+  const monthlyPrice = Number(selected?.priceBrl);
+  const amount = Number.isFinite(monthlyPrice) ? formatPrice(monthlyPrice, annualMode) : null;
+  const charge = amount ? ` — R$ ${amount.price}/${amount.period}` : '';
+  summary.textContent = `Plano: ${label} — cobrança ${annualMode ? 'anual' : 'mensal'}${charge} — ${doc}`;
   highlightPlanCard(code, segment);
   refreshCompanyFields();
 
