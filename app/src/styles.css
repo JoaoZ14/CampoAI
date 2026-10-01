@@ -398,5 +398,25 @@ a { color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  .login-form, .login-dialog { animation: none; }
+}
+
+.login-dialog { inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); }
+.login-dialog[open] { display: flex; align-items: flex-end; justify-content: center; }
+.login-dialog::backdrop { background: rgba(7,29,18,.63); }
+.workspace-state { max-width: 560px; margin: 10vh auto; padding: 28px; text-align: center; }
+.workspace-state h1 { font-size: clamp(1.5rem, 4vw, 2rem); line-height: 1.2; }
+.workspace-state p { color: var(--muted); line-height: 1.6; }
+.notice p { margin: 6px 0 0; }
+.notice > div { min-width: 0; }
+.notice > .text-button { align-self: center; flex-shrink: 0; font-size: .82rem; white-space: normal; }
+.notice button, .record-button, .login-close, .complete-button { min-height: 44px; min-width: 44px; }
+button:disabled { cursor: default; }
+.record-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 18px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.record-details dt { color: var(--muted); font-size: .8rem; }
+.record-details dd { margin: 5px 0 0; overflow-wrap: anywhere; font-weight: 650; }
+.edit-panel { scroll-margin-top: 90px; }
+@media (max-width: 600px) {
+  .notice:has(> .text-button) { flex-direction: column; align-items: flex-start; }
+  .notice > .text-button { align-self: flex-start; }
 }

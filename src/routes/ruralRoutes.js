@@ -7,6 +7,7 @@ import { WeatherService } from "../rural/weather.js";
 import { generateFarmReport } from "../rural/reports.js";
 import { publicActivity } from "../rural/activity.js";
 import { AppError } from "../utils/errors.js";
+import { ruralQuery } from "../rural/httpQuery.js";
 const router = express.Router();
 router.use(requireLinkedCustomer);
 router.use((req, res, next) => {
@@ -56,7 +57,7 @@ router.get(
   "/farms/:farmId/activity",
   handle(async (req) => {
     const farm = await req.rural.farm(req.params.farmId);
-    const offset = Number(req.query.offset ?? 0);
+    const offset = ruralQuery(req.query).offset ?? 0;
     if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000)
       throw new AppError("Página inválida.", 400);
     const rows = await req.rural.repo.result(
@@ -67,6 +68,7 @@ router.get(
         .eq("farm_id", farm.id)
         .eq("action_type", "WRITE")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .range(offset, offset + 20),
     );
     return { items: rows.slice(0, 20).map(publicActivity), has_more: rows.length > 20 };
@@ -83,7 +85,7 @@ router.get(
 );
 router.get(
   "/farms/:farmId/expenses/summary",
-  handle((req) => req.rural.expenses(req.params.farmId, req.query)),
+  handle((req) => req.rural.expenses(req.params.farmId, ruralQuery(req.query))),
 );
 router.post(
   "/farms/:farmId/report",
@@ -106,7 +108,7 @@ router.get(
 router.get(
   "/farms/:farmId/:entity",
   handle((req) =>
-    req.rural.list(req.params.entity, req.params.farmId, req.query),
+    req.rural.list(req.params.entity, req.params.farmId, ruralQuery(req.query)),
   ),
 );
 router.post(
@@ -119,9 +121,7 @@ router.patch(
   "/farms/:farmId/:entity/:recordId",
   handle((req) => {
     if (req.params.entity === "farm_tasks" && req.body.status === "cancelled")
-      throw Object.assign(new Error("Confirme o cancelamento pelo WhatsApp."), {
-        statusCode: 400,
-      });
+      throw new AppError("Confirme o cancelamento pelo WhatsApp.", 400);
     return req.rural.save(
       req.params.entity,
       req.params.farmId,

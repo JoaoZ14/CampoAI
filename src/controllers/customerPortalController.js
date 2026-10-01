@@ -7,6 +7,15 @@ import {
   updateCustomerProfile,
 } from '../services/customerPortalService.js';
 import { findUserByAuthUserId } from '../services/userService.js';
+import { customerWorkspace } from '../services/customerWorkspace.js';
+
+export async function handleCustomerWorkspace(req, res, next) {
+  try {
+    const user = await findUserByAuthUserId(req.authUser.id);
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, ...customerWorkspace(user, req.authUser.email) });
+  } catch (error) { next(error); }
+}
 
 export function handleCustomerConfig(req, res) {
   const url = process.env.SUPABASE_URL?.trim();
