@@ -33,7 +33,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const headers = new Headers(options.headers);
   headers.set('Authorization', `Bearer ${data.session.access_token}`);
   if (options.body) headers.set('Content-Type', 'application/json');
-  if (options.method && options.method !== 'GET') headers.set('Idempotency-Key', crypto.randomUUID());
+  if (options.method && options.method !== 'GET' && !headers.has('Idempotency-Key')) headers.set('Idempotency-Key', crypto.randomUUID());
   const response = await fetch(`${apiBase}${path}`, { ...options, headers, cache: 'no-store' });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || result.message || 'Não foi possível carregar os dados.');

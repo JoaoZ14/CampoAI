@@ -22,6 +22,13 @@ export function intentHint(text, hasImage = false) {
     if (pattern.test(t)) return intent;
   return "conversation";
 }
+export function isExplicitWriteRequest(text) {
+  const t = normalizeName(text || "");
+  if (/\b(seria interessante|e se|hipoteticamente)\b/.test(t)) return false;
+  if (/\b(registr(?:e|ar)|cadastr(?:e|ar)|anot(?:e|ar)|adicion(?:e|ar)|agend(?:e|ar)|cri(?:e|ar)|salv(?:e|ar))\b/.test(t)) return true;
+  if (/^(quanto|quando|qual|quais|o que|mostre|liste|consulta|consulte|me diga)\b/.test(t) || /\b(quanto|quantos|qual valor)\?$/.test(t)) return false;
+  return /\b(gastei|paguei|comprei|plantei|colhi|irriguei)\b/.test(t);
+}
 export function deterministicSafety(text) {
   const t = normalizeName(text || "");
   if (

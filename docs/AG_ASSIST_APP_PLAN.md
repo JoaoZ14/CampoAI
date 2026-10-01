@@ -2,7 +2,7 @@
 
 **Estado:** primeira implementação web em `app/`, com API de atividade em `/api/rural/farms/:farmId/activity`. **Premissa inicial:** titular da conta é o usuário da primeira versão; equipe e consultores entram após definir permissões. A Lida continua a conversa no WhatsApp. O app é a mesa de trabalho onde o produtor vê, controla e corrige o que foi feito.
 
-**Já entregue nesta etapa:** login por e-mail e senha, seleção e cadastro de propriedade, Hoje com clima quando disponível, agenda com criação e conclusão de tarefas, visão da fazenda, histórico paginado de gravações e correção rápida de título/descrição/área em registros compatíveis. O portal antigo permanece. Empacotamento Capacitor, permissões de equipe, confirmações no app, push e sincronização offline ainda são próximas etapas.
+**Já entregue nesta etapa:** login por e-mail e senha, seleção e cadastro de propriedade, Hoje com clima quando disponível, agenda com criação e conclusão de tarefas, visão da fazenda, histórico paginado de gravações e correção rápida de título/descrição/área em registros compatíveis. A tela Fazenda também permite registrar atividades e despesas, consultar listas paginadas, filtrar por período e talhão e conferir custos do filtro; despesas aceitam vínculo opcional com safra. O portal antigo permanece. O projeto Android Capacitor foi iniciado sobre o React existente; teste em aparelho, permissões de equipe, confirmações no app, push e sincronização offline ainda são próximas etapas.
 
 ## Promessa do produto
 
@@ -29,7 +29,7 @@ O app mostra a *ação* e seus dados, não precisa expor toda a conversa. Se nã
 | **Atividade da Lida** | Ver o que foi registrado ou alterado, abrir o registro e entender falhas ou pendências | `assistant_actions` existe internamente; criar API autenticada de leitura, com escopo e redação seguros |
 | **Propriedades** | Alternar fazendas; consultar talhões, safras e ciclos | API rural já lista e grava entidades; criar navegação e filtros claros |
 | **Agenda** | Criar, reagendar e concluir tarefas; saber se haverá lembrete no WhatsApp | `farm_tasks` e worker existem; interface e estado do envio precisam ser expostos com cuidado |
-| **Registros** | Consultar e corrigir atividades e despesas, com filtros de período/safra/talhão | API rural existe; construir formulários, validação e paginação |
+| **Registros** | Consultar e corrigir atividades e despesas, com filtros de período/safra/talhão | Criação e listagem paginada no app entregues; correção detalhada de valor, categoria e vínculos ainda pendente |
 | **Conta** | Ver conexão do WhatsApp, plano e acesso à gestão atual | `/api/customer` e portal atual; integrar gradualmente |
 
 **Navegação mobile sugerida:** Hoje · Agenda · Fazenda · Atividade, com Conta no menu superior. Em desktop, a mesma estrutura pode usar navegação lateral. Na tela Hoje, uma ação visível “Falar com a Lida” abre o WhatsApp; “Registrar” oferece atalhos para tarefa, atividade e despesa.
