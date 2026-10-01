@@ -5,19 +5,17 @@ import { isExplicitWriteRequest } from "../policies/intent.js";
 // Outros pedidos seguem para o agente e suas ferramentas.
 export function simpleFuelExpense(text) {
   if (typeof text !== "string" || text.length > 500 || !isExplicitWriteRequest(text)) return null;
-  const input = normalizeName(text);
-  if (/\b(nao|nunca|seria|hipoteticamente|ontem|anteontem)\b/.test(input)) return null;
-  if (/\b(comprei|compra|estoque|litros?|galoes?|galao)\b/.test(input)) return null;
-  if (/\b(semana passada|mes passado|dia \d|\d{1,2}\/\d{1,2})\b/.test(input)) return null;
-  if (/\?$/.test(input) && !/\b(registr(?:e|ar)|anot(?:e|ar)|salv(?:e|ar)|cadastr(?:e|ar))\b/.test(input)) return null;
-  const fuels = [...new Set((input.match(/\b(diesel|gasolina)\b/g) || []))];
-  if (fuels.length !== 1) return null;
-  const amounts = [...text.matchAll(/(?:R\$\s*([\d.,]+)|([\d.,]+)\s*(?:reais|real)\b)/gi)];
-  if (amounts.length !== 1) return null;
-  const rawAmount = amounts[0][1] || amounts[0][2];
-  const amount = Number(rawAmount.replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", "."));
+  // Match the whole request. Dates, other farms, extra amounts and conditions
+  // require the agent's clarification instead of silently using today's context.
+  const input = normalizeName(text).replace(/[?!.]$/, '').trim();
+  const match = input.match(/^(?:(?:consegue|pode) (?:registrar|anotar|salvar)(?: para mim)?|(?:registre|anote|salve)(?: para mim)?|(?:quero|preciso) registrar|(?:eu )?(?:gastei|paguei))\s+(?:r\$\s*(\d+(?:\.\d{3})*(?:,\d{1,2})?)|(\d+(?:\.\d{3})*(?:,\d{1,2})?)\s+reais?)\s+(?:de|em|com)\s+(diesel|gasolina)(?:\s+que (?:eu )?gastei)?(?:\s+hoje)?$/);
+  if (!match) return null;
+  const rawAmount = match[1] || match[2];
+  // Reject malformed thousands groups, e.g. 35.00 or 1.23.456.
+  if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(rawAmount)) return null;
+  const amount = Number(rawAmount.replaceAll('.', '').replace(',', '.'));
   if (!Number.isFinite(amount) || amount <= 0 || amount > 1e9) return null;
-  return { amount, category: "combustivel", description: fuels[0] === "diesel" ? "Diesel" : "Gasolina" };
+  return { amount, category: "combustivel", description: match[3] === "diesel" ? "Diesel" : "Gasolina" };
 }
 
 export async function registerSimpleFuelExpense(service, context, expense, onOutcome = () => {}) {

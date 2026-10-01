@@ -18,6 +18,8 @@ web
 
 O **AG Assist** é o sistema. No WhatsApp, a assistente se chama **Lida**. O usuário descreve uma situação (texto, foto ou áudio) e recebe orientação direta: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Não substitui receituário, ART ou parecer formal.
 
+A Lida também executa pedidos operacionais: cadastrar propriedades e talhões, registrar atividades e despesas, consultar os dados já salvos e organizar tarefas. O app **AG Assist** em `/app/` permite acompanhar essas ações e registrar atividades, despesas e tarefas diretamente. Um registro só é apresentado como concluído depois da confirmação de persistência; ambiguidades de propriedade, valores ou datas precisam ser resolvidas antes da gravação.
+
 **Sucesso** significa: usuário cadastrado usa o trial, entende o valor no campo e converte para plano pago quando o trial acaba — sem fricção desnecessária no cadastro nem abandono no OTP.
 
 ## Positioning
@@ -27,12 +29,17 @@ Focado 100% no agro, no canal que o produtor já usa (WhatsApp), com IA multimod
 ## Operating Context
 
 - **Campo:** celular com internet; WhatsApp como único canal de atendimento do assistente.
+- **Controle:** app React no navegador, com configuração para empacotamento Android pelo Capacitor. Sem conexão, alterações ficam bloqueadas; não há fila de gravação offline.
 - **Aquisição:** landing em Netlify (`agassist.netlify.app`) → cadastro em `/cadastro` no backend.
 - **Backend:** API Express no Railway (`campoai-production-b7c7.up.railway.app`).
 - **Pós-cadastro:** boas-vindas no WhatsApp (+ e-mail opcional via Resend); uso bloqueado até `signup_completed_at`.
 - **Conversão:** paywall ao atingir limite do trial → `/planos` → Asaas → portal `/area-do-cliente`.
 
 ## Capabilities and Constraints
+
+O app `/app/` concentra Início, Atividade, Agenda e Fazenda. O histórico mostra alterações feitas pela Lida e pelo app, com consulta do registro e correção rápida de descrição, título ou área. Gestão completa de talhões/safras e edição financeira completa ainda precisam evoluir. Plano e cobrança continuam no portal do cliente.
+
+Disponibilidade operacional depende das flags do servidor. A opção de lembrete só é oferecida quando a funcionalidade e o template de envio estão configurados. O link para a Lida vem do número público configurado no backend.
 
 | Superfície | Modo | Função |
 |------------|------|--------|

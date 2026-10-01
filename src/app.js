@@ -1,6 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import cors from 'cors';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
@@ -29,6 +30,11 @@ const reactAppDir = path.join(__dirname, '../app/dist');
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
+  app.use((req, res, next) => {
+    req.requestId = randomUUID();
+    res.set('X-Request-ID', req.requestId);
+    next();
+  });
 
   app.use(
     helmet({

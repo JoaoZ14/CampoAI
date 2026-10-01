@@ -32,7 +32,57 @@ import {
 import { actionReceipt } from "../src/ai/policies/receipts.js";
 import { firstContactReply } from "../src/ai/policies/onboarding.js";
 import { publicActivity } from "../src/rural/activity.js";
+import { ruralQuery } from "../src/rural/httpQuery.js";
+import { errorHandler } from "../src/middleware/errorHandler.js";
+import { AppError } from "../src/utils/errors.js";
+import { customerWorkspace } from "../src/services/customerWorkspace.js";
 let pg, repo, user, service, other, farm, field, season;
+test('workspace exposes effective capabilities and configured public contact only', () => {
+  const original = process.env.TWILIO_WHATSAPP_FROM;
+  const reminder = process.env.REMINDER_CONTENT_SID;
+  try {
+    process.env.TWILIO_WHATSAPP_FROM = 'whatsapp:+5511999999999';
+    delete process.env.REMINDER_CONTENT_SID;
+    const data = customerWorkspace({ id: 'test', name: 'Teste', phone: 'private', authUserId: 'private' }, 'test@example.test');
+    assert.equal(data.whatsappUrl, 'https://wa.me/5511999999999');
+    assert.equal(data.capabilities.reminders, false);
+    assert.equal(JSON.stringify(data).includes('private'), false);
+    assert.equal(customerWorkspace(null, '').linked, false);
+  } finally {
+    if (original === undefined) delete process.env.TWILIO_WHATSAPP_FROM; else process.env.TWILIO_WHATSAPP_FROM = original;
+    if (reminder === undefined) delete process.env.REMINDER_CONTENT_SID; else process.env.REMINDER_CONTENT_SID = reminder;
+  }
+});
+test('HTTP pagination converts scalar strings and rejects ambiguous filters', () => {
+  assert.deepEqual(ruralQuery({ offset: '50', status: 'pending' }), { offset: 50, status: 'pending' });
+  for (const offset of ['-1', '1.5', '100001', '', '5e1', ['50'], { value: '50' }])
+    assert.throws(() => ruralQuery({ offset }), error => error.statusCode === 400);
+  assert.throws(() => ruralQuery({ from: '2026-10-02', to: '2026-10-01' }), /data inicial/);
+});
+test('API hides infrastructure errors but preserves actionable client errors and correlation', () => {
+  const saved = console.error;
+  console.error = () => {};
+  try {
+    let body, status;
+    const res = { status(value) { status = value; return this; }, json(value) { body = value; } };
+    errorHandler(new AppError('column users.auth_user_id does not exist', 503), { requestId: 'test-request' }, res);
+    assert.equal(status, 503);
+    assert.equal(body.requestId, 'test-request');
+    assert.equal(JSON.stringify(body).includes('auth_user_id'), false);
+    errorHandler(new AppError('Informe a data da tarefa.', 400), {}, res);
+    assert.equal(status, 400);
+    assert.equal(body.error, 'Informe a data da tarefa.');
+  } finally { console.error = saved; }
+});
+test('fuel shortcut never discards a date, another farm, conditions or an extra amount', () => {
+  assert.deepEqual(simpleFuelExpense('Anote R$ 1.250,50 de diesel hoje'), { amount: 1250.5, category: 'combustivel', description: 'Diesel' });
+  for (const text of [
+    'Registre 350 reais de diesel amanhã', 'Registre 350 reais de diesel na Fazenda Sul',
+    'Registre 350 reais de diesel e 100 de adubo', 'Registre 350 reais de diesel se ainda não tiver registrado',
+    'Registre 35.00 reais de diesel', 'Registre 1.23.456 reais de diesel',
+    'Registre 350 reais de diesel em 2026-09-01', 'Registre 350 reais de diesel semana que vem',
+  ]) assert.equal(simpleFuelExpense(text), null, text);
+});
 test("customer activity exposes a safe summary of persisted changes", () => {
   const row = {
     id: "action-1",
@@ -107,6 +157,21 @@ test("migrations: server-only permissions and RLS", async () => {
     "select has_function_privilege('anon','apply_rural_action(uuid,text,text,text,jsonb)','EXECUTE') allowed",
   );
   assert.equal(fn.rows[0].allowed, false);
+});
+test('HTTP offset reaches the real database without overlapping pages', async () => {
+  const owner = { id: randomUUID() };
+  await pg.query('insert into users(id,phone) values($1,$2)', [owner.id, '+5524966666666']);
+  const local = new RuralService(owner, repo, randomUUID());
+  const ownFarm = await local.save('farms', null, { name: 'Propriedade de paginação' });
+  for (let i = 0; i < 51; i++) await local.save('farm_operations', ownFarm.id, {
+    operation_type: 'observacao', operation_date: '2026-10-01', description: `Observação ${i}`,
+  });
+  const first = await local.list('farm_operations', ownFarm.id, ruralQuery({ offset: '0' }));
+  const next = await local.list('farm_operations', ownFarm.id, ruralQuery({ offset: '50' }));
+  assert.equal(first.length, 50);
+  assert.equal(next.length, 1);
+  assert.equal(new Set([...first, ...next].map(row => row.id)).size, 51);
+  await assert.rejects(() => new RuralService(other, repo, randomUUID()).list('farm_operations', ownFarm.id), /sem acesso/);
 });
 test("A: progressive farm, one farm selection, isolation and duplicate action", async () => {
   farm = await service.save("farms", null, {
