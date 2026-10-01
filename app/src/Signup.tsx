@@ -38,7 +38,8 @@ export default function Signup({ session, onBack, onDone }: { session: Session |
     try {
       if (password.length < 6) throw new Error('A senha precisa ter pelo menos 6 caracteres.');
       const auth = await authClient();
-      const { data, error: signupError } = await auth.auth.signUp({ email: email.trim().toLowerCase(), password, options: { emailRedirectTo: `${window.location.origin}/app/` } });
+      const emailRedirectTo = import.meta.env.VITE_API_BASE_URL ? externalUrl('/app/') : `${window.location.origin}/app/`;
+      const { data, error: signupError } = await auth.auth.signUp({ email: email.trim().toLowerCase(), password, options: { emailRedirectTo } });
       if (signupError) throw signupError;
       if (data.user?.identities?.length === 0) throw new Error('Este e-mail já tem conta. Volte e entre com sua senha.');
       setStep(data.session ? 'details' : 'email');

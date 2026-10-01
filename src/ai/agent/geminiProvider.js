@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { FunctionCallingMode, GoogleGenerativeAI } from "@google/generative-ai";
 import { fetchMediaAsInlineData } from "../../services/aiService.js";
 // Restrict JSON Schema to the schema subset supported by the installed SDK.
 export function geminiSchema(schema) {
@@ -11,6 +11,11 @@ export function geminiSchema(schema) {
   if (schema.required?.length) out.required = schema.required;
   if (schema.items) out.items = geminiSchema(schema.items);
   return out;
+}
+function retryableProviderError(error) {
+  return [404, 429, 500, 502, 503, 504].includes(Number(error.status)) ||
+    error.name === "AbortError" ||
+    /timed? out|timeout|aborted/i.test(String(error.message || ""));
 }
 export class GeminiAgentProvider {
   constructor() {
@@ -45,15 +50,17 @@ export class GeminiAgentProvider {
       }
     return parts;
   }
-  async turn({ system, contents, tools, timeoutMs = 60000 }) {
+  async turn({ system, contents, tools, toolMode = "AUTO", timeoutMs = 60000 }) {
     const primary =
       process.env.GEMINI_AGENT_MODEL ||
       process.env.GEMINI_MODEL ||
       "gemini-2.5-flash";
-    const fallback =
-      process.env.GEMINI_AGENT_FALLBACK ||
-      process.env.GEMINI_MODEL_FALLBACK ||
-      "gemini-2.5-flash";
+    const fallbacks = [
+      process.env.GEMINI_AGENT_FALLBACK,
+      process.env.GEMINI_MODEL_FALLBACK,
+      process.env.GEMINI_AUTO_FALLBACK_MODEL,
+      "gemini-2.5-flash",
+    ].filter(Boolean);
     // A tool conversation must remain on the model that produced its native parts/signatures.
     const models = this.lockedModel
       ? [this.lockedModel]
@@ -62,7 +69,7 @@ export class GeminiAgentProvider {
             primary,
             ...(process.env.GEMINI_DISABLE_AUTO_FALLBACK === "true"
               ? []
-              : [fallback]),
+              : fallbacks),
           ]),
         ];
     models.sort((a, b) =>
@@ -74,22 +81,25 @@ export class GeminiAgentProvider {
     );
     const deadline = Date.now() + timeoutMs;
     let lastError;
-    for (const modelName of models) {
+    for (const [index, modelName] of models.entries()) {
       if (Date.now() >= deadline) break;
       try {
+        const remainingMs = deadline - Date.now();
+        const attemptMs = Math.max(1, Math.floor(remainingMs / (models.length - index)));
         const response = await this.generate({
           system,
           contents,
           tools,
+          toolMode,
           modelName,
-          timeoutMs: Math.max(1, deadline - Date.now()),
+          timeoutMs: attemptMs,
         });
         this.lastSuccessfulModel = modelName;
         if (response.calls.length) this.lockedModel = modelName;
         return response;
       } catch (error) {
         lastError = error;
-        if (![429, 500, 502, 503, 504].includes(Number(error.status)))
+        if (!retryableProviderError(error))
           throw error;
         console.warn(
           JSON.stringify({
@@ -102,7 +112,7 @@ export class GeminiAgentProvider {
     }
     throw lastError || new Error("Tempo de resposta do provider excedido.");
   }
-  async generate({ system, contents, tools, modelName, timeoutMs }) {
+  async generate({ system, contents, tools, toolMode, modelName, timeoutMs }) {
     const model = this.client.getGenerativeModel({
       model: modelName,
       systemInstruction: system,
@@ -117,6 +127,11 @@ export class GeminiAgentProvider {
           })),
         },
       ],
+      toolConfig: {
+        functionCallingConfig: {
+          mode: toolMode === "ANY" ? FunctionCallingMode.ANY : FunctionCallingMode.AUTO,
+        },
+      },
     });
     const result = await model.generateContent(
       {

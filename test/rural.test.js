@@ -6,6 +6,7 @@ import { RuralRepository } from "../src/rural/repository.js";
 import { RuralService, expenseTotals } from "../src/rural/service.js";
 import { createTools, executeTool } from "../src/ai/tools/catalog.js";
 import { runAgent } from "../src/ai/agent/runAgent.js";
+import { simpleFuelExpense } from "../src/ai/agent/directExpense.js";
 import { OpenMeteoProvider, WeatherService } from "../src/rural/weather.js";
 import {
   dispatchReminder,
@@ -13,7 +14,7 @@ import {
 } from "../src/jobs/ruralWorker.js";
 import { tryResolveFieldCalcMessage } from "../src/services/fieldCalcService.js";
 import { validate, object, str } from "../src/rural/validation.js";
-import { deterministicSafety } from "../src/ai/policies/intent.js";
+import { deterministicSafety, isExplicitWriteRequest } from "../src/ai/policies/intent.js";
 import { buildFarmReportText } from "../src/rural/reports.js";
 import { buildConversationReportPdf } from "../src/services/reportPdfService.js";
 import { MarketPriceProvider } from "../src/rural/market.js";
@@ -413,6 +414,64 @@ test("agent queries call tools; generic conversation never writes; failed tool n
   });
   assert.match(hallucination, /Ainda não registrei/);
 });
+test("simple fuel expense is saved directly; other explicit expenses force a tool call", async () => {
+  assert.equal(isExplicitWriteRequest("consegue registrar para mim 350 reais de diesel que eu gastei?"), true);
+  assert.equal(isExplicitWriteRequest("Seria interessante registrar meus gastos?"), false);
+  assert.equal(isExplicitWriteRequest("Quanto gastei de diesel?"), false);
+  assert.equal(simpleFuelExpense("Quanto gastei de diesel?"), null);
+  assert.equal(simpleFuelExpense("Registre 350 reais de diesel que gastei ontem"), null);
+  assert.equal(simpleFuelExpense("Registre 350 reais de diesel e 100 de gasolina"), null);
+  assert.equal(simpleFuelExpense("Comprei 20 litros de diesel por 350 reais"), null);
+  let clarificationCharged;
+  const noFarmReply = await runAgent({
+    user: other,
+    service: new RuralService(other, repo, randomUUID()),
+    text: "consegue registrar para mim 350 reais de diesel que eu gastei?",
+    provider: { turn: () => { throw new Error("Deve pedir a propriedade sem chamar o modelo."); } },
+    onOutcome: outcome => { clarificationCharged = outcome.charge; },
+  });
+  assert.match(noFarmReply, /propriedade/);
+  assert.equal(clarificationCharged, false);
+  const expenseUser = { id: randomUUID() };
+  await pg.query("insert into users(id,phone) values($1,$2)", [expenseUser.id, "+5524977777777"]);
+  const local = new RuralService(expenseUser, repo, randomUUID());
+  const expenseFarm = await local.save("farms", null, { name: "Sítio do teste", city: "Resende" });
+  const today = (await buildContext(local)).local_date;
+  const direct = await runAgent({
+    user: expenseUser,
+    service: new RuralService(expenseUser, repo, randomUUID()),
+    text: "consegue registrar para mim 350 reais de diesel que eu gastei?",
+    provider: { turn: () => { throw new Error("Registro simples não precisa do modelo."); } },
+  });
+  assert.match(direct, /R\$\s*350,00/);
+  assert.match(direct, /data de hoje/);
+  const modes = [];
+  const replies = [
+    { calls: [], text: "Posso ajudar com isso." },
+    { calls: [{ name: "get_farm_details", args: { farm_id: expenseFarm.id } }] },
+    { calls: [], text: "Vou registrar a despesa." },
+    { calls: [{ name: "create_expense", args: { farm_id: expenseFarm.id, values: { amount: 120, category: "insumos", description: "Adubo", expense_date: today } } }] },
+    { calls: [], text: "Despesa registrada." },
+  ];
+  const result = await runAgent({
+    user: expenseUser,
+    service: new RuralService(expenseUser, repo, randomUUID()),
+    text: "consegue registrar para mim 120 reais de adubo que eu gastei?",
+    provider: {
+      inputParts: async ({ text }) => [{ text }],
+      turn: async ({ toolMode }) => {
+        modes.push(toolMode);
+        return replies.shift();
+      },
+    },
+  });
+  assert.deepEqual(modes, ["AUTO", "ANY", "AUTO", "ANY", "AUTO"]);
+  assert.match(result, /R\$\s*120,00/);
+  assert.match(result, /insumos/);
+  const expenses = await local.list("farm_expenses", expenseFarm.id, { from: today });
+  assert.ok(expenses.some((expense) => Number(expense.amount) === 350 && expense.description === "Diesel"));
+  assert.ok(expenses.some((expense) => Number(expense.amount) === 120 && expense.description === "Adubo"));
+});
 test("strict input, calculator and safety policies", () => {
   assert.throws(() =>
     validate(object({ name: str }), { name: "ok", user_id: other.id }),
@@ -775,6 +834,26 @@ test("Gemini transient fallback locks native tool conversation to successful mod
       type: "object",
       properties: { name: { type: "string" } },
     });
+    let requestedMode;
+    const configProvider = new GeminiAgentProvider();
+    configProvider.client = {
+      getGenerativeModel: (config) => {
+        requestedMode = config.toolConfig.functionCallingConfig.mode;
+        return { generateContent: async () => ({ response: { functionCalls: () => [], text: () => "", candidates: [] } }) };
+      },
+    };
+    await configProvider.generate({ system: "test", contents: [], tools: [{ name: "get_user_farms", description: "test", parameters: object({}) }], toolMode: "ANY", modelName: "test", timeoutMs: 1000 });
+    assert.equal(requestedMode, "ANY");
+    const timeoutProvider = new GeminiAgentProvider();
+    const attempted = [];
+    timeoutProvider.generate = async ({ modelName, timeoutMs }) => {
+      attempted.push({ modelName, timeoutMs });
+      if (modelName === "primary") throw Object.assign(new Error("timed out"), { name: "AbortError" });
+      return { calls: [], text: "Disponível." };
+    };
+    assert.equal((await timeoutProvider.turn({ timeoutMs: 60000 })).text, "Disponível.");
+    assert.deepEqual(attempted.map((item) => item.modelName), ["primary", "fallback"]);
+    assert.ok(attempted[0].timeoutMs < 60000);
   } finally {
     for (const [key, value] of Object.entries({
       GEMINI_API_KEY: old,
@@ -823,4 +902,23 @@ test("write acknowledgements use persisted amounts instead of model claims", asy
     }),
     /09:00/,
   );
+});
+test("a provider outage after a write still returns the persisted receipt", async () => {
+  const local = new RuralService(user, repo, randomUUID());
+  let calls = 0;
+  const result = await runAgent({
+    user,
+    service: local,
+    text: "Registre 33 reais de adubo que gastei hoje",
+    provider: {
+      inputParts: async ({ text }) => [{ text }],
+      turn: async () => {
+        if (calls++ === 0) return { calls: [{ name: "create_expense", args: { farm_id: farm.id, values: { amount: 33, category: "insumos", description: "Adubo", expense_date: "2026-09-30" } } }] };
+        throw Object.assign(new Error("provider indisponível"), { status: 503 });
+      },
+    },
+  });
+  assert.match(result, /R\$\s*33,00/);
+  assert.match(result, /interrompida/);
+  assert.ok((await local.list("farm_expenses", farm.id)).some((expense) => Number(expense.amount) === 33));
 });

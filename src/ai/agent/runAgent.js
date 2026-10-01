@@ -5,9 +5,10 @@ import { buildContext } from "../context/buildContext.js";
 import { AGENT_PROMPT, safeFinal } from "../policies/agentPolicy.js";
 import { GeminiAgentProvider } from "./geminiProvider.js";
 import { rememberIncomingMedia } from "../../rural/media.js";
-import { intentHint, deterministicSafety } from "../policies/intent.js";
+import { intentHint, isExplicitWriteRequest, deterministicSafety } from "../policies/intent.js";
 import { actionReceipt } from "../policies/receipts.js";
 import { firstContactReply } from "../policies/onboarding.js";
+import { registerSimpleFuelExpense, simpleFuelExpense } from "./directExpense.js";
 export async function runAgent({
   user,
   text,
@@ -32,11 +33,17 @@ export async function runAgent({
       onOutcome({ charge: false });
       return welcome;
     }
+    const expense = simpleFuelExpense(text);
+    if (expense) return registerSimpleFuelExpense(service, context, expense, onOutcome);
   }
   await rememberIncomingMedia(service, context, { imageUrl, audioUrl });
   const tools = createTools(service, { text });
   const events = [];
   const contents = [];
+  const writeRequested = isExplicitWriteRequest(text);
+  const operationalIntent = ["farm_query", "weather", "market", "calculator", "report", "farm_registration", "operation_registration", "expense_registration", "inventory", "reminder", "task"].includes(intentHint(text, !!imageUrl));
+  let forcedToolAttempts = 0;
+  let forceToolsNextTurn = false;
   provider ||= new GeminiAgentProvider();
   // Context is data, deliberately not interpolated into systemInstruction.
   contents.push({
@@ -85,17 +92,18 @@ export async function runAgent({
         system: AGENT_PROMPT,
         contents,
         tools,
+        toolMode: forceToolsNextTurn ? "ANY" : "AUTO",
         timeoutMs: Math.min(60000, deadline - Date.now()),
       });
+      forceToolsNextTurn = false;
       if (!response.calls.length) {
-        if (
-          events.length === 0 &&
-          ["farm_query", "weather", "market", "calculator", "report", "farm_registration", "operation_registration", "expense_registration", "inventory", "reminder", "task"].includes(
-            intentHint(text, !!imageUrl),
-          ) &&
-          !(/^(qual|em qual|quando|o que|a que|pode informar|confirma|você quer|voce quer)\b/i.test(response.text?.trim() || '') && /\?\s*$/.test(response.text || ''))
-        ) {
-          if (round === 0) {
+        const hasWrite = events.some((event) => event.ok && event.write);
+        const needsTool = (operationalIntent && events.length === 0) || (writeRequested && !hasWrite);
+        const asksForMissingData = /\?\s*$/.test(response.text?.trim() || "");
+        if (needsTool && !asksForMissingData) {
+          if (forcedToolAttempts < 2) {
+            forcedToolAttempts++;
+            forceToolsNextTurn = true;
             contents.push(
               {
                 role: "model",
@@ -105,7 +113,9 @@ export async function runAgent({
                 role: "user",
                 parts: [
                   {
-                    text: "Consulte a ferramenta apropriada antes de apresentar dados. Se faltar informação, faça apenas a pergunta necessária.",
+                    text: writeRequested
+                      ? "Este é um pedido explícito de registro. Use a ferramenta apropriada para salvar agora; se precisar consultar a propriedade primeiro, consulte-a. Se faltar dado indispensável, pergunte apenas esse dado depois da consulta. Não responda como se fosse uma pergunta sobre sua capacidade."
+                      : "Consulte a ferramenta apropriada antes de apresentar dados. Se faltar informação, faça apenas a pergunta necessária.",
                   },
                 ],
               },
@@ -113,7 +123,9 @@ export async function runAgent({
             continue;
           }
           onOutcome({ charge: false });
-          return "Não consegui consultar esses dados agora. Tente novamente ou confira os registros na área do cliente.";
+          return writeRequested
+            ? "Não consegui salvar esse registro agora. Nenhum dado foi gravado; tente novamente em instantes."
+            : "Não consegui consultar esses dados agora. Tente novamente em instantes.";
         }
         const final = safeFinal(
           response.text?.trim() ||
@@ -196,6 +208,7 @@ export async function runAgent({
     throw new Error("Limite de etapas atingido.");
   } catch (error) {
     onOutcome({ charge: events.some((e) => e.ok && e.write) });
+    const receipts = [...new Set(events.map((event) => event.receipt).filter(Boolean))];
     console.warn(
       JSON.stringify({
         event: "agent_failed",
@@ -203,8 +216,10 @@ export async function runAgent({
         tools: events.length,
       }),
     );
-    return events.some((e) => e.ok && e.write)
-      ? "Salvei registros antes de a resposta ser interrompida. Consulte os últimos registros para conferir; não repita a gravação."
-      : "Não consegui concluir agora. Seus dados continuam disponíveis na área do cliente. Tente novamente em instantes.";
+    return receipts.length
+      ? `${receipts.join("\n")}\nA resposta foi interrompida antes de concluir o restante do pedido; confira os registros antes de repetir.`
+      : events.some((e) => e.ok && e.write)
+        ? "Salvei um registro antes de a resposta ser interrompida. Confira os registros recentes antes de repetir."
+      : "Não consegui concluir agora. Nenhum registro foi confirmado nesta tentativa. Tente novamente em instantes.";
   }
 }
