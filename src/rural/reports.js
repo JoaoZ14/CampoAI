@@ -2,10 +2,38 @@ import { buildConversationReportPdf } from "../services/reportPdfService.js";
 import { uploadReportPdfAndGetSignedUrl } from "../services/reportStorageService.js";
 import { validate } from "./validation.js";
 import { filtersSchema } from "./schemas.js";
+import { hasFeature } from './features.js';
+import { eventDefinitions } from './agroCatalog.js';
+import { fail } from './validation.js';
+
+async function agroReportSections(service, farmId, filters, timezone) {
+  const scope = Object.fromEntries(Object.entries(filters).filter(([key]) => ['activity_id', 'production_unit_id', 'from', 'to'].includes(key)));
+  const overview = await service.agroOverview(farmId, scope);
+  const activityId = scope.activity_id || overview.units.find(u => u.id === scope.production_unit_id)?.activity_id;
+  const activities = overview.activities.filter(a => !activityId || a.id === activityId);
+  const names = new Map(overview.units.map(u => [u.id, u.name]));
+  const records = await service.repo.all('production_events', farmId, scope);
+  const tasks = (await service.repo.all('farm_tasks', farmId, scope)).filter(t => t.activity_id);
+  const parts = [
+    'ATIVIDADES PRODUTIVAS\n' + activities.map(a => `${a.name} (${a.status})`).join('\n'),
+    'PRODUÇÃO REGISTRADA\n' + (overview.production_totals.map(t => `${t.label}: ${t.quantity} ${t.unit} em ${t.count} registros`).join('\n') || 'Sem produção registrada no período.'),
+    'HISTÓRICO DOS MÓDULOS\n' + (records.map(r => `${r.event_date} — ${names.get(r.production_unit_id) || 'Unidade'} — ${eventDefinitions[r.event_type].label}: ${r.description}${r.quantity ? ` — ${r.quantity} ${r.unit}` : ''}${r.duration_minutes ? ` — ${r.duration_minutes} min` : ''}${r.time_seconds ? ` — ${r.time_seconds} s; penalidade ${r.penalty_seconds || 0} s` : ''} (${r.status})`).join('\n') || 'Sem registros no período.'),
+    'AGENDA NO PERÍODO\n' + (tasks.map(t => `${new Date(t.due_at).toLocaleString('pt-BR', { timeZone: timezone || 'America/Sao_Paulo' })} — ${t.title} (${t.status})`).join('\n') || 'Sem tarefas no período.'),
+  ];
+  if (overview.financial) parts.push(`FINANCEIRO DOS MÓDULOS\nDespesas: R$ ${overview.financial.expenses.toFixed(2)}\nVendas no período: R$ ${overview.financial.sold.toFixed(2)}\nRecebido no período: R$ ${overview.financial.received.toFixed(2)}\nA receber (todas as datas): R$ ${overview.financial.outstanding.toFixed(2)}\n${overview.financial.scope}`);
+  return parts;
+}
 export async function buildFarmReportText(service, farmId, filters = {}) {
   validate(filtersSchema, filters);
   const farm = await service.farm(farmId);
   await service.references(farm.id, filters);
+  if (filters.activity_id || filters.production_unit_id) {
+    service.feature('modules');
+    if (filters.field_id || filters.crop_season_id || filters.field_cycle_id) fail('Escolha o escopo da atividade ou o escopo da lavoura para este relatório.');
+    const sections = [`PROPRIEDADE\n${farm.name}`, `PERÍODO\nDe ${filters.from || 'início'} até ${filters.to || 'hoje'} (limite final exclusivo)`, ...(await agroReportSections(service, farm.id, filters, farm.timezone)), 'Somente dados registrados. Não constitui laudo ou receituário.'];
+    if (sections.join('\n').length > 115000) fail('Selecione um período menor para o relatório.');
+    return sections.join('\n\n');
+  }
   const field = filters.field_id
     ? await service.one("fields", farm.id, filters.field_id)
     : null;
@@ -90,6 +118,7 @@ export async function buildFarmReportText(service, farmId, filters = {}) {
           .join("\n"),
     );
   }
+  if (hasFeature(service.user, 'modules') && !field && !season) sections.push(...await agroReportSections(service, farm.id, filters, farm.timezone));
   sections.push(
     "OBSERVAÇÕES\nSomente dados registrados. Ausência de registro não significa ausência de atividade ou custo. Não constitui laudo, receituário ou recomendação técnica.",
   );

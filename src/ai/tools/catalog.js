@@ -15,6 +15,7 @@ import { actionKey } from "../../rural/service.js";
 import { generateFarmReport } from "../../rural/reports.js";
 import { marketProvider } from "../../rural/market.js";
 import { attachPendingMedia, loadOccurrenceMedia } from "../../rural/media.js";
+import { agroTools } from './agroTools.js';
 const farm = { farm_id: id };
 const tool = (name, description, classification, parameters, run) => ({
   name,
@@ -354,6 +355,13 @@ export function createTools(
           ),
       ),
     );
+  if (hasFeature(service.user, 'modules')) tools.push(...agroTools(service));
+  const plain = text.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  const moduleRequest = /\b(cavalo|egua|equino|treino|passada|pesagem|pesou|ordenha|leite|ovos|colmeia|apiario|viveiro|despesca|lote|brinco)\b/i.test(plain);
+  const cropRequest = /\b(talhao|plantio|plantei|safra|milho|horta|colhi|alface)\b/i.test(plain);
+  if (hasFeature(service.user, 'modules') && moduleRequest && !cropRequest) {
+    return tools.filter(t => t.name.includes('agro') || t.name === 'resolve_production_unit' || /farm|task|expense|inventory|reminder|calculator|last_action|active_context/.test(t.name));
+  }
   return tools;
 }
 export async function executeTool(tool, args, service) {

@@ -7,8 +7,11 @@
   "scripts": {
     "build": "npm --prefix app ci --offline=false && npm --prefix app run build",
     "preview:app": "node --import dotenv/config scripts/previewApp.mjs",
-    "test": "node test/rural.test.js",
+    "test": "node --test test/rural.test.js test/agro.test.js",
     "test:rural": "node test/rural.test.js",
+    "test:agro": "node test/agro.test.js",
+    "test:agro-ui": "node scripts/test-agro-ui.mjs",
+    "verify:agro-schema": "node scripts/verify-agro-schema.mjs",
     "test:app-ui": "node scripts/test-app-ui.mjs",
     "worker:rural": "node scripts/runRuralWorker.mjs",
     "start": "node src/index.js",

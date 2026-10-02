@@ -15,6 +15,7 @@ export async function database() {
     "migration_021_rural_domain.sql",
     "migration_022_rural_transactions.sql",
     "migration_023_rural_followups.sql",
+    "migration_024_agro_modules.sql",
   ])
     await pg.exec(
       await readFile(

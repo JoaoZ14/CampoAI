@@ -12,10 +12,10 @@ export function intentHint(text, hasImage = false) {
     ["inventory", /comprei|estoque|usei.*sacos/],
     [
       "farm_query",
-      /quanto.*gast|quando.*plant|como esta.*fazenda|aconteceu.*semana|quantos hectares/,
+      /quanto.*gast|quando.*plant|como esta.*fazenda|aconteceu.*semana|quantos hectares|quanto.*(?:produziu|produzimos|recebi|recebeu|vendi|vendido)|historico (?:do|da|de)|saldo.*(?:lote|venda)|(?:liste|mostre|consulte).*(?:fichas|animais|cavalos|lotes|treinos|pesagens|leite|recebimentos|vendas)/,
     ],
     ["task", /tarefa|vistoria.*feita/],
-    ["operation_registration", /plantei|colhi|irriguei/],
+    ["operation_registration", /plantei|colhi|irriguei|pesou|produziu|treinei|ordenhei|despesquei/],
     ["farm_registration", /tenho.*fazenda|talhao.*tem/],
     ["plan", /plano|assinatura/],
   ])
@@ -27,7 +27,7 @@ export function isExplicitWriteRequest(text) {
   if (/\b(seria interessante|e se|hipoteticamente)\b/.test(t)) return false;
   if (/\b(registr(?:e|ar)|cadastr(?:e|ar)|anot(?:e|ar)|adicion(?:e|ar)|agend(?:e|ar)|cri(?:e|ar)|salv(?:e|ar))\b/.test(t)) return true;
   if (/^(quanto|quando|qual|quais|o que|mostre|liste|consulta|consulte|me diga)\b/.test(t) || /\b(quanto|quantos|qual valor)\?$/.test(t)) return false;
-  return /\b(gastei|paguei|comprei|plantei|colhi|irriguei)\b/.test(t);
+  return /\b(gastei|paguei|comprei|plantei|colhi|irriguei|pesou|produziu|treinei|ordenhei|despesquei)\b/.test(t);
 }
 export function deterministicSafety(text) {
   const t = normalizeName(text || "");

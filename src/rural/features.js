@@ -8,6 +8,7 @@ const flags = {
   reports: "FARM_REPORTS_ENABLED",
   occurrences: "OCCURRENCES_ENABLED",
   media: "FARM_MEDIA_ENABLED",
+  modules: "AGRO_MODULES_ENABLED",
 };
 export function hasFeature(user, feature) {
   const flag = flags[feature];

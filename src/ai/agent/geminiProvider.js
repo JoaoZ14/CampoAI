@@ -3,6 +3,7 @@ import { fetchMediaAsInlineData } from "../../services/aiService.js";
 // Restrict JSON Schema to the schema subset supported by the installed SDK.
 export function geminiSchema(schema) {
   const out = { type: schema.type };
+  if (schema.nullable) out.nullable = true;
   if (schema.enum) out.enum = schema.enum;
   if (schema.properties)
     out.properties = Object.fromEntries(
