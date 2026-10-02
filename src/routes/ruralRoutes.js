@@ -8,6 +8,7 @@ import { generateFarmReport } from "../rural/reports.js";
 import { publicActivity } from "../rural/activity.js";
 import { AppError } from "../utils/errors.js";
 import { ruralQuery } from "../rural/httpQuery.js";
+import { agroCatalog } from '../rural/agroCatalog.js';
 const router = express.Router();
 router.use(requireLinkedCustomer);
 router.use((req, res, next) => {
@@ -35,6 +36,14 @@ const handle = (fn) => async (req, res, next) => {
     next(e);
   }
 };
+router.get(
+  '/agro/catalog',
+  handle(req => { req.rural.feature('modules'); return agroCatalog(); }),
+);
+router.get(
+  '/farms/:farmId/agro/overview',
+  handle(req => req.rural.agroOverview(req.params.farmId, ruralQuery(req.query))),
+);
 router.get(
   "/farms",
   handle((req) => req.rural.farms()),

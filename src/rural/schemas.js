@@ -1,6 +1,8 @@
 import { str, id, positive, date, instant, object } from "./validation.js";
+import { agroSchemas } from './agroCatalog.js';
 const zero = { type: "number", minimum: 0, maximum: 1e9 };
 export const schemas = {
+  ...agroSchemas,
   alert_rules: object(
     {
       type: { type: "string", enum: ["low_stock"] },
@@ -71,6 +73,8 @@ export const schemas = {
   ),
   farm_expenses: object(
     {
+      activity_id: id,
+      production_unit_id: id,
       field_id: id,
       field_cycle_id: id,
       crop_season_id: id,
@@ -86,6 +90,8 @@ export const schemas = {
   ),
   farm_tasks: object(
     {
+      activity_id: id,
+      production_unit_id: id,
       field_id: id,
       field_cycle_id: id,
       title: str,
@@ -149,6 +155,12 @@ export const tableFeatures = {
   assistant_memories: "memory",
 };
 export const filtersSchema = object({
+  activity_id: id,
+  production_unit_id: id,
+  sale_id: id,
+  module_key: str,
+  unit_type: str,
+  event_type: str,
   field_id: id,
   field_cycle_id: id,
   crop_season_id: id,

@@ -46,12 +46,13 @@ async function request(path: string, options: RequestInit = {}) {
 }
 
 // One instance per draft/action: retries reuse the key, successful new actions do not.
-export function createWriteRequest() {
+export function createWriteRequest(confirmed?: (value: unknown) => boolean) {
   let signature = '', key = '';
   return async <T,>(path: string, options: RequestInit): Promise<T> => {
     const next = `${path}:${options.method}:${options.body}`;
     if (next !== signature) { signature = next; key = crypto.randomUUID(); }
     const result = await api<T>(path, { ...options, headers: { ...Object.fromEntries(new Headers(options.headers)), 'Idempotency-Key': key } });
+    if (confirmed && !confirmed(result)) throw new ApiError('A confirmação chegou incompleta. Seus dados foram mantidos. Tente novamente para conferir o registro.');
     signature = ''; key = '';
     return result;
   };

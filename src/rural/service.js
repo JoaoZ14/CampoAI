@@ -3,6 +3,9 @@ import { RuralRepository } from "./repository.js";
 import { schemas, tableFeatures, filtersSchema } from "./schemas.js";
 import { validate, fail, id, normalizeName } from "./validation.js";
 import { hasFeature, farmEntitlements } from "./features.js";
+import { agroTables } from './agroCatalog.js';
+import { validateAgro } from './agroValidation.js';
+import { agroOverview } from './agroService.js';
 const stable = (v) =>
   Array.isArray(v)
     ? v.map(stable)
@@ -88,6 +91,8 @@ export class RuralService {
   }
   table(table) {
     if (!Object.hasOwn(schemas, table)) fail("Entidade inválida.");
+    if (agroTables.includes(table)) this.feature('modules');
+    if (['farm_sales', 'sale_payments'].includes(table)) this.feature('financial');
     if (tableFeatures[table]) this.feature(tableFeatures[table]);
   }
   async list(table, farmId, filters = {}) {
@@ -111,6 +116,9 @@ export class RuralService {
   }
   async references(farmId, values) {
     for (const [key, table] of Object.entries({
+      activity_id: 'farm_activities',
+      production_unit_id: 'production_units',
+      sale_id: 'farm_sales',
       field_id: "fields",
       crop_season_id: "crop_seasons",
       field_cycle_id: "field_cycles",
@@ -156,6 +164,11 @@ export class RuralService {
         : farm;
     const merged = { ...old, ...values };
     if (farm) await this.references(farm.id, merged);
+    if (farm && (agroTables.includes(table) || merged.activity_id || merged.production_unit_id)) {
+      this.feature('modules');
+      if (merged.production_unit_id && !merged.activity_id) fail('Informe a atividade da unidade.');
+      await validateAgro(this, table, farm, merged, recordId ? old : null, !recordId);
+    }
     if (table === "alert_rules") {
       this.feature("inventory");
       this.feature("reminders");
@@ -251,6 +264,9 @@ export class RuralService {
       tool,
       changes,
     );
+  }
+  async agroOverview(farmId, filters = {}) {
+    return agroOverview(this, farmId, filters);
   }
   async save(table, farmId, values, recordId) {
     const change = await this.change(table, farmId, values, recordId);
@@ -356,6 +372,7 @@ export class RuralService {
       };
     const farm = await this.farm(farmId);
     let area = Number(farm.total_area_ha) || null;
+    if (filters.activity_id || filters.production_unit_id) area = null;
     await this.references(farm.id, filters);
     if (filters.field_cycle_id)
       area =
@@ -377,6 +394,8 @@ export class RuralService {
           : null;
     }
     const rows = await this.repo.all("farm_expenses", farm.id, filters);
+    // Costs attached to an animal/group/activity without agricultural area cannot be divided by the farm's hectares.
+    if (filters.activity_id || filters.production_unit_id || rows.some(row => row.activity_id && !row.field_id && !row.field_cycle_id)) area = null;
     return {
       ...expenseTotals(rows, area),
       period: { from: filters.from || null, to_exclusive: filters.to || null },

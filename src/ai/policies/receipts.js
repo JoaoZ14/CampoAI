@@ -1,7 +1,17 @@
+import { eventDefinitions } from '../../rural/agroCatalog.js';
 const money = (value) =>
   Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 // Write acknowledgements are generated from successful backend results, never invented by the LLM.
 export function actionReceipt(name, result, timeZone = "America/Sao_Paulo") {
+  if (name === 'save_agro_record') {
+    const r = result.record;
+    const verb = result.updated ? 'Atualizei' : 'Registrei';
+    if (result.entity === 'farm_activities') return `${verb} a atividade “${r.name}”.`;
+    if (result.entity === 'production_units') return `${verb} a ficha de “${r.name}”${r.identifier ? `, identificação ${r.identifier}` : ''}.`;
+    if (result.entity === 'production_events') return `${r.status === 'voided' ? 'Anulei' : verb} ${eventDefinitions[r.event_type].label.toLowerCase()}: ${r.description}, em ${r.event_date}${r.quantity ? ` — ${r.quantity} ${r.unit}` : ''}${r.time_seconds ? ` — ${r.time_seconds} s, penalidade ${r.penalty_seconds || 0} s` : ''}${r.duration_minutes ? ` — ${r.duration_minutes} min` : ''}.`;
+    if (result.entity === 'farm_sales') return `${r.status === 'cancelled' ? 'Cancelei' : verb} a venda/serviço “${r.description}”: ${money(r.amount)}, cliente ${r.customer}, vencimento ${r.due_date}. Isso não confirma recebimento.`;
+    if (result.entity === 'sale_payments') return `${r.status === 'voided' ? 'Anulei' : verb} o recebimento de ${money(r.amount)}, em ${r.payment_date}.`;
+  }
   if (name === "record_purchase") {
     const expense = result[0],
       movement = result[1];

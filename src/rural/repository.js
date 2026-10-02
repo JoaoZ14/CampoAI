@@ -6,8 +6,21 @@ export class RuralRepository {
   }
   async result(query) {
     const { data, error } = await query;
-    if (error)
-      throw new AppError("Não foi possível acessar os dados rurais.", 503);
+    if (error) {
+      const text = String(error.message || '');
+      const known = [
+        ['Invalid group balance', 'Essa alteração deixaria o grupo com quantidade negativa ou acima do limite. Confira as entradas, saídas e datas.'],
+        ['Overlapping milk period', 'Já existe produção para este período. Corrija o registro existente; não some o total do dia com as ordenhas.'],
+        ['Invalid payment balance', 'O recebimento ultrapassa o saldo da venda ou a venda está cancelada.'],
+        ['Payments must be corrected first', 'Corrija ou anule os recebimentos antes de cancelar ou reduzir a venda.'],
+        ['production_weighing_day_idx', 'Já existe pesagem desta unidade nesta data. Corrija a pesagem existente.'],
+        ['production_milk_period_idx', 'Já existe produção de leite desta unidade neste período. Corrija o registro existente.'],
+        ['production_units_identifier_idx', 'Esta identificação já está cadastrada no estabelecimento.'],
+        ['farm_activities_name_idx', 'Já existe uma atividade com este nome no estabelecimento.'],
+        ['inventory_items_current_quantity_check', 'O consumo ultrapassa o estoque disponível. Confira o saldo antes de registrar.'],
+      ].find(([code]) => text.includes(code));
+      throw new AppError(known ? known[1] : "Não foi possível acessar os dados rurais.", known ? 400 : 503);
+    }
     return data;
   }
   farms(userId) {
@@ -48,6 +61,9 @@ export class RuralRepository {
         farm_operations: "operation_date",
         farm_tasks: "due_at",
         field_occurrences: "detected_at",
+        production_events: 'event_date',
+        farm_sales: 'sale_date',
+        sale_payments: 'payment_date',
       }[table] || "created_at";
     for (const [k, v] of Object.entries(filters)) {
       if (k === "from") q = q.gte(dateCol, v);

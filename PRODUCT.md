@@ -20,6 +20,8 @@ O **AG Assist** é o sistema. No WhatsApp, a assistente se chama **Lida**. O usu
 
 A Lida também executa pedidos operacionais: cadastrar propriedades e talhões, registrar atividades e despesas, consultar os dados já salvos e organizar tarefas. O app **AG Assist** em `/app/` permite acompanhar essas ações e registrar atividades, despesas e tarefas diretamente. Um registro só é apresentado como concluído depois da confirmação de persistência; ambiguidades de propriedade, valores ou datas precisam ser resolvidas antes da gravação.
 
+Com a migração 024 e `AGRO_MODULES_ENABLED=true`, uma propriedade pode organizar várias atividades e fichas de animais, grupos, áreas, viveiros, colmeias e instalações. Os 13 perfis incluem agricultura, equinos/CT, bovinos, aves, suínos, ovinos/caprinos, aquicultura, apicultura e silvicultura. Registros específicos, correções, agenda, vendas e recebimentos usam persistência auditada compartilhada entre app e Lida. O nível de cobertura e os limites de cada fluxo estão em `docs/AGRO_MODULES_ROLLOUT.md`; não há promessa de validação universal no agro.
+
 **Sucesso** significa: usuário cadastrado usa o trial, entende o valor no campo e converte para plano pago quando o trial acaba — sem fricção desnecessária no cadastro nem abandono no OTP.
 
 ## Positioning
@@ -37,7 +39,7 @@ Focado 100% no agro, no canal que o produtor já usa (WhatsApp), com IA multimod
 
 ## Capabilities and Constraints
 
-O app `/app/` concentra Início, Atividade, Agenda e Fazenda. O histórico mostra alterações feitas pela Lida e pelo app, com consulta do registro e correção rápida de descrição, título ou área. Gestão completa de talhões/safras e edição financeira completa ainda precisam evoluir. Plano e cobrança continuam no portal do cliente.
+O app `/app/` concentra Início, Atividade, Agenda e Fazenda. O histórico mostra alterações feitas pela Lida e pelo app, com consulta do registro e correção rápida de descrição, título ou área. Os módulos adicionam fichas, histórico, agenda vinculada e edição de vendas/recebimentos/despesas dentro da atividade. Gestão completa de talhões/safras, rateios e indicadores avançados continuam pendentes. Plano e cobrança da assinatura continuam no portal do cliente; registrar um serviço vendido pelo produtor não gera cobrança da assinatura.
 
 Disponibilidade operacional depende das flags do servidor. A opção de lembrete só é oferecida quando a funcionalidade e o template de envio estão configurados. O link para a Lida vem do número público configurado no backend.
 

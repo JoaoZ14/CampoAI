@@ -1,4 +1,9 @@
 const labels = {
+  farm_activities: 'Atividade produtiva',
+  production_units: 'Unidade de produção',
+  production_events: 'Registro de produção',
+  farm_sales: 'Venda / serviço',
+  sale_payments: 'Recebimento',
   farms: "Propriedade",
   fields: "Talhão",
   crop_seasons: "Safra",

@@ -28,6 +28,11 @@ export async function buildContext(service) {
       ? saved.pending_action
       : null;
   if (!farm) return context;
+  if (hasFeature(service.user, 'modules')) {
+    const activities = await service.repo.list('farm_activities', farm.id, { status: 'active' }, 30);
+    context.agro_activities = activities.map(({ id, name, module_key }) => ({ id, name, module_key }));
+    context.agro_activities_partial = activities.length === 30;
+  }
   context.local_date = new Intl.DateTimeFormat("en-CA", {
     timeZone: farm.timezone,
     year: "numeric",

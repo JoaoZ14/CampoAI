@@ -24,6 +24,7 @@ export const object = (properties, required = []) => ({
   additionalProperties: false,
 });
 export function validate(schema, value, path = "dados") {
+  if (value === null && schema.nullable) return value;
   if (schema.type === "object") {
     if (!value || typeof value !== "object" || Array.isArray(value))
       fail(`${path}: objeto inválido.`);
