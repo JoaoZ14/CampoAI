@@ -1,4 +1,4 @@
-# AG Assist — Backend (Node.js)
+# AGGI — Backend (Node.js)
 
 ## Assistente operacional rural
 
@@ -6,7 +6,7 @@ O núcleo operacional acrescenta propriedades, talhões, safras/ciclos, operaç�
 
 Leia [arquitetura](docs/OPERATIONAL_ARCHITECTURE.md) e [ativação, segurança e limitações](docs/OPERATIONAL_ROLLOUT.md). Aplique migrations 021–023 antes de ativar as flags de [.env.rural.example](.env.rural.example). Testes locais: `npm test` e `npm run test:signup-flow`.
 
-API do **AG Assist** via WhatsApp. A assistente se chama **Lida**. Recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
+API do **AGGI** via WhatsApp. A assistente se chama **Lida**. Recebe mensagens (texto/imagem), consulta **Google Gemini**, controla limite gratuito no Supabase e responde pelo Twilio.
 
 ## Pré-requisitos
 
@@ -79,7 +79,7 @@ API do **AG Assist** via WhatsApp. A assistente se chama **Lida**. Recebe mensag
 
 ### Documentos legais (público)
 
-- **`/legal/termos-de-uso`** — Termos de uso do AG Assist (HTML em `public/legal/termos-de-uso.html`).
+- **`/legal/termos-de-uso`** — Termos de uso do AGGI (HTML em `public/legal/termos-de-uso.html`).
 - **`/legal/politica-de-privacidade`** — Política de privacidade / LGPD (HTML em `public/legal/politica-de-privacidade.html`).
 
 Substitua os placeholders `[RAZÃO SOCIAL]`, `[CNPJ]`, etc. antes de divulgar em produção. Com **`PUBLIC_APP_URL`** definido no `.env`, a **mensagem de boas-vindas** no WhatsApp acrescenta links para esses documentos.
@@ -172,7 +172,7 @@ Constante `FREE_USAGE_LIMIT` em `src/models/userModel.js` (padrão: **10** inter
 
 ## Memória da conversa
 
-Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou a Lida, assistente do AG Assist”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
+Mensagens de texto trocadas com a IA são guardadas em **`chat_messages`** (últimas N linhas, padrão **24** — ajuste `CHAT_HISTORY_MAX_MESSAGES`). Isso alimenta o Gemini para **continuar o assunto** entre mensagens. Mídias entram no histórico como `[Foto enviada]` / `[Áudio enviado]`. Desative com `CHAT_HISTORY_ENABLED=false`. A apresentação longa (“sou a Lida, assistente do AGGI”) continua só na **mensagem de boas-vindas**; o prompt pede para não repetir isso em cada resposta.
 
 ## Relatório em PDF
 
@@ -228,6 +228,6 @@ Checklist completo de produção: **`docs/PRODUCTION_CHECKLIST.md`**.
 
 ## Documentação de produto
 
-- **`PRODUCT.md`** — visão de produto, jornadas e nomenclatura (AG Assist)
+- **`PRODUCT.md`** — visão de produto, jornadas e nomenclatura (AGGI)
 - **`DESIGN.md`** — tokens visuais compartilhados entre `/cadastro`, `/planos` e landing
 - **`docs/DEV_WORKFLOW.md`** — fluxo de desenvolvimento por feature

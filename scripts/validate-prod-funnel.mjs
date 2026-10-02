@@ -85,7 +85,7 @@ if (plans) {
 await checkJson('noticias', '/api/noticias', (d) => Array.isArray(d.items) || Array.isArray(d.articles) || d.ok !== false);
 
 // 2. Páginas do funil
-await checkHtml('cadastro-page', '/cadastro', 'AG Assist');
+await checkHtml('cadastro-page', '/cadastro', 'AGGI');
 await checkHtml('entrar-page', '/entrar', 'Entrar');
 await checkHtml('planos-page', '/planos', 'planos');
 await checkHtml('portal-page', '/area-do-cliente', 'Minha conta');

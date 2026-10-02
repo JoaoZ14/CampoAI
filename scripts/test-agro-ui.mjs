@@ -36,6 +36,7 @@ app.use('/api/rural/farms/:farmId', async (req, res, next) => {
     const parts = req.path.split('/').filter(Boolean);
     let result;
     if (req.method === 'GET' && parts[0] === 'summary') result = await domain.summary(farmId);
+    else if (req.method === 'GET' && parts[0] === 'dashboard') result = await domain.dashboard(farmId);
     else if (req.method === 'GET' && parts[0] === 'activity') result = { items: [], has_more: false };
     else if (req.method === 'GET' && parts[0] === 'weather') { res.status(400).json({ ok: false, error: 'Localização não cadastrada.' }); return; }
     else if (req.method === 'GET' && parts.join('/') === 'agro/overview') result = await domain.agroOverview(farmId, ruralQuery(req.query));

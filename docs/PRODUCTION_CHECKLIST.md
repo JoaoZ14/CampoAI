@@ -1,4 +1,4 @@
-# Checklist de produção — AG Assist
+# Checklist de produção — AGGI
 
 Use este checklist ao colocar o fluxo de cadastro/trial em produção ou após cada deploy relevante.
 
@@ -40,7 +40,7 @@ Textos sugeridos: [`TWILIO_SIGNUP_TEMPLATES.md`](./TWILIO_SIGNUP_TEMPLATES.md).
 ## 4. Resend — e-mail de boas-vindas
 
 1. Verificar domínio (SPF/DKIM) em [resend.com](https://resend.com)
-2. Definir `RESEND_API_KEY` e `SIGNUP_EMAIL_FROM=AG Assist <boas-vindas@seudominio.com>`
+2. Definir `RESEND_API_KEY` e `SIGNUP_EMAIL_FROM=AGGI <boas-vindas@seudominio.com>`
 3. `SIGNUP_EMAIL_ENABLED=true`, `MOCK_EMAIL=false`
 4. Teste: `npm run test:signup-email` (com `MOCK_EMAIL=true` localmente)
 

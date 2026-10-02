@@ -45,7 +45,8 @@ try {
       else {
         const farm = path.includes(farms[1].id) ? farms[1] : farms[0];
         if (slowFirstFarm && farm.id === farms[0].id && method === 'GET') await sleep(800);
-        if (path.endsWith('/summary') && !path.endsWith('/expenses/summary')) data = { farm, fields: [{ id: 'field-fixture', name: farm.id === farms[0].id ? 'Talhão Norte (teste)' : 'Horta Sul (teste)', area_ha: 2 }], seasons: [], tasks: [], operations: [], expenses: { amount: 350, count: 1, cost_per_ha: null }, alerts: [] };
+        if (path.endsWith('/dashboard')) data = { generated_at: '2026-10-01T12:00:00Z', timezone: 'America/Sao_Paulo', today: '2026-10-01', period: { from: '2026-10-01', to_exclusive: '2026-11-01' }, modules_enabled: false, expenses: { amount: 350, count: 1, recent: [] }, agenda: { pending: completed ? 0 : 1, today: 0, overdue: 0, next: completed ? [] : [task] }, activities: [], units_count: 0, production: [], recent_records: [] };
+        else if (path.endsWith('/summary') && !path.endsWith('/expenses/summary')) data = { farm, fields: [{ id: 'field-fixture', name: farm.id === farms[0].id ? 'Talhão Norte (teste)' : 'Horta Sul (teste)', area_ha: 2 }], seasons: [], tasks: [], operations: [], expenses: { amount: 350, count: 1, cost_per_ha: null }, alerts: [] };
         else if (path.endsWith('/weather')) { status = 400; data = { error: 'Informe a localização.' }; }
         else if (path.endsWith('/activity')) {
           if (failHistory) { status = 503; data = { error: 'internal database detail' }; }
@@ -120,7 +121,7 @@ try {
     assert.equal(taskWrites, 1);
     checks++;
 
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Atividade', exact: true }).click();
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Registros', exact: true }).click();
     await page.getByRole('button', { name: 'Abrir registro' }).click();
     await page.getByText('R$ 350,00', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Carregar mais registros' }).click();
@@ -169,7 +170,7 @@ try {
     assert.equal((await page.locator('body').innerText()).includes('auth_user_id'), false);
     failWorkspace = false;
     await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
-    await page.getByRole('heading', { name: 'Sua fazenda, em dia.' }).waitFor();
+    await page.getByRole('heading', { name: 'Seu resumo' }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     assert.deepEqual(errors, []);
     checks += 2;

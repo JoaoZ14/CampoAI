@@ -32,7 +32,7 @@ O script `scripts/verify-integrations.mjs` valida:
 5. Atualize no Railway:
 
 ```env
-SIGNUP_EMAIL_FROM=AG Assist <boas-vindas@seudominio.com>
+SIGNUP_EMAIL_FROM=AGGI <boas-vindas@seudominio.com>
 SIGNUP_EMAIL_ENABLED=true
 MOCK_EMAIL=false
 ```

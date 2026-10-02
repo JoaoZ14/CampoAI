@@ -12,7 +12,7 @@ export function buildConversationReportPdf({ title, body }) {
   const safeTitle =
     typeof title === 'string' && title.trim()
       ? title.trim().slice(0, 200)
-      : 'Relatório — AG Assist';
+      : 'Relatório — AGGI';
 
   const text = String(body ?? '').trim() || '(Sem conteúdo.)';
   const clipped = text.slice(0, 120000);
@@ -23,7 +23,7 @@ export function buildConversationReportPdf({ title, body }) {
       margins: { top: 56, bottom: 56, left: 50, right: 50 },
       info: {
         Title: safeTitle,
-        Author: 'AG Assist',
+        Author: 'AGGI',
       },
     });
     const chunks = [];

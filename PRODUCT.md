@@ -16,9 +16,9 @@ web
 
 ## Product Purpose
 
-O **AG Assist** é o sistema. No WhatsApp, a assistente se chama **Lida**. O usuário descreve uma situação (texto, foto ou áudio) e recebe orientação direta: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Não substitui receituário, ART ou parecer formal.
+O **AGGI** é o sistema. No WhatsApp, a assistente se chama **Lida**. O usuário descreve uma situação (texto, foto ou áudio) e recebe orientação direta: possíveis causas, o que observar, próximos passos seguros e quando chamar um profissional. Não substitui receituário, ART ou parecer formal.
 
-A Lida também executa pedidos operacionais: cadastrar propriedades e talhões, registrar atividades e despesas, consultar os dados já salvos e organizar tarefas. O app **AG Assist** em `/app/` permite acompanhar essas ações e registrar atividades, despesas e tarefas diretamente. Um registro só é apresentado como concluído depois da confirmação de persistência; ambiguidades de propriedade, valores ou datas precisam ser resolvidas antes da gravação.
+A Lida também executa pedidos operacionais: cadastrar propriedades e talhões, registrar atividades e despesas, consultar os dados já salvos e organizar tarefas. O app **AGGI** em `/app/` permite acompanhar essas ações e registrar atividades, despesas e tarefas diretamente. Um registro só é apresentado como concluído depois da confirmação de persistência; ambiguidades de propriedade, valores ou datas precisam ser resolvidas antes da gravação.
 
 Com a migração 024 e `AGRO_MODULES_ENABLED=true`, uma propriedade pode organizar várias atividades e fichas de animais, grupos, áreas, viveiros, colmeias e instalações. Os 13 perfis incluem agricultura, equinos/CT, bovinos, aves, suínos, ovinos/caprinos, aquicultura, apicultura e silvicultura. Registros específicos, correções, agenda, vendas e recebimentos usam persistência auditada compartilhada entre app e Lida. O nível de cobertura e os limites de cada fluxo estão em `docs/AGRO_MODULES_ROLLOUT.md`; não há promessa de validação universal no agro.
 
@@ -63,9 +63,9 @@ Disponibilidade operacional depende das flags do servidor. A opção de lembrete
 
 | Elemento | Uso |
 |----------|-----|
-| Nome do produto | **AG Assist** — sistema, copy institucional, títulos, planos, e-mails e UI |
-| Nome da assistente | **Lida** — persona do WhatsApp. O sistema continua AG Assist; só a assistente tem nome |
-| Logo visual | **CampoLead** — arquivo `Logo CampoLead (1)-Photoroom.png`; `alt` e texto adjacente devem dizer "AG Assist" |
+| Nome do produto | **AGGI** — sistema, copy institucional, títulos, planos, e-mails e UI |
+| Nome da assistente | **Lida** — persona do WhatsApp. O sistema continua AGGI; só a assistente tem nome |
+| Logo visual | **AGGI** — `aggi-lockup.png` (ícone + nome), `aggi-mark.png` (ícone) e `aggi-wordmark.png` (nome). Em fundo escuro, o nome vai em branco |
 | Tom | Direto, prático, rural; sem jargão de IA; sem prometer dosagem ou receita |
 | Legal | Termos e privacidade em `/legal/*` (placeholders legais ainda pendentes) |
 
@@ -74,7 +74,7 @@ Disponibilidade operacional depende das flags do servidor. A opção de lembrete
 - Landing publicada: `CampoAILanding/index.html`
 - Critiques Impeccable: `.impeccable/critique/` (cadastro, landing)
 - Docs operacionais: `docs/SIGNUP_WELCOME_EMAIL.md`, `docs/TWILIO_SIGNUP_TEMPLATES.md`, `docs/PRODUCTION_CHECKLIST.md`, `docs/DEV_WORKFLOW.md`
-- Assets: logo CampoLead na landing e Netlify
+- Assets: `CampoAI/public/brand/`, `CampoAI/app/src/assets/brand/` e `CampoAILanding/assets/brand/`
 
 **Não fabricar:** depoimentos, métricas de conversão, clientes nomeados ou benchmarks não documentados.
 

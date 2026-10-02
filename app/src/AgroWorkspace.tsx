@@ -125,12 +125,12 @@ function AgroForm({ draft, data, activity, unitId, timezone, reminders, busy, on
   </dialog>;
 }
 
-export default function AgroWorkspace({ farmId, timezone, online, reminders, onBusy, onSaved }: { farmId: string; timezone: string; online: boolean; reminders: boolean; onBusy: (busy: boolean) => void; onSaved: () => Promise<void> }) {
+export default function AgroWorkspace({ farmId, timezone, online, reminders, onBusy, onSaved, initialTab = 'units', initialPeriod = '90' }: { farmId: string; timezone: string; online: boolean; reminders: boolean; onBusy: (busy: boolean) => void; onSaved: () => Promise<void>; initialTab?: 'units' | 'history'; initialPeriod?: string }) {
   const [data, setData] = useState<AgroOverview | null>(null);
   const [activityId, setActivityId] = useState('');
   const [unitId, setUnitId] = useState('');
-  const [period, setPeriod] = useState('90');
-  const [tab, setTab] = useState<'units' | 'history' | 'finance' | 'agenda'>('units');
+  const [period, setPeriod] = useState(initialPeriod);
+  const [tab, setTab] = useState<'units' | 'history' | 'finance' | 'agenda'>(initialTab);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [payments, setPayments] = useState<{ sale: Sale; items: Payment[]; more: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,7 +154,12 @@ export default function AgroWorkspace({ farmId, timezone, online, reminders, onB
     const query = new URLSearchParams();
     if (activityId) query.set('activity_id', activityId);
     if (unitId) query.set('production_unit_id', unitId);
-    if (period !== 'all') { const from = new Date(); from.setUTCDate(from.getUTCDate() - Number(period)); query.set('from', farmDay(timezone, from)); }
+    if (period === 'month') {
+      const today = farmDay(timezone);
+      const year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7));
+      query.set('from', `${today.slice(0, 7)}-01`);
+      query.set('to', `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, '0')}-01`);
+    } else if (period !== 'all') { const from = new Date(); from.setUTCDate(from.getUTCDate() - Number(period)); query.set('from', farmDay(timezone, from)); }
     if (page) query.set('offset', String(page * 50));
     api<AgroOverview>(rural(farmId, `/agro/overview?${query}`), { signal: controller.signal }).then(result => {
       if (controller.signal.aborted || current.current !== key) return;
@@ -201,7 +206,7 @@ export default function AgroWorkspace({ farmId, timezone, online, reminders, onB
     {loading && !data && <p className="loading" role="status">Carregando suas atividades…</p>}
     {data && <>
       {!data.activities.length ? <div className="agro-intro"><h3>Comece pela atividade que você quer acompanhar.</h3><p>Horta, lavoura, cavalos, gado, aves, viveiros, colmeias ou outras atividades podem conviver aqui. Cadastre uma atividade e depois suas fichas de trabalho.</p><button className="button primary" disabled={busy || !online} onClick={() => open('activity')}>Escolher minha atividade <ArrowRight size={17}/></button></div> : <>
-        <div className="agro-filters"><label>Atividade<select aria-label="Atividade" value={activityId} disabled={busy} onChange={e => changeScope(e.target.value)}><option value="">Todas as atividades</option>{data.activities.map(a => <option key={a.id} value={a.id}>{a.name}{a.status !== 'active' ? ' · inativa' : ''}</option>)}</select></label><label>Ficha<select aria-label="Ficha" value={unitId} disabled={busy || !activityId} onChange={e => { setUnitId(e.target.value); setPage(0); }}><option value="">Todas as fichas</option>{data.units.filter(u => u.activity_id === activityId).map(u => <option key={u.id} value={u.id}>{u.name}{u.identifier ? ` · ${u.identifier}` : ''}</option>)}</select></label><label>Período<select aria-label="Período da atividade" value={period} disabled={busy} onChange={e => { setPeriod(e.target.value); setPage(0); }}><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="all">Todas as datas</option></select></label></div>
+        <div className="agro-filters"><label>Atividade<select aria-label="Atividade" value={activityId} disabled={busy} onChange={e => changeScope(e.target.value)}><option value="">Todas as atividades</option>{data.activities.map(a => <option key={a.id} value={a.id}>{a.name}{a.status !== 'active' ? ' · inativa' : ''}</option>)}</select></label><label>Ficha<select aria-label="Ficha" value={unitId} disabled={busy || !activityId} onChange={e => { setUnitId(e.target.value); setPage(0); }}><option value="">Todas as fichas</option>{data.units.filter(u => u.activity_id === activityId).map(u => <option key={u.id} value={u.id}>{u.name}{u.identifier ? ` · ${u.identifier}` : ''}</option>)}</select></label><label>Período<select aria-label="Período da atividade" value={period} disabled={busy} onChange={e => { setPeriod(e.target.value); setPage(0); }}><option value="month">Este mês</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="all">Todas as datas</option></select></label></div>
         <div className="agro-context"><div><h3>{activity?.name || 'Visão de todas as atividades'}</h3><p>{module?.purpose || 'Selecione uma atividade para cadastrar fichas e registrar sua rotina.'}</p></div>{activity && <button className="text-button" disabled={busy || !online} onClick={() => open('activity', activity)}>Editar atividade</button>}</div>
         <div className="agro-actions"><button className="button primary" disabled={actDisabled} onClick={() => open('event')}><Plus size={17}/> Registrar o que aconteceu</button><button className="button secondary" disabled={actDisabled} onClick={() => open('task')}>Agendar tarefa</button>{data.financial && <button className="button secondary" disabled={actDisabled} onClick={() => open('expense')}>Registrar despesa</button>}</div>
         <div className="segment-control agro-tabs" role="group" aria-label="Áreas da atividade">{[['units', 'Fichas'], ['history', 'Histórico'], ['agenda', 'Agenda'], ...(data.financial ? [['finance', 'Vendas e recebimentos']] : [])].map(([id, label]) => <button key={id} aria-pressed={tab === id} className={tab === id ? 'active' : ''} disabled={busy} onClick={() => { setTab(id as typeof tab); setPayments(null); }}>{label}</button>)}</div>

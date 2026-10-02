@@ -55,13 +55,13 @@ export function createApp() {
     '/api-docs',
     swaggerUi.serve,
     swaggerUi.setup(openapiSpec, {
-      customSiteTitle: 'AG Assist — API',
+      customSiteTitle: 'AGGI — API',
       customCss: '.swagger-ui .topbar { display: none }',
     })
   );
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, service: 'AG Assist API' });
+    res.json({ ok: true, service: 'AGGI API' });
   });
 
   /** Catálogo de planos (público) — lê `plan_catalog` no Supabase; fallback em `src/config/plans.js`. */

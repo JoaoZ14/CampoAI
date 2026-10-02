@@ -131,7 +131,7 @@ export async function buildFarmReportText(service, farmId, filters = {}) {
 export async function generateFarmReport(service, farmId, filters = {}) {
   const body = await buildFarmReportText(service, farmId, filters);
   const pdf = await buildConversationReportPdf({
-    title: "Relatório da propriedade — AG Assist",
+    title: "Relatório da propriedade — AGGI",
     body,
   });
   return {

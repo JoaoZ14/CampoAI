@@ -13,7 +13,7 @@ Crie os templates no **Twilio Console → Messaging → Content Template Builder
 ```
 Olá, {{1}}! Que bom ter você aqui.
 
-Sou a Lida, assistente do AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.
+Sou a Lida, assistente do AGGI: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.
 
 Mande uma foto, um áudio ou sua pergunta — vamos começar?
 ```
@@ -34,7 +34,7 @@ Mande uma foto, um áudio ou sua pergunta — vamos começar?
 
 **Texto sugerido:**
 ```
-Olá, {{1}}! Seu período de teste gratuito do AG Assist acabou.
+Olá, {{1}}! Seu período de teste gratuito do AGGI acabou.
 
 Para continuar, escolha um plano: {{2}}
 ```

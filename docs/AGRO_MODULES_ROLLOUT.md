@@ -1,6 +1,6 @@
 # Módulos agro — implementação e ativação
 
-Atualizado em 01/10/2026. Código implementado e testado localmente; esta entrega não aplicou migrações, alterou variáveis ou publicou em produção. A marca permanece AG Assist e a assistente permanece Lida.
+Atualizado em 01/10/2026. Código implementado e testado localmente; esta entrega não aplicou migrações, alterou variáveis ou publicou em produção. A marca é AGGI e a assistente permanece Lida.
 
 ## O que foi entregue
 

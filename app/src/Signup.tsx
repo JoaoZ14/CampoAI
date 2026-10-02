@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, LockKeyhole, MessageCircle, Sprout } from 'lucide-react';
+import aggiMark from './assets/brand/aggi-mark.png';
+import aggiWord from './assets/brand/aggi-wordmark.png';
 import { api, authClient, externalUrl } from './api';
 
 type Step = 'account' | 'details' | 'code' | 'email' | 'done';
@@ -74,7 +76,7 @@ export default function Signup({ session, onBack, onDone }: { session: Session |
   const steps = ['account', 'details', 'code'];
   const current = steps.indexOf(step);
   return <main className="signup-shell">
-    <div className="signup-art"><div className="signup-art-shade"/><div className="login-brand"><div className="brand-mark">AG</div><span>AG Assist</span></div><div className="signup-art-copy"><span className="login-eyebrow">Comece por aqui</span><h1>Mais tempo para o que importa no campo.</h1><p>Crie sua conta, conecte seu WhatsApp e deixe a Lida ajudar na rotina da fazenda.</p></div><div className="signup-art-foot"><Sprout size={20}/> Seu próximo dia começa mais leve.</div></div>
+    <div className="signup-art"><div className="signup-art-shade"/><div className="login-brand"><img className="brand-mark" src={aggiMark} alt="" /><img className="brand-word brand-word-light" src={aggiWord} alt="AGGI" /></div><div className="signup-art-copy"><span className="login-eyebrow">Comece por aqui</span><h1>Mais tempo para o que importa no campo.</h1><p>Crie sua conta, conecte seu WhatsApp e deixe a Lida ajudar na rotina da fazenda.</p></div><div className="signup-art-foot"><Sprout size={20}/> Seu próximo dia começa mais leve.</div></div>
     <div className="signup-content"><button className="signup-back" onClick={step === 'account' || step === 'email' || step === 'done' ? onBack : () => { setError(''); setStep(step === 'code' ? 'details' : 'account'); }}><ArrowLeft size={18}/> {step === 'account' || step === 'email' || step === 'done' ? 'Voltar ao início' : 'Voltar'}</button>
       {current >= 0 && <div className="signup-progress" aria-label={`Etapa ${current + 1} de 3`}>{steps.map((item, index) => <span key={item} className={index <= current ? 'active' : ''}/>)}</div>}
       {step === 'account' && <form className="signup-card" onSubmit={createAccount}><span className="signup-kicker">01 · Sua conta</span><div className="signup-symbol"><LockKeyhole size={24}/></div><h2>Prazer, vamos começar?</h2><p>Seu acesso para acompanhar a Lida e a fazenda de qualquer lugar.</p><label>E-mail<input type="email" autoComplete="email" required placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)}/></label><label>Crie uma senha<input type="password" autoComplete="new-password" minLength={6} required placeholder="Pelo menos 6 caracteres" value={password} onChange={event => setPassword(event.target.value)}/></label>{error && <p className="notice error" role="alert">{error}</p>}<button className="button primary signup-next" disabled={busy}>{busy ? 'Criando sua conta…' : <>Continuar <ArrowRight size={18}/></>}</button><p className="signup-alt">Já tem conta? <button type="button" onClick={onBack}>Entrar</button></p></form>}

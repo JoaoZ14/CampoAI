@@ -2,7 +2,7 @@
 
 Enviado automaticamente após `POST /api/signup/complete` **quando o usuário informou e-mail** no formulário `/cadastro`.
 
-O e-mail repete o tom acolhedor do WhatsApp e inclui um botão **Começar no WhatsApp** com o link `wa.me` do número do AG Assist (mesmo usado no site).
+O e-mail repete o tom acolhedor do WhatsApp e inclui um botão **Começar no WhatsApp** com o link `wa.me` do número do AGGI (mesmo usado no site).
 
 ## Configuração (Resend)
 
@@ -13,7 +13,7 @@ O e-mail repete o tom acolhedor do WhatsApp e inclui um botão **Começar no Wha
 
 ```env
 RESEND_API_KEY=re_xxxxxxxx
-SIGNUP_EMAIL_FROM=AG Assist <boas-vindas@seudominio.com>
+SIGNUP_EMAIL_FROM=AGGI <boas-vindas@seudominio.com>
 ```
 
 5. Reinicie a API
@@ -27,7 +27,7 @@ SIGNUP_EMAIL_FROM=AG Assist <boas-vindas@seudominio.com>
 **Teste imediato** (sem verificar domínio):
 
 ```env
-SIGNUP_EMAIL_FROM=AG Assist <onboarding@resend.dev>
+SIGNUP_EMAIL_FROM=AGGI <onboarding@resend.dev>
 MOCK_EMAIL=false
 ```
 
@@ -68,7 +68,7 @@ Ou com variáveis no `.env`:
 ```env
 MOCK_EMAIL=true
 RESEND_API_KEY=re_test
-SIGNUP_EMAIL_FROM=AG Assist <onboarding@resend.dev>
+SIGNUP_EMAIL_FROM=AGGI <onboarding@resend.dev>
 ```
 
 ## Comportamento
@@ -79,6 +79,6 @@ SIGNUP_EMAIL_FROM=AG Assist <onboarding@resend.dev>
 
 ## Conteúdo
 
-Assunto: `{Nome}, seu AG Assist está pronto`
+Assunto: `{Nome}, seu AGGI está pronto`
 
 Corpo alinhado ao template WhatsApp WELCOME_SIGNUP (sem mencionar limite de trial na primeira mensagem).

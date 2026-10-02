@@ -135,7 +135,7 @@ export async function completeSignup(input) {
         if (/auth_user_id/i.test(String(error.message || ''))) {
           throw new AppError('Esta conta web já está vinculada a outro WhatsApp.', 409);
         }
-        throw new AppError('Este telefone já possui cadastro no AG Assist.', 409);
+        throw new AppError('Este telefone já possui cadastro no AGGI.', 409);
       }
       throw new AppError(`Erro ao criar cadastro: ${error.message}`, 500);
     }

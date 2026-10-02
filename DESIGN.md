@@ -1,5 +1,5 @@
 ---
-name: AG Assist
+name: AGGI
 description: Assistente rural no WhatsApp — tokens compartilhados entre cadastro, planos e landing
 colors:
   green-dark: "#17362d"
@@ -50,7 +50,7 @@ components:
 
 ## Overview
 
-Sistema visual alinhado à landing (`agassist.netlify.app`) e reutilizado em `/planos`, `/cadastro`, `/entrar`, `/area-do-cliente` e `/legal`. Paleta verde campo com acento lima. Tipografia: DM Sans no corpo, DM Serif Display nos títulos e na marca. Logo CampoLead com texto **AG Assist**. O admin mantém o visual interno anterior.
+Sistema visual alinhado à landing (`agassist.netlify.app`) e reutilizado em `/planos`, `/cadastro`, `/entrar`, `/area-do-cliente` e `/legal`. Paleta verde campo com acento lima. Tipografia: DM Sans no corpo, DM Serif Display nos títulos. A marca é o logo **AGGI** (ícone da folha + wordmark). O admin mantém o visual interno anterior.
 
 Fonte de tokens: `public/planos/styles.css` (`:root`).
 
@@ -97,7 +97,7 @@ Fonte de tokens: `public/planos/styles.css` (`:root`).
 
 ### Header (`site-header`)
 
-Logo CampoLead + `.brand-text` "AG Assist". Nav com links Início, Planos, Termos, Privacidade.
+Logo AGGI (`/brand/aggi-lockup.png`). Nav com links Início, Planos, Termos, Privacidade.
 
 ### Stepper (`signup-stepper`)
 
@@ -126,7 +126,7 @@ Labels em negrito 500. `aria-invalid` com borda vermelha. `.field-error` abaixo 
 
 **Do**
 
-- Usar "AG Assist" em copy e `alt` do logo
+- Usar "AGGI" em copy e `alt` do logo
 - Manter trial "14 dias ou 10 análises" visível no hero
 - Footer legal com Termos e Privacidade em fluxos de cadastro
 

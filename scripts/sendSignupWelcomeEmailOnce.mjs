@@ -108,7 +108,7 @@ try {
   if (msg.includes('domain is not verified')) {
     console.error(`
 [signup-email] O domínio do remetente (SIGNUP_EMAIL_FROM) não está verificado no Resend.
-  • Teste rápido: SIGNUP_EMAIL_FROM=AG Assist <onboarding@resend.dev>
+  • Teste rápido: SIGNUP_EMAIL_FROM=AGGI <onboarding@resend.dev>
     (só entrega para o e-mail da sua conta Resend)
   • Produção: verifique um domínio seu em https://resend.com/domains
     (subdomínios *.netlify.app não permitem DNS de e-mail — use domínio próprio)`);
@@ -119,7 +119,7 @@ try {
 [signup-email] Com onboarding@resend.dev você só pode enviar para ${resendAccount}.
   • Teste: npm run test:signup-email -- --email ${resendAccount}
   • Para enviar a qualquer destinatário: verifique um domínio em https://resend.com/domains
-    e use SIGNUP_EMAIL_FROM=AG Assist <boas-vindas@seudominio.com>`);
+    e use SIGNUP_EMAIL_FROM=AGGI <boas-vindas@seudominio.com>`);
   }
   process.exitCode = 1;
 }

@@ -23,7 +23,7 @@ function withMoreNewsFooter(text) {
 
 function defaultHeader() {
   const h = process.env.WEEKLY_NEWS_HEADER?.trim();
-  return h || 'Resumo semanal — AG Assist (Brasil)';
+  return h || 'Resumo semanal — AGGI (Brasil)';
 }
 
 function titleMaxChars() {

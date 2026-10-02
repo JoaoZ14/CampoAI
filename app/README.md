@@ -1,6 +1,8 @@
-# AG Assist App
+# AGGI App
 
 Centro de controle da Lida em React/Vite, usado na web e no projeto Android Capacitor. O React consome a API Express existente; o portal `/area-do-cliente` continua disponível.
+
+A página inicial “Seu resumo” mostra gastos do mês, tarefas, produção e últimos registros confirmados da propriedade. Consulte [os dados e o roteiro de teste da dashboard](../docs/APP_DASHBOARD.md).
 
 ## Desenvolvimento
 
