@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AG Assist</string>
-    <string name="title_activity_main">AG Assist</string>
+    <string name="app_name">AGGI</string>
+    <string name="title_activity_main">AGGI</string>
     <string name="package_name">com.agassist.app</string>
     <string name="custom_url_scheme">com.agassist.app</string>
 </resources>

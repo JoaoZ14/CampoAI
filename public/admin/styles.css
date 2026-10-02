@@ -92,6 +92,12 @@ body {
   margin-bottom: 1rem;
 }
 
+.login-brand img {
+  display: block;
+  height: 36px;
+  width: auto;
+}
+
 .login-brand .brand-text,
 .sidebar-brand .brand-text {
   font-family: 'Source Serif 4', Georgia, serif;
@@ -166,9 +172,24 @@ body {
   margin-bottom: 0.5rem;
 }
 
-.sidebar-brand img {
+.sidebar-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.sidebar-lockup .brand-mark {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex: none;
+}
+
+.sidebar-lockup .brand-word {
   display: block;
-  margin-bottom: 0.35rem;
+  height: 18px;
+  width: auto;
+  filter: brightness(0) invert(1);
 }
 
 .sidebar-sub {

@@ -63,6 +63,10 @@ router.get(
   handle((req) => req.rural.summary(req.params.farmId)),
 );
 router.get(
+  '/farms/:farmId/dashboard',
+  handle(req => req.rural.dashboard(req.params.farmId)),
+);
+router.get(
   "/farms/:farmId/activity",
   handle(async (req) => {
     const farm = await req.rural.farm(req.params.farmId);

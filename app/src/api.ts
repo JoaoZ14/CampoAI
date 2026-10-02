@@ -6,9 +6,17 @@ export type Field = { id: string; name: string; area_ha?: number | null };
 export type Operation = { id: string; description: string; operation_date: string; operation_type: string };
 export type ExpenseSummary = { amount: number; cost_per_ha: number | null; count: number };
 export type Summary = { farm: Farm; fields: Field[]; seasons: { id: string; name: string; status: string }[]; tasks: Task[]; operations: Operation[]; expenses: ExpenseSummary | null; alerts: { id: string; title: string; message: string }[]; list_limit: number };
-export type ActivityChange = { entity: string; entity_id: string | null; type: 'created' | 'updated'; label: string; title: string };
+export type ActivityChange = { entity: string; entity_id: string | null; type: 'created' | 'updated'; label: string; title: string; details?: { amount?: number | string; quantity?: number | string; unit?: string; duration_minutes?: number | string; time_seconds?: number | string; penalty_seconds?: number | string; due_at?: string; event_date?: string; expense_date?: string; operation_date?: string; status?: string; event_type?: string } };
 export type Activity = { id: string; created_at: string; source: 'app' | 'lida'; status: 'completed' | 'failed'; changes: ActivityChange[] };
 export type ActivityPage = { items: Activity[]; has_more: boolean };
+export type DashboardData = {
+  generated_at: string; timezone: string; today: string; period: { from: string; to_exclusive: string }; modules_enabled: boolean;
+  expenses: { amount: number; count: number; recent: { id: string; description: string; amount: number; expense_date: string; category: string }[] } | null;
+  agenda: { pending: number; today: number; overdue: number; next: Task[] };
+  activities: { id: string; name: string; module_key: string; units: number }[]; units_count: number;
+  production: { production_unit_id: string; activity_id: string; event_type: string; unit: string; quantity: number; name: string }[];
+  recent_records: Activity[];
+};
 export type Weather = { source: string; retrieved_at: string; current: { temperature_2m?: number; precipitation?: number }; current_units?: { temperature_2m?: string; precipitation?: string }; daily?: { precipitation_probability_max?: number[] } };
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');

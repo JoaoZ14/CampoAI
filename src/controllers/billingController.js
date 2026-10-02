@@ -145,13 +145,13 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       remoteIp: ip,
     });
 
-    const planLabel = result.planName || String(result.planCode || '').toUpperCase() || 'AG Assist';
+    const planLabel = result.planName || String(result.planCode || '').toUpperCase() || 'AGGI';
     const billingLine =
       result.billingCycle === 'YEARLY'
         ? 'A cobrança anual (com desconto em relação a 12 meses no mensal) segue no cartão que você cadastrou.'
         : 'A cobrança mensal segue no cartão que você cadastrou.';
     const welcomeMsg =
-      `Parabéns — você agora faz parte do AG Assist.\n\n` +
+      `Parabéns — você agora faz parte do AGGI.\n\n` +
       `Plano: ${planLabel}\n` +
       `Status: ${result.status}\n` +
       `Próximo vencimento (referência): ${result.nextDueDate}\n\n` +

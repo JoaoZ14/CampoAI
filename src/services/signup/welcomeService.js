@@ -40,16 +40,16 @@ function buildWaMeLink(prefillText) {
   return `https://wa.me/${digits}?text=${text}`;
 }
 
-/** URL para abrir conversa com o AG Assist após cadastro no site. */
+/** URL para abrir conversa com o AGGI após cadastro no site. */
 export function getSignupWhatsappOpenUrl() {
-  return buildWaMeLink('Oi! Acabei de me cadastrar no AG Assist.');
+  return buildWaMeLink('Oi! Acabei de me cadastrar no AGGI.');
 }
 
 export function buildSignupWelcomeBody(name) {
   const firstName = String(name ?? '').trim().split(/\s+/)[0] || 'produtor';
   const introduction = process.env.AGENT_TOOLS_ENABLED === 'true'
-    ? 'Sou a Lida, sua assistente do AG Assist. Posso tirar dúvidas e ajudar a organizar o sítio: cadastrar a propriedade, talhões e tarefas para você acompanhar no app.\n\nPara começar, como você chama sua propriedade?'
-    : 'Sou a Lida, assistente do AG Assist. Posso ajudar com dúvidas sobre o campo; no app você também pode organizar sua propriedade e tarefas.\n\nO que você gostaria de fazer primeiro?';
+    ? 'Sou a Lida, sua assistente do AGGI. Posso tirar dúvidas e ajudar a organizar o sítio: cadastrar a propriedade, talhões e tarefas para você acompanhar no app.\n\nPara começar, como você chama sua propriedade?'
+    : 'Sou a Lida, assistente do AGGI. Posso ajudar com dúvidas sobre o campo; no app você também pode organizar sua propriedade e tarefas.\n\nO que você gostaria de fazer primeiro?';
   return (
     `Olá, ${firstName}! Que bom ter você aqui.\n\n` +
     introduction
@@ -59,7 +59,7 @@ export function buildSignupWelcomeBody(name) {
 export function buildTrialExpiredBody(name) {
   const firstName = String(name ?? '').trim().split(/\s+/)[0] || 'produtor';
   return (
-    `Olá, ${firstName}! Seu período de teste gratuito do AG Assist acabou.\n\n` +
+    `Olá, ${firstName}! Seu período de teste gratuito do AGGI acabou.\n\n` +
     'Para continuar com recomendações no campo, escolha um plano no link que enviamos.'
   );
 }
@@ -92,10 +92,10 @@ export async function sendSignupWelcome(phone, name) {
     console.warn('[signup] Falha no WhatsApp texto livre:', msg);
   }
 
-  const waLink = buildWaMeLink('Oi! Acabei de me cadastrar no AG Assist.');
+  const waLink = buildWaMeLink('Oi! Acabei de me cadastrar no AGGI.');
   const smsBody = waLink
-    ? `Cadastro AG Assist confirmado! Abra o WhatsApp e responda para começar:\n${waLink}`
-    : `Cadastro AG Assist confirmado! Mande uma mensagem para o número do AG Assist no WhatsApp para começar.`;
+    ? `Cadastro AGGI confirmado! Abra o WhatsApp e responda para começar:\n${waLink}`
+    : `Cadastro AGGI confirmado! Mande uma mensagem para o número do AGGI no WhatsApp para começar.`;
   await sendSmsMessage(phone, smsBody);
   return { channel: 'sms_fallback' };
 }

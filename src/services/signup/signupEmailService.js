@@ -20,19 +20,19 @@ export function buildSignupWelcomeEmail(input) {
   const whatsappUrl = String(input.whatsappUrl ?? '').trim();
   const hasWhatsappLink = whatsappUrl.startsWith('https://');
 
-  const subject = `${nome}, seu AG Assist está pronto`;
+  const subject = `${nome}, seu AGGI está pronto`;
 
   const textLines = [
     `Olá, ${nome}! Que bom ter você aqui.`,
     '',
-    'Sou a Lida, assistente do AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.',
+    'Sou a Lida, assistente do AGGI: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.',
     '',
     'Mande uma foto, um áudio ou sua pergunta — vamos começar?',
   ];
   if (hasWhatsappLink) {
     textLines.push('', `Abrir conversa no WhatsApp: ${whatsappUrl}`);
   }
-  textLines.push('', '— Equipe AG Assist');
+  textLines.push('', '— Equipe AGGI');
 
   const ctaBlock = hasWhatsappLink
     ? `<tr>
@@ -59,20 +59,20 @@ export function buildSignupWelcomeEmail(input) {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#fdfcfa;border:1px solid rgba(42,56,42,0.1);border-radius:8px;overflow:hidden;">
           <tr>
             <td style="padding:28px 32px 0;text-align:center;">
-              <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#2a382a;">AG Assist</p>
+              <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#2a382a;">AGGI</p>
             </td>
           </tr>
           <tr>
             <td style="padding:24px 32px 0;color:#3a3a38;font-size:16px;line-height:1.65;">
               <p style="margin:0 0 16px;">Olá, <strong>${escapeHtml(nome)}</strong>! Que bom ter você aqui.</p>
-              <p style="margin:0 0 16px;">Sou a Lida, assistente do AG Assist: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.</p>
+              <p style="margin:0 0 16px;">Sou a Lida, assistente do AGGI: seu apoio no WhatsApp para dúvidas de planta, animal e manejo no campo.</p>
               <p style="margin:0;">Mande uma foto, um áudio ou sua pergunta — vamos começar?</p>
             </td>
           </tr>
           ${ctaBlock}
           <tr>
             <td style="padding:28px 32px;color:#5c5c58;font-size:13px;line-height:1.5;border-top:1px solid rgba(42,56,42,0.08);margin-top:24px;">
-              Você recebeu este e-mail porque se cadastrou no AG Assist. Se não foi você, ignore esta mensagem.
+              Você recebeu este e-mail porque se cadastrou no AGGI. Se não foi você, ignore esta mensagem.
             </td>
           </tr>
         </table>

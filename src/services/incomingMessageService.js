@@ -32,7 +32,7 @@ import { isSimpleGreeting, MSG_SIMPLE_GREETING } from '../utils/greeting.js';
 
 const MSG_WELCOME_CORE =
   `Você tem *${FREE_TRIAL_DAYS} dias* ou *${FREE_USAGE_LIMIT} análises* grátis para testar — o que acabar primeiro.\n\n` +
-  'Sou a Lida, assistente do AG Assist — sua parceira no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
+  'Sou a Lida, assistente do AGGI — sua parceira no WhatsApp para lavoura, pecuária e cuidado com os animais.\n\n' +
   'Objetivo: te ajudar a decidir melhor, evitar erro bobo e ganhar tempo (sem ficar caçando informação solta).\n\n' +
   'Para ver *plano*, *uso* e *status da assinatura*, mande: *plano* ou *meu plano* (não gasta análise).\n\n' +
   'Para contas de área, semente, tanque, vazão etc.: envie uma linha começando com calc ajuda\n\n' +
@@ -62,7 +62,7 @@ export const MSG_LIMIT_BASE =
   'Para continuar recebendo recomendações no campo, escolha um plano:';
 
 export const MSG_SIGNUP_REQUIRED_BASE =
-  'Este número ainda não está cadastrado no AG Assist.\n\n' +
+  'Este número ainda não está cadastrado no AGGI.\n\n' +
   'Crie sua conta grátis no site para começar a conversar com a Lida pelo WhatsApp:';
 
 /**
@@ -281,7 +281,7 @@ export function formatPlanInquiryMessage(user, phone, usageCtx) {
         ? `\n\n*Uso no mês (análises com IA):* ${usageCtx.monthlyAnalysisUsed} de ${usageCtx.monthlyAnalysisCap}`
         : '';
     return (
-      `📋 *Seu plano AG Assist*\n\n` +
+      `📋 *Seu plano AGGI*\n\n` +
       `*Plano:* ${planName}\n` +
       `*Titularidade:* ${kind}\n` +
       `*Status (Asaas):* ${status}` +
@@ -576,7 +576,7 @@ export async function processIncomingMessage({
         userInstruction: textRaw,
       });
       const pdfBuf = await buildConversationReportPdf({
-        title: 'Relatório — AG Assist',
+        title: 'Relatório — AGGI',
         body: reportBody,
       });
       const signedUrl = await uploadReportPdfAndGetSignedUrl(user.id, pdfBuf);

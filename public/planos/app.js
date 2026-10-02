@@ -418,7 +418,7 @@ function showSubscriptionSuccess(out) {
     panel.hidden = false;
     const name =
       String(out.planName != null ? out.planName : out.planCode != null ? out.planCode : '')
-        .trim() || 'AG Assist';
+        .trim() || 'AGGI';
     const status = String(out.status != null ? out.status : '').trim();
     const due = String(out.nextDueDate != null ? out.nextDueDate : '').trim();
     const cycle =

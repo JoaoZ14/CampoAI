@@ -262,7 +262,7 @@ function setPageMeta(route) {
   $('page-title').textContent = route.title;
   const sub = $('page-subtitle');
   if (sub) sub.textContent = route.subtitle || '';
-  document.title = `${route.title} — AG Assist Admin`;
+  document.title = `${route.title} — AGGI Admin`;
   renderSideNav(route.path);
 }
 

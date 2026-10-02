@@ -6,6 +6,7 @@ import { hasFeature, farmEntitlements } from "./features.js";
 import { agroTables } from './agroCatalog.js';
 import { validateAgro } from './agroValidation.js';
 import { agroOverview } from './agroService.js';
+import { farmDashboard } from './dashboard.js';
 const stable = (v) =>
   Array.isArray(v)
     ? v.map(stable)
@@ -532,5 +533,8 @@ export class RuralService {
       list_limit: 50,
       generated_at: new Date().toISOString(),
     };
+  }
+  async dashboard(farmId) {
+    return farmDashboard(this, farmId);
   }
 }

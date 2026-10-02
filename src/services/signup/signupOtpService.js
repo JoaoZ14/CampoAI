@@ -61,7 +61,7 @@ export async function sendSignupOtp({ phone }) {
   });
   if (insErr) throw new AppError(`Erro ao salvar OTP: ${insErr.message}`, 500);
 
-  const plainBody = `Código AG Assist: ${code}\n\nValidade: ${OTP_TTL_MIN} minutos.\nSe não foi você, ignore esta mensagem.`;
+  const plainBody = `Código AGGI: ${code}\n\nValidade: ${OTP_TTL_MIN} minutos.\nSe não foi você, ignore esta mensagem.`;
   await sendSmsMessage(normalized, plainBody);
   return {
     ok: true,

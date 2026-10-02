@@ -177,7 +177,7 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       value: chargeValue,
       nextDueDate: nextDue,
       cycle: asaasCycle,
-      description: `AG Assist — ${plan.name} (${cycleLabel})`.slice(0, 500),
+      description: `AGGI — ${plan.name} (${cycleLabel})`.slice(0, 500),
       externalReference: userId,
       creditCard: {
         holderName: String(cc.holderName).trim(),

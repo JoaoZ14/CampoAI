@@ -33,6 +33,9 @@ export function publicActivity(row) {
         type: before ? "updated" : "created",
         label: labels[change.table],
         title: String(after.title || after.name || after.description || labels[change.table]).slice(0, 140),
+        details: Object.fromEntries(['amount', 'quantity', 'unit', 'duration_minutes', 'time_seconds', 'penalty_seconds', 'due_at', 'event_date', 'expense_date', 'operation_date', 'status', 'event_type']
+          .filter(key => ['string', 'number'].includes(typeof after[key]))
+          .map(key => [key, typeof after[key] === 'string' ? after[key].slice(0, 160) : after[key]])),
       };
     });
   return {
