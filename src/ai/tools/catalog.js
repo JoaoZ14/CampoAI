@@ -16,6 +16,7 @@ import { generateFarmReport } from "../../rural/reports.js";
 import { marketProvider } from "../../rural/market.js";
 import { attachPendingMedia, loadOccurrenceMedia } from "../../rural/media.js";
 import { agroTools } from './agroTools.js';
+import { taskValues } from '../../rural/time.js';
 const farm = { farm_id: id };
 const tool = (name, description, classification, parameters, run) => ({
   name,
@@ -26,7 +27,7 @@ const tool = (name, description, classification, parameters, run) => ({
 });
 export function createTools(
   service,
-  { text = "", weather = new WeatherService(service.repo) } = {},
+  { text = "", now = new Date(), weather = new WeatherService(service.repo) } = {},
 ) {
   const tools = [
     tool(
@@ -193,7 +194,8 @@ export function createTools(
         "WRITE",
         object({ ...farm, values: createSchema }, ["values"]),
         async (a) => {
-          const result = await service.save(table, a.farm_id, a.values);
+          const values = table === 'farm_tasks' ? await taskValues(service, a.farm_id, a.values, null, text, now) : a.values;
+          const result = await service.save(table, a.farm_id, values);
           if (table === "field_occurrences")
             await attachPendingMedia(service, result);
           if (table === "occurrence_followups")
@@ -232,7 +234,7 @@ export function createTools(
             "record_id",
             "values",
           ]),
-          (a) => service.save(table, a.farm_id, a.values, a.record_id),
+          async (a) => service.save(table, a.farm_id, table === 'farm_tasks' ? await taskValues(service, a.farm_id, a.values, a.record_id, text, now) : a.values, a.record_id),
         ),
       );
     }

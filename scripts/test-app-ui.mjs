@@ -54,6 +54,7 @@ try {
         }
         else if (path.endsWith('/farm_tasks/task-fixture') && method === 'PATCH') { taskWrites++; completed = true; await sleep(200); data = { ...task, status: 'completed' }; }
         else if (path.endsWith('/farm_tasks')) data = completed ? [] : [task];
+        else if (path.endsWith('/history')) data = { items: [], has_more: false };
         else if (path.endsWith('/farm_expenses/expense-fixture')) data = { id: 'expense-fixture', description: 'Diesel (teste)', amount: 350, category: 'combustivel', expense_date: '2026-10-01' };
         else if (path.endsWith('/farm_expenses') && method === 'POST') {
           expenseWrites++; expenseKeys.push(route.request().headers()['idempotency-key']); await sleep(200);

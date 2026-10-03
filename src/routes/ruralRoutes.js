@@ -5,7 +5,7 @@ import { RuralService } from "../rural/service.js";
 import { hasFeature } from "../rural/features.js";
 import { WeatherService } from "../rural/weather.js";
 import { generateFarmReport } from "../rural/reports.js";
-import { publicActivity } from "../rural/activity.js";
+import { publicActivity, recordHistory } from "../rural/activity.js";
 import { AppError } from "../utils/errors.js";
 import { ruralQuery } from "../rural/httpQuery.js";
 import { agroCatalog } from '../rural/agroCatalog.js';
@@ -64,8 +64,13 @@ router.get(
 );
 router.get(
   '/farms/:farmId/dashboard',
-  handle(req => req.rural.dashboard(req.params.farmId)),
+  handle(req => req.rural.dashboard(req.params.farmId, ruralQuery(req.query))),
 );
+router.get('/farms/:farmId/:entity/:recordId/history', handle(req => {
+  const filters = ruralQuery(req.query);
+  if (Object.keys(filters).some(key => key !== 'offset')) throw new AppError('Filtro inválido.', 400);
+  return recordHistory(req.rural, req.params.farmId, req.params.entity, req.params.recordId, filters.offset || 0);
+}));
 router.get(
   "/farms/:farmId/activity",
   handle(async (req) => {

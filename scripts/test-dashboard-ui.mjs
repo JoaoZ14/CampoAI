@@ -47,7 +47,8 @@ try {
     const page = await context.newPage(); diagnosticPage = page;
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    let fail = false, empty = false, slowFirst = false, dashboardRequests = 0, summaryReady = false, productionQuery;
+    let fail = false, empty = false, slowFirst = false, dashboardRequests = 0, summaryReady = false, productionQuery, summaryRequests = 0;
+    const periodRequests = [];
     await page.route('**/api/**', async route => {
       const url = new URL(route.request().url()), path = url.pathname;
       let data, status = 200;
@@ -61,13 +62,21 @@ try {
           if (slowFirst && !second) await new Promise(done => setTimeout(done, 650));
           if (fail) { status = 503; data = { error: 'private database diagnostic' }; }
           else if (empty || second) data = { ...fixture, expenses: { amount: 0, count: 0, recent: [] }, agenda: { pending: 0, today: 0, overdue: 0, next: [] }, production: [], activities: [], units_count: 0, recent_records: [] };
-          else data = fixture;
+          else {
+            const period = url.searchParams.get('period') || 'month'; periodRequests.push(url.searchParams);
+            data = structuredClone(fixture);
+            if (period === 'previous_month') { data.period = { from: '2026-09-01', to_exclusive: '2026-10-01' }; data.expenses.amount = 120; }
+            if (period === 'today') { data.period = { from: data.today, to_exclusive: '2026-10-02' }; data.expenses.amount = 350; }
+            if (period === 'custom') { data.period = { from: url.searchParams.get('from'), to_exclusive: url.searchParams.get('to') }; data.expenses.amount = 470; }
+          }
         } else if (path.endsWith('/summary')) {
+          summaryRequests++;
           await new Promise(done => setTimeout(done, 900)); summaryReady = true;
           data = { farm, fields: [], seasons: [], tasks: [], operations: [], expenses: { amount: 9999, count: 50, cost_per_ha: null }, alerts: [] };
         } else if (path.endsWith('/weather')) { status = 400; data = { error: 'Localização não cadastrada' }; }
         else if (path.endsWith('/activity')) data = { items: records, has_more: false };
         else if (path.endsWith('/farm_tasks')) data = [task];
+        else if (path.endsWith('/history')) data = { items: [records[0], { ...records[0], id: 'older-audit', created_at: '2026-09-30T14:00:00Z', changes: [{ ...records[0].changes[0], details: { amount: 320 } }] }], has_more: false };
         else if (path.endsWith('/farm_expenses/expense-test')) data = { id: 'expense-test', description: 'Diesel para o trator', amount: 350, expense_date: '2026-10-01', category: 'combustivel' };
         else if (path.endsWith('/agro/overview')) {
           productionQuery = url.searchParams;
@@ -96,15 +105,43 @@ try {
     await page.locator('.dash-record').first().click();
     await page.getByRole('region', { name: 'Registro selecionado' }).waitFor();
     check((await page.getByRole('region', { name: 'Registro selecionado' }).innerText()).includes('350,00'), `${width}: home record opens its actual details`);
+    await page.getByText('Histórico deste registro', { exact: true }).click();
+    await page.locator('.record-history li').first().waitFor();
+    check(await page.locator('.record-history li').count() === 2, `${width}: detail retains the audit history`);
+    check((await page.locator('.record-history').innerText()).includes('320,00'), `${width}: original amount visible in history`);
     await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Início', exact: true }).click();
     await page.locator('.dash-number.expenses').click();
     check((await page.locator('#dash-expenses').innerText()).includes('Diesel para o trator'), `${width}: spending tile opens read-only expenses`);
     await page.getByRole('button', { name: 'Fechar gastos do mês' }).click();
     await page.getByRole('button', { name: 'Ver minha produção' }).click();
     await page.getByText('Cebolinha colhida', { exact: true }).waitFor();
-    check(await page.getByLabel('Período da atividade').inputValue() === 'month', `${width}: production opens the same monthly scope`);
+    check(await page.getByLabel('Período da atividade').inputValue() === 'range', `${width}: production opens the same monthly scope`);
     check(productionQuery?.has('from') && productionQuery?.has('to'), `${width}: half-open month sent to server`);
     await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Início', exact: true }).click();
+    const summariesBefore = summaryRequests;
+    await page.getByLabel('Período de gastos e produção').selectOption('previous_month');
+    await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('120,00'));
+    check((await page.locator('.dash-number.expenses').innerText()).includes('setembro de 2026'), `${width}: previous month explicit`);
+    check(await page.locator('.dash-record').count() === 5, `${width}: period does not hide recent records`);
+    check(await page.locator('.dash-task').count() === 1, `${width}: period does not hide pending tasks`);
+    check(summaryRequests === summariesBefore, `${width}: period does not reload unrelated sections`);
+    await page.getByLabel('Período de gastos e produção').selectOption('custom');
+    await page.getByLabel('De', { exact: true }).fill('2026-09-30');
+    await page.getByLabel('Até', { exact: true }).fill('2026-10-01');
+    await page.getByRole('button', { name: 'Consultar período', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('470,00'));
+    check(periodRequests.at(-1).get('from') === '2026-09-30' && periodRequests.at(-1).get('to') === '2026-10-02', `${width}: custom includes the last selected day`);
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: custom controls fit mobile`);
+    await page.screenshot({ path: `test-artifacts/dashboard/period-${width}.png`, fullPage: true });
+    await page.getByRole('button', { name: 'Ver minha produção' }).click();
+    await page.getByText('Cebolinha colhida', { exact: true }).waitFor();
+    check(productionQuery?.get('from') === '2026-09-30' && productionQuery?.get('to') === '2026-10-02', `${width}: production keeps the custom period`);
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Início', exact: true }).click();
+    await page.getByLabel('Período de gastos e produção').selectOption('today');
+    await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('350,00'));
+    check(periodRequests.at(-1).get('period') === 'today', `${width}: today uses the local-day preset`);
+    await page.getByLabel('Período de gastos e produção').selectOption('month');
+    await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('450,00'));
     fail = true;
     await page.getByRole('button', { name: 'Atualizar resumo' }).click();
     await page.getByText('Os números abaixo são da última consulta.', { exact: false }).waitFor();

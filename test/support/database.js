@@ -51,6 +51,10 @@ class Query {
     this.filters.push([k, ">=", v]);
     return this;
   }
+  contains(k, v) {
+    this.filters.push([k, '@>', v]);
+    return this;
+  }
   order(k, { ascending = true } = {}) {
     this.orders.push(`${quote(k)} ${ascending ? "asc" : "desc"}`);
     return this;

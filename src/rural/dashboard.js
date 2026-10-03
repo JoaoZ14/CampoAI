@@ -1,14 +1,14 @@
 import { hasFeature } from './features.js';
-import { publicActivity } from './activity.js';
+import { latestRecords } from './activity.js';
+import { dashboardPeriod } from './dashboardPeriod.js';
 
 // Read-only facts. No model calls, no generated explanations and no writes.
-export async function farmDashboard(service, farmId, now = new Date()) {
+export async function farmDashboard(service, farmId, now = new Date(), filters = {}) {
   const farm = await service.farm(farmId);
   const timezone = farm.timezone || 'America/Sao_Paulo';
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
-  const from = `${today.slice(0, 7)}-01`;
-  const year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7));
-  const to = `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, '0')}-01`;
+  const period = dashboardPeriod(today, filters);
+  const from = period.from, to = period.to_exclusive;
   const modules = hasFeature(service.user, 'modules');
   const [expenses, tasks, activities, units, events, rows] = await Promise.all([
     hasFeature(service.user, 'financial') ? service.repo.all('farm_expenses', farm.id, { from, to }) : null,
@@ -16,10 +16,7 @@ export async function farmDashboard(service, farmId, now = new Date()) {
     modules ? service.repo.all('farm_activities', farm.id, { status: 'active' }) : [],
     modules ? service.repo.all('production_units', farm.id) : [],
     modules ? service.repo.all('production_events', farm.id, { from, to, status: 'active' }) : [],
-    service.repo.result(service.repo.db.from('assistant_actions')
-      .select('id,created_at,source_message_id,status,input_json').eq('user_id', service.user.id)
-      .eq('farm_id', farm.id).eq('action_type', 'WRITE').eq('status', 'success')
-      .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(20)),
+    latestRecords(service, farm),
   ]);
   const dayOf = value => new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value));
   const sorted = [...tasks].sort((a, b) => Date.parse(a.due_at) - Date.parse(b.due_at) || a.id.localeCompare(b.id));
@@ -49,6 +46,6 @@ export async function farmDashboard(service, farmId, now = new Date()) {
     activities: activities.map(({ id, name, module_key }) => ({ id, name, module_key, units: activeUnits.filter(unit => unit.activity_id === id).length })),
     units_count: activeUnits.length,
     production: [...totals.values()].map(row => ({ ...row, name: unitNames.get(row.production_unit_id) || 'Ficha da produção', quantity: Math.round(row.quantity * 1000000) / 1000000 })),
-    recent_records: rows.map(publicActivity).filter(action => action.changes.some(change => change.entity_id)),
+    recent_records: rows,
   };
 }

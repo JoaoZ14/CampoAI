@@ -440,6 +440,7 @@ export async function processIncomingMessage({
   audioUrl,
   unsupportedVideo,
   messageSid,
+  receivedAt,
 }) {
   const phone = normalizePhone(
     typeof rawPhone === 'string' ? rawPhone : String(rawPhone ?? '')
@@ -661,7 +662,7 @@ export async function processIncomingMessage({
       fieldCalcMode: calcIntent === 'compute',
     };
     reply = hasFeature(user, 'agent')
-      ? await runAgent({ ...aiInput, user, messageSid, onOutcome: outcome => { charge = outcome.charge; }, onArtifact: url => { reportMedia.push(url); } })
+      ? await runAgent({ ...aiInput, user, messageSid, referenceTime: receivedAt || new Date(), onOutcome: outcome => { charge = outcome.charge; }, onArtifact: url => { reportMedia.push(url); } })
       : await generateAgriculturalReply(aiInput);
   } catch (err) {
     console.error('[incoming] Falha na IA:', err);

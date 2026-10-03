@@ -534,7 +534,7 @@ export class RuralService {
       generated_at: new Date().toISOString(),
     };
   }
-  async dashboard(farmId) {
-    return farmDashboard(this, farmId);
+  async dashboard(farmId, filters = {}) {
+    return farmDashboard(this, farmId, new Date(), filters);
   }
 }

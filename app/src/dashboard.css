@@ -1,4 +1,20 @@
 .dashboard { color: var(--text); }
+.dash-period { margin-bottom: 24px; padding: 17px 20px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.dash-period-top { display: flex; align-items: center; gap: 24px; }
+.dash-period label { display: grid; gap: 8px; color: var(--ink); font-size: .8rem; font-weight: 600; }
+.dash-period select, .dash-period input { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px; font: inherit; color: var(--ink); background: #f8faf5; min-width: 0; }
+.dash-period select { min-width: 190px; }
+.dash-period p { margin: 0; max-width: 420px; color: var(--muted); font-size: .79rem; line-height: 1.7; }
+.dash-period-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 14px; align-items: end; border-top: 1px solid var(--line); margin-top: 17px; padding-top: 17px; }
+.dash-period-form > p { grid-column: 1 / -1; max-width: none; }
+.dash-period-form .dash-period-error { color: #a4462d; }
+.record-history { border-block: 1px solid var(--line); margin-block: 20px; padding-block: 15px; }
+.record-history summary { cursor: pointer; color: var(--ink); font-size: .94rem; font-weight: 600; min-height: 30px; }
+.record-history > p { color: var(--muted); font-size: .8rem; line-height: 1.7; }
+.record-history ol { padding-left: 20px; }
+.record-history li { border-bottom: 1px solid var(--line); padding-block: 14px; font-size: .85rem; line-height: 1.7; }
+.record-history li strong, .record-history time, .record-history li span { display: block; }
+.record-history time { color: var(--muted); font-size: .76rem; }
 .dash-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .dash-eyebrow { display: block; color: #58745e; font-size: .83rem; font-weight: 600; margin-bottom: 7px; }
 .dash-heading h1 { margin: 0 0 9px; font-size: 2.05rem; color: var(--ink); font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
@@ -83,6 +99,11 @@
   .dash-heading { align-items: start; flex-direction: column; gap: 14px; }
 }
 @media (max-width: 640px) {
+  .dash-period { padding: 16px; }
+  .dash-period-top { align-items: stretch; flex-direction: column; gap: 12px; }
+  .dash-period-top select { width: 100%; }
+  .dash-period-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .dash-period-form button { grid-column: 1 / -1; }
   .dash-heading { margin-bottom: 20px; gap: 12px; }
   .dash-heading h1 { font-size: 1.8rem; }
   .dash-heading p { font-size: .89rem; }

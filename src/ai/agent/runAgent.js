@@ -18,6 +18,7 @@ export async function runAgent({
   messageSid,
   service,
   provider,
+  referenceTime = new Date(),
   onOutcome = () => {},
   onArtifact = () => {},
 }) {
@@ -26,7 +27,8 @@ export async function runAgent({
   const safety = deterministicSafety(text);
   if (safety) return safety;
   service ||= new RuralService(user, undefined, correlation);
-  const context = await buildContext(service);
+  const now = new Date(referenceTime);
+  const context = await buildContext(service, Number.isFinite(now.getTime()) ? now : new Date());
   if (!imageUrl && !audioUrl) {
     const welcome = firstContactReply(text, context);
     if (welcome) {
@@ -37,7 +39,7 @@ export async function runAgent({
     if (expense) return registerSimpleFuelExpense(service, context, expense, onOutcome);
   }
   await rememberIncomingMedia(service, context, { imageUrl, audioUrl });
-  const tools = createTools(service, { text });
+  const tools = createTools(service, { text, now: new Date(context.now) });
   const events = [];
   const contents = [];
   const writeRequested = isExplicitWriteRequest(text);
@@ -175,7 +177,7 @@ export async function runAgent({
               ? actionReceipt(
                   tool.name,
                   output.data,
-                  context.active_farm?.timezone,
+                  tool.name.endsWith('_task') ? service.taskTimezone || context.active_farm?.timezone : context.active_farm?.timezone,
                 )
               : null,
           });

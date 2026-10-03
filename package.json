@@ -7,7 +7,7 @@
   "scripts": {
     "build": "npm --prefix app ci --offline=false && npm --prefix app run build",
     "preview:app": "node --import dotenv/config scripts/previewApp.mjs",
-    "test": "node --test test/rural.test.js test/agro.test.js test/dashboard.test.js",
+    "test": "node --test test/rural.test.js test/agro.test.js test/dashboard.test.js test/task-time.test.js",
     "test:rural": "node test/rural.test.js",
     "test:agro": "node test/agro.test.js",
     "test:agro-ui": "node scripts/test-agro-ui.mjs",

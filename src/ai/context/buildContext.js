@@ -1,5 +1,6 @@
 import { hasFeature } from "../../rural/features.js";
-export async function buildContext(service) {
+import { localCalendar } from '../../rural/time.js';
+export async function buildContext(service, now = new Date()) {
   const farms = await service.farms();
   const saved = await service.repo.context(service.user.id);
   const active =
@@ -11,7 +12,8 @@ export async function buildContext(service) {
   const farm =
     farms.length === 1 ? farms[0] : farms.find((f) => f.id === active?.farm_id);
   const context = {
-    now: new Date().toISOString(),
+    now: now.toISOString(),
+    ...localCalendar(now, farm?.timezone || 'America/Sao_Paulo'),
     farms: farms.map(({ id, name, city, state }) => ({
       id,
       name,
@@ -33,12 +35,6 @@ export async function buildContext(service) {
     context.agro_activities = activities.map(({ id, name, module_key }) => ({ id, name, module_key }));
     context.agro_activities_partial = activities.length === 30;
   }
-  context.local_date = new Intl.DateTimeFormat("en-CA", {
-    timeZone: farm.timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format();
   if (active?.field_id)
     context.active_field = await service.repo.one(
       "fields",
