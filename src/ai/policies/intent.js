@@ -12,10 +12,10 @@ export function intentHint(text, hasImage = false) {
     ["inventory", /comprei|estoque|usei.*sacos/],
     [
       "farm_query",
-      /quanto.*gast|quando.*plant|como esta.*fazenda|aconteceu.*semana|quantos hectares|quanto.*(?:produziu|produzimos|recebi|recebeu|vendi|vendido)|historico (?:do|da|de)|saldo.*(?:lote|venda)|(?:liste|mostre|consulte).*(?:fichas|animais|cavalos|lotes|treinos|pesagens|leite|recebimentos|vendas)/,
+      /quanto.*gast|quando.*plant|como esta.*fazenda|aconteceu.*semana|quantos hectares|quanto.*(?:produziu|produzimos|recebi|recebeu|vendi|vendido)|historico (?:do|da|de)|saldo.*(?:lote|venda)|(?:liste|mostre|consulte).*(?:fichas|animais|cavalos|lotes|pesagens|leite|recebimentos|vendas)/,
     ],
     ["task", /tarefa|vistoria.*feita|\b(?:agende|agendar|agendamento|reagende|reagendar|remarque|remarcar)\b/],
-    ["operation_registration", /plantei|colhi|irriguei|pesou|produziu|treinei|ordenhei|despesquei/],
+    ["operation_registration", /plantei|colhi|irriguei|pesou|produziu|ordenhei|despesquei/],
     ["farm_registration", /tenho.*fazenda|talhao.*tem/],
     ["plan", /plano|assinatura/],
   ])
@@ -28,7 +28,7 @@ export function isExplicitWriteRequest(text) {
   if (/\b(registr(?:e|ar)|cadastr(?:e|ar)|anot(?:e|ar)|adicion(?:e|ar)|agend(?:e|ar)|cri(?:e|ar)|salv(?:e|ar))\b/.test(t)) return true;
   if (/\b(reagende|reagendar|remarque|remarcar)\b/.test(t) || /\b(mude|altere|troque|adie)\b.*\b(hoje|amanha|horario|data|dia|tarefa|agendamento)\b/.test(t)) return true;
   if (/^(quanto|quando|qual|quais|o que|mostre|liste|consulta|consulte|me diga)\b/.test(t) || /\b(quanto|quantos|qual valor)\?$/.test(t)) return false;
-  return /\b(gastei|paguei|comprei|plantei|colhi|irriguei|pesou|produziu|treinei|ordenhei|despesquei)\b/.test(t);
+  return /\b(gastei|paguei|comprei|plantei|colhi|irriguei|pesou|produziu|ordenhei|despesquei)\b/.test(t);
 }
 export function deterministicSafety(text) {
   const t = normalizeName(text || "");

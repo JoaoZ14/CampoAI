@@ -9,6 +9,7 @@ import { RuralService } from '../src/rural/service.js';
 import { database } from './support/database.js';
 import { intentHint, isExplicitWriteRequest } from '../src/ai/policies/intent.js';
 import { enqueueRuralMessage, runRuralWorker } from '../src/jobs/ruralWorker.js';
+import { actionReceipt } from '../src/ai/policies/receipts.js';
 
 test('scheduling and rescheduling requests require a real tool, while hypothetical requests do not authorize writes', () => {
   assert.equal(intentHint('Agende olhar na baia amanhã às 9h'), 'task');
@@ -50,14 +51,28 @@ test('DST gaps and ambiguous wall-clock times are not silently shifted', () => {
   assert.equal(localInstant('2026-03-08', '09:00', 'America/New_York'), '2026-03-08T13:00:00.000Z');
 });
 
+test('receipts distinguish saved tasks from WhatsApp reminders and identify where to find the record', () => {
+  const task = { title: 'Conferir a água', due_at: '2099-10-03T12:00:00Z', status: 'pending', remind: false };
+  const noReminder = actionReceipt('create_task', task, 'America/Sao_Paulo', 'Sítio Boa Vista');
+  assert.match(noReminder, /03\/10\/2099.*09:00/);
+  assert.match(noReminder, /Sem lembrete no WhatsApp/);
+  assert.match(noReminder, /Propriedade: Sítio Boa Vista/);
+  assert.match(noReminder, /Minhas tarefas no app/);
+  assert.doesNotMatch(noReminder, /ativado/);
+  assert.match(actionReceipt('update_task', { ...task, remind: true }, 'America/Sao_Paulo', 'Fazenda Horizonte'), /Lembrete no WhatsApp ativado/);
+  assert.doesNotMatch(actionReceipt('update_task', { ...task, status: 'completed', remind: true }), /ativado|Agendei|09:00/);
+  assert.equal(actionReceipt('set_active_context', { farm_id: randomUUID() }), null);
+  assert.equal(actionReceipt('cancel_reminder', { confirmation_required: true }), null);
+});
+
 let pg, repo, user, farm;
 before(async () => {
-  for (const key of ['AGENT_TOOLS_ENABLED', 'REMINDERS_ENABLED']) process.env[key] = 'true';
+  for (const key of ['AGENT_TOOLS_ENABLED', 'REMINDERS_ENABLED', 'EXPENSES_ENABLED']) process.env[key] = 'true';
   process.env.REMINDER_CONTENT_SID = 'HX' + '1'.repeat(32);
   const db = await database(); pg = db.pg; repo = new RuralRepository(db.db);
   user = { id: randomUUID() };
   await pg.query('insert into users(id,phone) values($1,$2)', [user.id, '+5511980000040']);
-  farm = await new RuralService(user, repo, randomUUID()).save('farms', null, { name: 'CT de teste', timezone: 'America/Sao_Paulo' });
+  farm = await new RuralService(user, repo, randomUUID()).save('farms', null, { name: 'Sítio de teste', timezone: 'America/Sao_Paulo' });
 });
 after(async () => pg?.close());
 test('context and persisted task use one reference clock, overriding an incorrect model date', async () => {
@@ -106,4 +121,32 @@ test('queued messages carry their original server receipt time across midnight',
   await runRuralWorker({ repo, processMessage: async payload => { received = payload.receivedAt; } });
   assert.equal(new Date(received).toISOString(), '2026-10-03T02:30:00.000Z');
   assert.equal(resolveTaskTime('Amanhã às 9h', { now: new Date(received) }), '2026-10-03T12:00:00.000Z');
+});
+
+
+test('a receipt uses the actual selected property, even when the initial active property is different', async () => {
+  const otherFarm = await new RuralService(user, repo, randomUUID()).save('farms', null, { name: 'Outra propriedade de teste' });
+  await new RuralService(user, repo, randomUUID()).setActive(farm.id);
+  let calls = 0;
+  const reply = await runAgent({ user, service: new RuralService(user, repo, randomUUID()), text: 'Registre a compra de adubo na Outra propriedade de teste', provider: {
+    inputParts: async ({ text }) => [{ text }],
+    turn: async () => calls++ === 0 ? { calls: [{ name: 'create_expense', args: { farm_id: otherFarm.id, values: { description: 'Adubo', category: 'insumos', amount: 120, expense_date: '2026-10-03' } } }] } : { calls: [], text: 'Registrei na fazenda errada.' },
+  } });
+  assert.match(reply, /Propriedade: Outra propriedade de teste/);
+  assert.match(reply, /Meus gastos no app/);
+  assert.doesNotMatch(reply, /Sítio de teste|errada/);
+  assert.equal((await repo.list('farm_expenses', otherFarm.id))[0].description, 'Adubo');
+});
+
+test('successful property registration offers a useful next request without creating a sample task', async () => {
+  const newUser = { id: randomUUID() };
+  await pg.query('insert into users(id,phone) values($1,$2)', [newUser.id, '+5511980000041']);
+  let calls = 0;
+  const reply = await runAgent({ user: newUser, service: new RuralService(newUser, repo, randomUUID()), text: 'Cadastre minha propriedade Sítio Novo', provider: {
+    inputParts: async ({ text }) => [{ text }],
+    turn: async () => calls++ === 0 ? { calls: [{ name: 'create_farm', args: { name: 'Sítio Novo' } }] } : { calls: [], text: 'Cadastrei.' },
+  } });
+  assert.match(reply, /Sítio Novo/); assert.match(reply, /uma tarefa que precisa fazer/); assert.match(reply, /Minhas tarefas/);
+  const registered = (await repo.farms(newUser.id))[0];
+  assert.equal((await repo.list('farm_tasks', registered.id)).length, 0);
 });

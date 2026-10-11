@@ -1,6 +1,6 @@
 import { fetchGNewsArticles } from './gnewsService.js';
 
-const DEFAULT_MORE_NEWS_URL = 'https://agassist.netlify.app/#noticias';
+const DEFAULT_MORE_NEWS_URL = 'https://useaggi.com/#noticias';
 
 function moreNewsUrl() {
   const u = process.env.WEEKLY_NEWS_MORE_URL?.trim();

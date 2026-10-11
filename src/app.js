@@ -91,10 +91,13 @@ export function createApp() {
   app.use('/api/customer', customerPortalRoutes);
   app.use('/api/rural', ruralRoutes);
 
-  app.use('/app', express.static(reactAppDir, { index: false, redirect: false }));
-  app.get(['/app', '/app/'], (req, res) => {
-    if (req.path === '/app') return res.redirect(308, '/app/');
-    res.sendFile(path.join(reactAppDir, 'index.html'));
+  // Preserve copied links and old auth callbacks, including their query string.
+  app.get(['/app', '/app/', '/app/*'], (req, res) => {
+    const suffix = req.originalUrl.slice('/app'.length);
+    const queryAt = suffix.indexOf('?');
+    const pathname = queryAt < 0 ? suffix : suffix.slice(0, queryAt);
+    const query = queryAt < 0 ? '' : suffix.slice(queryAt);
+    res.redirect(308, '/' + pathname.replace(/^\/+/, '') + query);
   });
 
   // Rotas da API primeiro; HTML sem redirect /admin → /admin/ (evita loop se o proxy
@@ -118,9 +121,8 @@ export function createApp() {
     })
   );
 
-  app.get(['/cadastro', '/cadastro/'], (_req, res) => {
-    res.sendFile(path.join(signupDir, 'index.html'));
-  });
+  // /cadastro is now the React signup flow. Keep old static files available
+  // for cached legacy pages, without mounting the old HTML entry point.
   app.use(
     '/cadastro',
     express.static(signupDir, {
@@ -185,6 +187,19 @@ export function createApp() {
 
   app.use('/webhook', webhookRoutes);
   app.use('/webhook', asaasWebhookRoutes);
+
+  // Service routes must never fall through to the React HTML (including 404s).
+  const reserved = new Set(['api', 'api-docs', 'webhook', 'health', 'admin', 'shared', 'planos', 'legal', 'entrar', 'area-do-cliente']);
+  const serveReactAssets = express.static(reactAppDir, { index: false, redirect: false });
+  app.use((req, res, next) => {
+    if (reserved.has(req.path.split('/')[1].toLowerCase())) return next();
+    return serveReactAssets(req, res, next);
+  });
+  app.get('*', (req, res, next) => {
+    if (reserved.has(req.path.split('/')[1].toLowerCase()) || req.path.toLowerCase().startsWith('/assets/') || /\.[a-z0-9]+$/i.test(req.path) || !req.accepts('html')) return next();
+    res.set('Cache-Control', 'no-cache');
+    res.sendFile(path.join(reactAppDir, 'index.html'));
+  });
 
   app.use((_req, res) => {
     res.status(404).json({ ok: false, error: 'Rota não encontrada.' });

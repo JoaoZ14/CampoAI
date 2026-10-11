@@ -1,3 +1,4 @@
+import { actionReceipt } from "../policies/receipts.js";
 import { normalizeName } from "../../rural/validation.js";
 import { isExplicitWriteRequest } from "../policies/intent.js";
 
@@ -29,9 +30,7 @@ export async function registerSimpleFuelExpense(service, context, expense, onOut
       ...expense,
       expense_date: context.local_date,
     });
-    const date = saved.expense_date.split("-").reverse().join("/");
-    const value = Number(saved.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    return `Registrei ${value} de ${saved.description.toLowerCase()} como despesa em ${date}. Usei a data de hoje; se foi em outro dia, me diga para corrigir.`;
+    return actionReceipt('create_expense', saved, context.active_farm.timezone, context.active_farm.name) + '\nUsei a data de hoje; se foi em outro dia, me diga para corrigir.';
   } catch (error) {
     onOutcome({ charge: false });
     if (error.statusCode && error.statusCode < 500) return `Não consegui registrar a despesa: ${error.message}`;

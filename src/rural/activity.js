@@ -1,4 +1,5 @@
 import { fail, id, validate } from './validation.js';
+import { eventDefinitions } from './agroCatalog.js';
 const labels = {
   farm_activities: 'Atividade produtiva',
   production_units: 'Unidade de produção',
@@ -25,6 +26,7 @@ export function publicActivity(row) {
     : [];
   const changes = snapshots
     .filter((change) => Object.hasOwn(labels, change.table))
+    .filter(change => change.table !== 'production_events' || Object.hasOwn(eventDefinitions, (change.after || {}).event_type))
     .map((change) => {
       const after = change.after || {};
       const before = change.before || null;
@@ -34,7 +36,7 @@ export function publicActivity(row) {
         type: before ? "updated" : "created",
         label: labels[change.table],
         title: String(after.title || after.name || after.description || labels[change.table]).slice(0, 140),
-        details: Object.fromEntries(['amount', 'quantity', 'unit', 'duration_minutes', 'time_seconds', 'penalty_seconds', 'due_at', 'event_date', 'expense_date', 'operation_date', 'status', 'event_type']
+        details: Object.fromEntries(['amount', 'quantity', 'unit', 'due_at', 'event_date', 'expense_date', 'operation_date', 'status', 'event_type']
           .filter(key => ['string', 'number'].includes(typeof after[key]))
           .map(key => [key, typeof after[key] === 'string' ? after[key].slice(0, 160) : after[key]])),
       };

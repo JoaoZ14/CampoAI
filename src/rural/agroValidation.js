@@ -44,7 +44,7 @@ export async function validateAgro(service, table, farm, merged, old, creating) 
     if (definition.fixedUnit && merged.unit !== definition.fixedUnit) fail(`A unidade deste registro é ${definition.fixedUnit}.`);
     const allowed = new Set(['activity_id', 'production_unit_id', 'event_type', 'event_date', 'description', 'status', ...definition.fields.map(f => f.key), ...(definition.fixedUnit ? ['unit'] : [])]);
     for (const key of Object.keys(merged)) {
-      if (['quantity', 'unit', 'duration_minutes', 'time_seconds', 'penalty_seconds', 'period', 'destination', 'operator'].includes(key) && merged[key] != null && !allowed.has(key)) fail(`O campo ${key} não pertence a este tipo de registro.`);
+      if (['quantity', 'unit', 'period', 'destination', 'operator'].includes(key) && merged[key] != null && !allowed.has(key)) fail(`O campo ${key} não pertence a este tipo de registro.`);
     }
     if (old && merged.event_type !== old.event_type) fail('O tipo do registro é fixo; anule o incorreto e registre novamente.');
     if (['stock_entry', 'stock_exit', 'mortality'].includes(merged.event_type) && !groupTypes.includes(unit.unit_type)) fail('Entrada e saída de quantidade exigem um grupo, viveiro ou apiário.');

@@ -1,5 +1,6 @@
 import { createSupabaseClient } from "../models/supabaseClient.js";
 import { AppError } from "../utils/errors.js";
+import { eventDefinitions } from './agroCatalog.js';
 export class RuralRepository {
   constructor(db = createSupabaseClient()) {
     this.db = db;
@@ -55,6 +56,8 @@ export class RuralRepository {
   }
   list(table, farmId, filters = {}, limit = 50) {
     let q = this.db.from(table).select("*").eq("farm_id", farmId);
+    // Preserve legacy rows in the database; omit disabled event types before pagination.
+    if (table === 'production_events') q = q.in('event_type', Object.keys(eventDefinitions));
     const dateCol =
       {
         farm_expenses: "expense_date",

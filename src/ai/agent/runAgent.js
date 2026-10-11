@@ -9,6 +9,7 @@ import { intentHint, isExplicitWriteRequest, deterministicSafety } from "../poli
 import { actionReceipt } from "../policies/receipts.js";
 import { firstContactReply } from "../policies/onboarding.js";
 import { registerSimpleFuelExpense, simpleFuelExpense } from "./directExpense.js";
+import { unsupportedSportReply } from '../policies/productScope.js';
 export async function runAgent({
   user,
   text,
@@ -26,6 +27,8 @@ export async function runAgent({
   const deadline = Date.now() + 240000;
   const safety = deterministicSafety(text);
   if (safety) return safety;
+  const outsideScope = unsupportedSportReply(text);
+  if (outsideScope) { onOutcome({ charge: false }); return outsideScope; }
   service ||= new RuralService(user, undefined, correlation);
   const now = new Date(referenceTime);
   const context = await buildContext(service, Number.isFinite(now.getTime()) ? now : new Date());
@@ -41,6 +44,7 @@ export async function runAgent({
   await rememberIncomingMedia(service, context, { imageUrl, audioUrl });
   const tools = createTools(service, { text, now: new Date(context.now) });
   const events = [];
+  const receiptFarms = new Map(context.farms.map(farm => [farm.id, farm.name]));
   const contents = [];
   const writeRequested = isExplicitWriteRequest(text);
   const operationalIntent = ["farm_query", "weather", "market", "calculator", "report", "farm_registration", "operation_registration", "expense_registration", "inventory", "reminder", "task"].includes(intentHint(text, !!imageUrl));
@@ -168,6 +172,8 @@ export async function runAgent({
           };
           if (tool.name === "generate_farm_report" && output.data?.url)
             onArtifact(output.data.url);
+          if (tool.name.endsWith('_farm') && output.data?.id && output.data?.name) receiptFarms.set(output.data.id, output.data.name);
+          const savedRecord = Array.isArray(output.data) ? output.data[0] : output.data?.record || output.data?.task || output.data;
           events.push({
             ok: true,
             write:
@@ -178,6 +184,7 @@ export async function runAgent({
                   tool.name,
                   output.data,
                   tool.name.endsWith('_task') ? service.taskTimezone || context.active_farm?.timezone : context.active_farm?.timezone,
+                  receiptFarms.get(savedRecord?.farm_id),
                 )
               : null,
           });

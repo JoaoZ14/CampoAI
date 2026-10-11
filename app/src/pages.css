@@ -1,0 +1,16 @@
+.record-page { max-width: 800px; }
+.record-page .page-heading h1 { overflow-wrap: anywhere; }
+.record-page .record-details { border: 0; padding: 0; margin: 0; }
+.record-page .record-panel { padding: 24px; }
+.record-page-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.record-page-actions > .button { flex: 1 1 180px; }
+.record-page .record-history { margin-top: 24px; }
+.record-page .record-correct { margin-top: 24px; }
+.record-create { max-width: 680px; }
+.record-create .records-form { margin: 0; }
+.side-nav a { display: flex; gap: 12px; align-items: center; min-height: 48px; padding: 14px 16px; border-radius: 14px; color: var(--muted); text-decoration: none; font-size: 1rem; font-weight: 650; }
+.side-nav a.active { background: #e4efd8; color: var(--ink); }
+.bottom-nav a { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 56px; min-width: 0; padding-inline: 2px; color: #7e9383; border-radius: 12px; text-decoration: none; font-weight: 800; }
+.bottom-nav a.active { background: #e9f3e2; color: var(--ink); }
+.bottom-nav a span { font-size: .875rem; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .record-page .record-panel { padding: 20px; } .record-page .record-details { grid-template-columns: 1fr; } }

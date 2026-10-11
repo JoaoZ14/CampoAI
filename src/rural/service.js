@@ -3,10 +3,11 @@ import { RuralRepository } from "./repository.js";
 import { schemas, tableFeatures, filtersSchema } from "./schemas.js";
 import { validate, fail, id, normalizeName } from "./validation.js";
 import { hasFeature, farmEntitlements } from "./features.js";
-import { agroTables } from './agroCatalog.js';
+import { agroTables, eventDefinitions } from './agroCatalog.js';
 import { validateAgro } from './agroValidation.js';
 import { agroOverview } from './agroService.js';
 import { farmDashboard } from './dashboard.js';
+import { isSportsOperation } from '../ai/policies/productScope.js';
 const stable = (v) =>
   Array.isArray(v)
     ? v.map(stable)
@@ -88,6 +89,7 @@ export class RuralService {
     const farm = await this.farm(farmId);
     const row = await this.repo.one(table, farm.id, recordId);
     if (!row) fail("Registro não encontrado nesta propriedade.");
+    if (table === 'production_events' && !Object.hasOwn(eventDefinitions, row.event_type)) fail('Este tipo de registro está fora do escopo atual do AGGI.');
     return row;
   }
   table(table) {
@@ -146,6 +148,8 @@ export class RuralService {
       ? { ...schemas[table], required: [] }
       : schemas[table];
     validate(schema, values);
+    const scopeText = table === 'farm_activities' ? values.name : table === 'farm_tasks' ? values.title : ['farm_operations', 'farm_sales'].includes(table) ? values.description : null;
+    if (scopeText && isSportsOperation(scopeText)) fail('CTs, treinos e provas estão fora do escopo atual do AGGI.');
     if (values.category)
       values = {
         ...values,

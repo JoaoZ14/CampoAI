@@ -2,7 +2,7 @@
 
 Data: 01/10/2026. Público inicial de pesquisa escolhido pelo fundador: produção diversificada, com horta, lavoura e pequenas criações, no Brasil. Esse recorte não limita o produto a essas atividades.
 
-Atualização de escopo: o fundador pediu cobertura também para centros de treinamento de três tambores, criação de equinos e pecuária bovina. A estratégia de núcleo comum e módulos por atividade está em [AGRO_MODULAR_PLAN.md](AGRO_MODULAR_PLAN.md). A base de 13 perfis e os fluxos de cadastro, histórico, agenda e financeiro foram implementados localmente; funcionalidades e limites estão em [AGRO_MODULES_ROLLOUT.md](AGRO_MODULES_ROLLOUT.md). CTs e produtores de gado devem participar da descoberta. Utilidade e funcionamento em produção ainda exigem avaliação.
+Atualização de escopo — 11/10/2026: foco em agricultura e criação de animais, incluindo equinos para cuidados e manejo. CTs e funções esportivas estão fora do projeto atual. A base compartilhada e os limites estão em [AGRO_MODULAR_PLAN.md](AGRO_MODULAR_PLAN.md) e [AGRO_MODULES_ROLLOUT.md](AGRO_MODULES_ROLLOUT.md). A descoberta deve envolver criadores, agricultores e operações diversificadas.
 
 ## O que sabemos e o que ainda é hipótese
 

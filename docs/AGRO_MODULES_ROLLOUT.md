@@ -1,5 +1,7 @@
 # Módulos agro — implementação e ativação
 
+Atualização de escopo — 11/10/2026: foco em agricultura e criação de animais. CTs, treinos, provas e indicadores esportivos estão fora do produto atual. Não há telas, ferramentas ou desenvolvimento desses recursos. Os registros esportivos antigos permanecem no banco, fora das consultas atuais; não alterar migrations já publicadas.
+
 Atualizado em 01/10/2026. Código implementado e testado localmente; esta entrega não aplicou migrações, alterou variáveis ou publicou em produção. A marca é AGGI e a assistente permanece Lida.
 
 ## O que foi entregue
@@ -11,7 +13,7 @@ Os 13 perfis são:
 - **Horta e hortaliças:** canteiros, plantio, colheitas parciais, cuidados e histórico. Totais separados por kg, maço, caixa ou unidade.
 - **Lavouras e grãos:** áreas, plantio, produção colhida, cuidados e custos vinculados. Safras/ciclos existentes continuam no fluxo anterior.
 - **Fruticultura:** pomar, plantios, colheitas e histórico de cuidados.
-- **Equinos e CTs:** ficha individual, identificação, proprietário informado, local, treinos em minutos, passadas em segundos e penalidades separadas, cuidados, alimentação, pesagens e observações reprodutivas.
+- **Criação de equinos:** ficha individual, identificação, proprietário informado, local, cuidados, alimentação, pesagens e observações reprodutivas.
 - **Bovinos de corte:** animais e lotes, pesagens, entradas/saídas/baixas, alimentação e mudanças de local. Variação média diária calculada somente para um animal com pesagens em datas diferentes.
 - **Bovinos de leite:** os registros anteriores e produção em litros, individual ou por lote, com manhã/tarde/noite ou total do dia. Um mesmo alvo/data não aceita total diário sobreposto às ordenhas.
 - **Aves:** lotes, saldo do plantel, ovos em unidades inteiras, alimentação e baixas.
@@ -60,21 +62,19 @@ Se precisar desabilitar: defina `AGRO_MODULES_ENABLED=false` e reinicie o backen
 
 Envie uma mensagem por vez. Confira a resposta, abra o app e valide o registro antes da próxima. Se faltar um dado essencial ou houver nomes iguais, a Lida deve perguntar. Estes são cenários fictícios de aceitação, não uma conversa garantida do Gemini.
 
-### CT
+### Criação de animais
 
-1. “Cadastre uma atividade de equinos chamada CT Serra Azul na minha propriedade.”
-2. “Cadastre a Luna, égua de identificação LUNA-01, na atividade CT Serra Azul. O proprietário é João e ela está na baia 2.”
-3. “Registre que hoje fiz um treino técnico de 25 minutos com a Luna. O cavaleiro foi Pedro.”
-4. “Corrija esse treino para 30 minutos.”
-5. “Registre uma passada da Luna na prova de treino de hoje: 18,42 segundos e zero segundos de penalidade, com Pedro.”
-6. “Registre 180 reais de ferrageamento da Luna hoje na atividade CT Serra Azul.”
-7. “Agende o próximo ferrageamento da Luna para 15 de outubro de 2026 às 9h.”
-8. “Mude esse ferrageamento para 16 de outubro de 2026 às 11h.”
-9. “Registre um serviço de treinamento da Luna para João: 500 reais, venda hoje e vencimento em 20 de outubro de 2026.”
-10. “Registre que recebi 200 reais por Pix hoje desse serviço.”
-11. “Mostre o histórico da Luna e quanto ainda tenho a receber desse serviço.”
+1. “Cadastre uma atividade de criação de equinos chamada Criação Serra Azul.”
+2. “Cadastre a Luna, égua de identificação LUNA-01, nessa atividade. Ela está na baia 2.”
+3. “Registre que a Luna consumiu 3 kg de ração hoje.”
+4. “Corrija esse consumo para 2 kg.”
+5. “Registre a pesagem de hoje da Luna: 350 kg.”
+6. “Registre 180 reais de ferrageamento da Luna hoje.”
+7. “Agende conferir a água da Luna para 15 de outubro de 2026 às 9h.”
+8. “Mude essa tarefa para 16 de outubro de 2026 às 11h.”
+9. “Mostre os cuidados, o peso e os gastos da Luna.”
 
-Esperado: um animal, treino corrigido, passada com campos distintos, despesa vinculada, mesma tarefa remarcada, venda de R$ 500, recebimento de R$ 200 e saldo de R$ 300. O menor tempo medido e o menor tempo acrescido das penalidades informadas são indicadores diferentes; não são classificação oficial de prova.
+Esperado: ficha individual, consumo corrigido, pesagem em kg, despesa vinculada e a mesma tarefa remarcada, com dados confirmados no app.
 
 ### Gado, leite e operação diversificada
 
@@ -98,29 +98,28 @@ Esperado: um animal, treino corrigido, passada com campos distintos, despesa vin
 
 ## Verificação local e custos
 
-- `npm test`: 48 testes, incluindo a migração executada em PostgreSQL PGlite, registros, correções, unidades, isolamento, transações, permissões, relatórios e regressões anteriores.
-- `npm run test:agro-ui`: 38 verificações em navegador desktop e mobile com login sintético, servidor isolado e serviço/banco reais locais. Testa cadastro, falhas/repetição, pagamentos, remarcação e leite. Exige Playwright instalado; o ambiente Codex usou o runtime já disponível.
-- `npm run test:app-ui`: 30 verificações dos fluxos anteriores, com APIs interceptadas.
+- `npm test`: 69 testes, incluindo a migração executada em PostgreSQL PGlite, registros, correções, unidades, isolamento, transações, permissões, relatórios e regressões anteriores.
+- `npm run test:agro-ui`: 50 verificações em navegador desktop e mobile com login sintético, servidor isolado e serviço/banco reais locais. Testa cadastro, falhas/repetição, pagamentos, remarcação e leite. Exige Playwright instalado; o ambiente Codex usou o runtime já disponível.
+- `npm run test:app-ui`: 42 verificações dos fluxos anteriores, com APIs interceptadas.
 - Builds React web e assets Capacitor validados. Os testes não acionam Gemini, Twilio, pagamentos ou Supabase externos.
 
 O agente usa seis ferramentas compartilhadas para os módulos, contratos consultados sob demanda e contexto inicial limitado a 30 atividades, sem carregar o rebanho inteiro. Resumos para o agente trazem até 20 fichas, com indicação de lista parcial. Os cálculos e saldos ficam no servidor; telas e banco não gastam tokens Gemini. Isso evita replicar um catálogo de ferramentas por espécie. Ainda falta medir tokens e custo por ação em conversas reais; esta entrega não comprova redução percentual nem estabelece novo teto de cobrança.
 
 ## Limites e próxima validação
 
-Os fluxos acima têm evidência local. Não houve validação com produtor, treinador, veterinário ou uso real do Gemini/Twilio nesta entrega. Começar com contas de teste e usuários convidados antes de anunciar excelência universal.
+Os fluxos acima têm evidência local. Não houve validação com produtor, criador ou veterinário ou uso real do Gemini/Twilio nesta entrega. Começar com contas de teste e usuários convidados antes de anunciar excelência universal.
 
 Ainda precisam de planejamento e validação:
 
 - Pertencimento de animais individuais a lotes e transferências de composição. Os grupos atuais têm saldo inicial + movimentos próprios; não somar suas contagens com fichas individuais para contar o mesmo animal duas vezes.
 - Protocolos reprodutivos estruturados, genealogia, sanidade especializada, carências e prescrição. Hoje reprodução e cuidados são eventos relatados, sem automação clínica.
 - Para leite, não registrar a mesma produção simultaneamente no lote e nas vacas individuais: a sobreposição entre fichas distintas não é deduplicada automaticamente.
-- Regras oficiais de competição, classificação e dados completos de eventos esportivos.
 - Rateio de despesas compartilhadas, custo por cabeça com população/período definidos, custos de produção e lucro. Despesas sem vínculo específico não devem ser atribuídas a uma ficha por suposição.
-- Mensalidades recorrentes de hospedagem, contratos, cobrança ao cliente, entregas e controle fiscal. Vendas e recebimentos atuais são manuais; não geram cobrança Asaas nem emissão fiscal.
+- Contratos, cobrança ao cliente, entregas e controle fiscal. Vendas e recebimentos atuais são manuais; não geram cobrança Asaas nem emissão fiscal.
 - Inventário com conversões declaradas, baixa automática por vendas e contagem automática em kg de despesca/colheita. Venda e movimento de estoque/plantel são fatos distintos.
 - Permissões de equipe, conta externa do dono do cavalo e compartilhamento seletivo de fichas. Um nome de proprietário na ficha não dá acesso ao app.
 - Fila offline persistente, reconciliação e sincronização em segundo plano. Rascunhos atuais não sobrevivem obrigatoriamente ao fechamento do app.
 - Medições especializadas de água, biomassa, mortalidade percentual, produtividade, taxas reprodutivas e previsão de produção. O módulo genérico não fabrica esses indicadores.
 - Teste de concorrência e volume em PostgreSQL remoto. Os gatilhos usam bloqueios para preservar saldos; o teste PGlite local não simula vários clientes concorrentes em produção.
 
-Próxima etapa de produto: acompanhar um CT, uma operação de corte/leite e uma operação diversificada nos mesmos roteiros; registrar onde faltaram dados, quantas perguntas a Lida fez, correções necessárias, tempo até concluir e tokens por ação. Priorizar o que impediu trabalho real antes de adicionar novos indicadores.
+Próxima etapa de produto: acompanhar uma criação de animais, uma operação de corte/leite e uma operação diversificada nos mesmos roteiros; registrar onde faltaram dados, quantas perguntas a Lida fez, correções necessárias, tempo até concluir e tokens por ação. Priorizar o que impediu trabalho real antes de adicionar novos indicadores.

@@ -33,8 +33,6 @@ export async function agroOverview(service, farmId, filters = {}) {
     const rows = eventsByUnit.get(unit.id) || [];
     const weighs = rows.filter(e => e.event_type === 'weighing').sort((a, b) => a.event_date.localeCompare(b.event_date));
     const first = weighs[0], last = weighs.at(-1);
-    const trainings = rows.filter(e => e.event_type === 'training');
-    const runs = rows.filter(e => e.event_type === 'competition');
     const days = first && last ? (Date.parse(last.event_date) - Date.parse(first.event_date)) / 86400000 : 0;
     const moves = (movesByUnit.get(unit.id) || []).sort((a, b) => b.event_date.localeCompare(a.event_date) || b.created_at.localeCompare(a.created_at));
     unitStats[unit.id] = {
@@ -44,11 +42,6 @@ export async function agroOverview(service, farmId, filters = {}) {
       weight_date: last?.event_date || null,
       average_daily_gain_kg: unit.unit_type === 'animal' && days > 0 ? Math.round((Number(last.quantity) - Number(first.quantity)) / days * 1000) / 1000 : null,
       weight_interval_days: days || null,
-      training_sessions: trainings.length,
-      training_minutes: trainings.reduce((n, r) => n + Number(r.duration_minutes), 0),
-      timed_runs: runs.length,
-      best_measured_seconds: runs.length ? runs.reduce((best, r) => Math.min(best, Number(r.time_seconds)), Infinity) : null,
-      best_time_plus_penalties_seconds: runs.length ? runs.reduce((best, r) => Math.min(best, Number(r.time_seconds) + Number(r.penalty_seconds || 0)), Infinity) : null,
     };
   }
   for (const row of events) {

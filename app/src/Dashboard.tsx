@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronRight, ClipboardList, Clock3, CloudSun, Coins, Leaf, MapPinned, MessageCircle, RefreshCw, Wallet, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronRight, ClipboardList, Clock3, CloudSun, Coins, Leaf, MapPinned, MessageCircle, RefreshCw, Wallet } from 'lucide-react';
 import type { ActivityChange, DashboardData, DashboardFilter, Farm, Weather } from './api';
 import DashboardPeriod from './DashboardPeriod';
+import FirstRequest from './FirstRequest';
 import './dashboard.css';
 
 const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 const number = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
 const day = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit' });
-const kinds: Record<string, string> = { milk: 'Leite', harvest: 'Colheita', production: 'Ovos', training: 'Treino', competition: 'Passada', feeding: 'Alimentação', weighing: 'Pesagem', care: 'Cuidado', planting: 'Plantio', mortality: 'Baixa no grupo', stock_entry: 'Entrada no grupo', stock_exit: 'Saída do grupo', movement: 'Mudança de local' };
+const kinds: Record<string, string> = { milk: 'Leite', harvest: 'Colheita', production: 'Ovos', feeding: 'Alimentação', weighing: 'Pesagem', care: 'Cuidado', planting: 'Plantio', mortality: 'Baixa no grupo', stock_entry: 'Entrada no grupo', stock_exit: 'Saída do grupo', movement: 'Mudança de local' };
 const unitLabels: Record<string, string> = { l: 'litros', un: 'unidades', maco: 'maços', 'maço': 'maços', caixa: 'caixas', m3: 'm³' };
 function stamp(value: string, timezone: string, today: string) {
   const instant = new Date(value);
@@ -20,8 +20,6 @@ function recordValue(change: ActivityChange) {
   if (!details) return '';
   if (details.amount != null && Number.isFinite(Number(details.amount))) return money(Number(details.amount));
   if (details.quantity != null && Number.isFinite(Number(details.quantity))) return `${number(Number(details.quantity))} ${unitLabels[details.unit || ''] || details.unit || ''}`.trim();
-  if (details.duration_minutes != null) return `${number(Number(details.duration_minutes))} min`;
-  if (details.time_seconds != null) return `${number(Number(details.time_seconds))} s${Number(details.penalty_seconds) > 0 ? ` + ${number(Number(details.penalty_seconds))} s de penalidade` : ''}`;
   return '';
 }
 function savedState(change: ActivityChange) {
@@ -35,27 +33,33 @@ function savedState(change: ActivityChange) {
 type Props = {
   farm: Farm; data: DashboardData | null; weather: Weather | null; loading: boolean; error?: string; online: boolean; busy: boolean; whatsappUrl?: string;
   filter: DashboardFilter; onPeriod: (filter: DashboardFilter) => void;
-  onRefresh: () => void; onRecord: (change: ActivityChange) => void; onRecords: () => void; onAgenda: () => void; onFarm: () => void; onProduction: (period: DashboardData['period']) => void;
+  onRefresh: () => void; onRecord: (change: ActivityChange) => void; onRecords: () => void; onExpenses: () => void; onAgenda: () => void; onFarm: () => void; onProduction: (period: DashboardData['period']) => void;
 };
-export default function Dashboard({ farm, data, weather, loading, error, online, busy, whatsappUrl, filter, onPeriod, onRefresh, onRecord, onRecords, onAgenda, onFarm, onProduction }: Props) {
-  const [showExpenses, setShowExpenses] = useState(false);
-  const periodControl = <DashboardPeriod filter={filter} data={data} timezone={farm.timezone || 'America/Sao_Paulo'} disabled={!online || busy} onChange={value => { setShowExpenses(false); onPeriod(value); }}/>;
-  if (!data) return <div className="dashboard"><div className="dash-heading"><div><span className="dash-eyebrow">{farm.name}</span><h1>Seu resumo</h1><p>O que você contou à Lida, organizado aqui.</p></div></div>{periodControl}<section className="dash-state" role={loading ? 'status' : undefined}><span className="dash-icon"><RefreshCw size={23}/></span><h2>{loading ? 'Buscando seus registros…' : 'Não conseguimos abrir o resumo'}</h2><p>{loading ? 'Já vamos mostrar o que está salvo nesta propriedade.' : 'Tente atualizar para conferir seus gastos, produção e tarefas.'}</p>{!loading && <button className="button primary" disabled={!online || busy} onClick={onRefresh}>Tentar novamente</button>}</section></div>;
+export default function Dashboard({ farm, data, weather, loading, error, online, busy, whatsappUrl, filter, onPeriod, onRefresh, onRecord, onRecords, onExpenses, onAgenda, onFarm, onProduction }: Props) {
+  const periodControl = <DashboardPeriod filter={filter} data={data} timezone={farm.timezone || 'America/Sao_Paulo'} disabled={!online || busy} onChange={onPeriod}/>;
+  if (!data) return <div className="dashboard"><div className="dash-heading"><div className="dash-title"><h1>Seu resumo</h1><span className="dash-eyebrow">{farm.name}</span></div></div>{periodControl}<section className="dash-state" role={loading ? 'status' : undefined}><span className="dash-icon"><RefreshCw size={23}/></span><h2>{loading ? 'Buscando seus registros…' : 'Não conseguimos abrir o resumo'}</h2><p>{loading ? 'Já vamos mostrar o que está salvo nesta propriedade.' : 'Tente atualizar para conferir seus gastos, produção e tarefas.'}</p>{!loading && <button className="button primary" disabled={!online || busy} onClick={onRefresh}>Tentar novamente</button>}</section></div>;
   const month = new Date(`${data.period.from}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC', month: 'long', year: 'numeric' });
   const until = new Date(data.period.to_exclusive + 'T12:00:00Z'); until.setUTCDate(until.getUTCDate() - 1);
   const periodLabel = filter.period === 'month' || filter.period === 'previous_month' ? month : filter.period === 'today' ? 'Hoje, ' + day(data.today) : data.period.from.split('-').reverse().join('/') + ' a ' + until.toISOString().slice(0, 10).split('-').reverse().join('/');
   const recent = data.recent_records.filter(item => item.status === 'completed').flatMap(item => item.changes.filter(change => change.entity_id).map((change, index) => ({ key: `${item.id}-${index}`, source: item.source, created_at: item.created_at, change }))).slice(0, 5);
+  const syncStatus = loading ? 'Atualizando…' : error ? 'Não foi possível atualizar' : `Atualizado às ${new Date(data.generated_at).toLocaleTimeString('pt-BR', { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' })}`;
   return <div className="dashboard">
-    <div className="dash-heading"><div><span className="dash-eyebrow">{farm.name}</span><h1>Seu resumo</h1><p>O que você contou à Lida, organizado aqui.</p></div><div className="dash-sync"><span className="dash-updated" role="status"><span className={error ? 'dash-dot warning' : 'dash-dot'} />{loading ? 'Atualizando…' : error ? 'Não foi possível atualizar' : `Atualizado às ${new Date(data.generated_at).toLocaleTimeString('pt-BR', { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' })}`}</span><button className="dash-link" aria-label="Atualizar resumo" disabled={loading || busy || !online} onClick={onRefresh}><RefreshCw size={16}/> Atualizar</button></div></div>
+    <div className="dash-heading"><div className="dash-title"><h1>Seu resumo</h1><span className="dash-eyebrow">{farm.name}</span></div><button className="dash-link" aria-label="Atualizar resumo" title={syncStatus} disabled={loading || busy || !online} onClick={onRefresh}><RefreshCw size={16} aria-hidden="true"/> Atualizar</button><span className="dash-updated" role="status">{syncStatus}</span></div>
     {periodControl}
+    {!error && !recent.some(({ change }) => !['farms', 'fields', 'crop_seasons', 'farm_activities', 'production_units'].includes(change.entity)) && !data.agenda.pending && !data.expenses?.count && !data.production.length && <FirstRequest farm={farm} whatsappUrl={whatsappUrl} online={online} busy={busy || loading} onRefresh={onRefresh} onTasks={onAgenda}/>}
     {error && <p className="dash-stale" role="status">Os números abaixo são da última consulta. Atualize para conferir as mudanças.</p>}
-    <div className="dash-numbers" aria-label="Resumo da propriedade">
-      {data.expenses && <button className="dash-number expenses" aria-expanded={showExpenses} aria-controls="dash-expenses" onClick={() => setShowExpenses(value => !value)}><span className="dash-number-top"><Wallet size={19}/><span>{filter.period === 'month' ? 'Gastos deste mês' : 'Gastos no período'}</span><ChevronRight size={17}/></span><strong>{money(data.expenses.amount)}</strong><span className="dash-number-note">{periodLabel} · {data.expenses.count} {data.expenses.count === 1 ? 'despesa' : 'despesas'}</span></button>}
-      <button className={`dash-number agenda${data.agenda.overdue ? ' has-overdue' : ''}`} onClick={onAgenda}><span className="dash-number-top"><CalendarDays size={19}/><span>Tarefas para hoje</span><ChevronRight size={17}/></span><strong>{data.agenda.today}</strong><span className="dash-number-note">{data.agenda.overdue ? `${data.agenda.overdue} ${data.agenda.overdue === 1 ? 'atrasada' : 'atrasadas'} · ` : ''}{data.agenda.pending} {data.agenda.pending === 1 ? 'pendente' : 'pendentes'} ao todo</span></button>
-    </div>
-    {showExpenses && data.expenses && <section id="dash-expenses" className="dash-panel dash-expenses"><div className="dash-section-heading"><div><h2>Gastos · {periodLabel}</h2><p>Despesas registradas nesta propriedade.</p></div><button className="icon-button" aria-label="Fechar gastos do mês" onClick={() => setShowExpenses(false)}><X size={18}/></button></div>{data.expenses.recent.length ? <ul>{data.expenses.recent.map(expense => <li key={expense.id}><button disabled={busy || !online} onClick={() => onRecord({ entity: 'farm_expenses', entity_id: expense.id, type: 'created', label: 'Despesa', title: expense.description })}><span><strong>{expense.description}</strong><small>{day(expense.expense_date)}</small></span><strong>{money(expense.amount)}</strong><ChevronRight size={17}/></button></li>)}</ul> : <p className="dash-empty">Nenhuma despesa registrada neste período.</p>}{data.expenses.count > 5 && <p className="dash-footnote">Mostrando as 5 despesas mais recentes do período.</p>}</section>}
+    <section className="dash-summary" aria-label="Resumo da propriedade">
+      <div className="dash-numbers">
+        {data.expenses && <button className="dash-number expenses" aria-label={`Gastos em ${periodLabel}: ${money(data.expenses.amount)}`} disabled={busy} onClick={onExpenses}><span className="dash-number-top"><Wallet size={19}/><span>Gastos</span></span><span className="dash-summary-scope">{filter.period === 'month' ? 'Neste mês' : 'No período'}</span><strong><small>R$</small><span>{data.expenses.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></strong><span className="dash-number-note">Ver gastos <ChevronRight size={15}/></span></button>}
+        <button className="dash-number agenda" onClick={onAgenda}><span className="dash-number-top"><CalendarDays size={19}/><span>Tarefas</span></span><span className="dash-summary-scope">Para hoje</span><strong><span>{data.agenda.today}</span></strong><span className="dash-number-note">Ver tarefas <ChevronRight size={15}/></span></button>
+      </div>
+      <div className="dash-summary-context">
+        {data.expenses && <p className="dash-summary-period">Gastos: {periodLabel} · {data.expenses.count} {data.expenses.count === 1 ? 'despesa' : 'despesas'}</p>}
+        <p className={data.agenda.overdue ? 'dash-summary-pending overdue' : 'dash-summary-pending'}>{data.agenda.pending} {data.agenda.pending === 1 ? 'tarefa pendente' : 'tarefas pendentes'}{data.agenda.overdue > 0 && <> · {data.agenda.overdue} {data.agenda.overdue === 1 ? 'atrasada' : 'atrasadas'}</>}</p>
+      </div>
+    </section>
     <div className="dash-main-grid">
-      <section className="dash-panel dash-records" aria-labelledby="dash-records-title"><div className="dash-section-heading"><div><h2 id="dash-records-title">Últimos registros</h2><p>Cada registro aparece uma vez, com sua situação atual.</p></div><button className="dash-link" disabled={busy} onClick={onRecords}>Ver todos <ArrowRight size={17}/></button></div>
+      <section className="dash-panel dash-records" aria-labelledby="dash-records-title"><div className="dash-section-heading"><div><h2 id="dash-records-title">Últimos registros</h2><p>Abra um registro para conferir os detalhes.</p></div><button className="dash-link" disabled={busy} onClick={onRecords}>Meus registros <ArrowRight size={17}/></button></div>
         {recent.length ? <ul>{recent.map(({ key, source, created_at, change }) => {
           const value = recordValue(change);
           const recordDate = change.details?.expense_date || change.details?.event_date || change.details?.operation_date;

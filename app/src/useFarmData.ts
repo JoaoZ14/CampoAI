@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, errorMessage, rural, type ActivityPage, type DashboardFilter, type Summary, type Task, type Weather } from './api';
+import { api, errorMessage, rural, type DashboardFilter, type Summary, type Task, type Weather } from './api';
 import { useDashboard } from './useDashboard';
 
-type Data = { farmId: string; summary: Summary | null; activity: ActivityPage; tasks: Task[]; weather: Weather | null };
-const empty = (farmId: string): Data => ({ farmId, summary: null, activity: { items: [], has_more: false }, tasks: [], weather: null });
+type Data = { farmId: string; summary: Summary | null; tasks: Task[]; weather: Weather | null };
+const empty = (farmId: string): Data => ({ farmId, summary: null, tasks: [], weather: null });
 const defaultFilter: DashboardFilter = { period: 'month' };
 
 export function useFarmData(farmId: string, filter: DashboardFilter = defaultFilter) {
@@ -27,24 +27,22 @@ export function useFarmData(farmId: string, filter: DashboardFilter = defaultFil
     const options = { signal: current.signal };
     const results = await Promise.allSettled([
       api<Summary>(rural(farmId, '/summary'), options),
-      api<ActivityPage>(rural(farmId, '/activity'), options),
       api<Task[]>(rural(farmId, '/farm_tasks?status=pending'), options),
       api<Weather>(rural(farmId, '/weather'), options),
     ]);
     if (current.signal.aborted || selected.current !== farmId) return;
-    const [summary, activity, tasks, weather] = results;
+    const [summary, tasks, weather] = results;
     setData(previous => ({
       farmId,
       summary: summary.status === 'fulfilled' ? summary.value : previous.farmId === farmId ? previous.summary : null,
-      activity: activity.status === 'fulfilled' ? activity.value : previous.farmId === farmId ? previous.activity : empty(farmId).activity,
       tasks: tasks.status === 'fulfilled' ? tasks.value : previous.farmId === farmId ? previous.tasks : [],
       weather: weather.status === 'fulfilled' ? weather.value : null,
     }));
     const failures: Record<string, string> = {};
     results.forEach((result, index) => {
       // No forecast is expected until location is registered or the feature enabled.
-      if (result.status === 'rejected' && !(index === 3 && [400, 404].includes(result.reason?.status)))
-        failures[['summary', 'activity', 'tasks', 'weather'][index]] = errorMessage(result.reason);
+      if (result.status === 'rejected' && !(index === 2 && [400, 404].includes(result.reason?.status)))
+        failures[['summary', 'tasks', 'weather'][index]] = errorMessage(result.reason);
     });
     setErrors(failures); setPending(false); refreshing.current = false;
   }, [farmId]);
@@ -59,7 +57,6 @@ export function useFarmData(farmId: string, filter: DashboardFilter = defaultFil
   const refresh = useCallback(async () => { await Promise.all([refreshFarm(), dashboardState.refresh()]); }, [refreshFarm, dashboardState.refresh]);
   const current = data.farmId === farmId ? data : empty(farmId);
   return { ...current, dashboard: dashboardState.data, loading: Boolean(farmId) && (pending || data.farmId !== farmId), dashboardLoading: dashboardState.loading, errors: { ...errors, ...(dashboardState.error ? { dashboard: dashboardState.error } : {}) } as Record<string, string>, refresh,
-    appendActivity: (page: ActivityPage) => setData(previous => previous.farmId === farmId ? { ...previous, activity: { items: [...previous.activity.items, ...page.items], has_more: page.has_more } } : previous),
     appendTasks: (page: Task[]) => setData(previous => previous.farmId === farmId ? { ...previous, tasks: [...previous.tasks, ...page] } : previous),
   };
 }

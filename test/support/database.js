@@ -43,6 +43,10 @@ class Query {
     this.filters.push([k, "=", v]);
     return this;
   }
+  in(k, values) {
+    this.filters.push([k, 'in', values]);
+    return this;
+  }
   lt(k, v) {
     this.filters.push([k, "<", v]);
     return this;
@@ -124,7 +128,7 @@ class Query {
       sql +=
         " where " +
         this.filters
-          .map(([k, op, v]) => `${quote(k)} ${op} ${param(v)}`)
+          .map(([k, op, v]) => op === 'in' ? `${quote(k)} in (${v.map(param).join(',')})` : `${quote(k)} ${op} ${param(v)}`)
           .join(" and ");
     if (this.method === "select") {
       if (this.orders.length) sql += " order by " + this.orders.join(",");

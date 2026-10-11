@@ -13,7 +13,7 @@ const browser = await chromium.launch({ headless: true, channel: process.env.BRO
 await mkdir('test-artifacts/dashboard', { recursive: true });
 const farms = [
   { id: '11111111-1111-4111-8111-111111111111', name: 'Sítio Boa Vista', timezone: 'America/Sao_Paulo' },
-  { id: '22222222-2222-4222-8222-222222222222', name: 'CT Horizonte', timezone: 'America/Sao_Paulo' },
+  { id: '22222222-2222-4222-8222-222222222222', name: 'Fazenda Horizonte', timezone: 'America/Sao_Paulo' },
 ];
 const user = { id: '33333333-3333-4333-8333-333333333333', email: 'teste@example.test', aud: 'authenticated', app_metadata: {}, user_metadata: {} };
 const session = { access_token: 'fixture-token', refresh_token: 'fixture-refresh', token_type: 'bearer', expires_at: Math.floor(Date.now() / 1000) + 3600, expires_in: 3600, user };
@@ -87,12 +87,18 @@ try {
       }
       try { await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(status === 200 ? { ok: true, data } : { ok: false, ...data }) }); } catch { /* interrupted when switching property */ }
     });
-    await page.goto(`${base}/app/`);
+    await page.goto(`${base}/`);
     await page.locator('.dash-record').first().waitFor();
     check(!summaryReady, `${width}: dashboard does not wait for the slower old summary`);
     check(await page.getByRole('heading', { name: 'Seu resumo', exact: true }).count() === 1, `${width}: clear start`);
+    const spendingBounds = await page.locator('.dash-number.expenses').boundingBox();
+    const taskBounds = await page.locator('.dash-number.agenda').boundingBox();
+    check(Math.abs(spendingBounds.y - taskBounds.y) < 1 && taskBounds.x > spendingBounds.x, `${width}: spending and tasks share a row`);
+    check(Math.abs(spendingBounds.height - taskBounds.height) < 1, `${width}: summary cards have equal height`);
+    await page.locator('.dash-summary').evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+    await page.locator('.dash-summary').screenshot({ path: `test-artifacts/dashboard/summary-${width}.png` });
     check((await page.locator('.dash-number.expenses').innerText()).includes('450,00'), `${width}: monthly total, not lifetime summary`);
-    check((await page.locator('.dash-number.expenses').innerText()).includes('outubro de 2026'), `${width}: explicit period`);
+    check((await page.locator('.dash-summary-period').innerText()).includes('outubro de 2026'), `${width}: explicit period`);
     check((await page.locator('.dash-record').first().innerText()).includes('350,00'), `${width}: expense amount immediately visible`);
     check((await page.locator('.dash-record').nth(1).innerText()).includes('20 maços'), `${width}: harvest quantity visible`);
     check((await page.locator('.dash-record').nth(2).innerText()).includes('85 litros'), `${width}: milk quantity visible`);
@@ -103,32 +109,34 @@ try {
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({ path: `test-artifacts/dashboard/home-${width}.png`, fullPage: true });
     await page.locator('.dash-record').first().click();
-    await page.getByRole('region', { name: 'Registro selecionado' }).waitFor();
-    check((await page.getByRole('region', { name: 'Registro selecionado' }).innerText()).includes('350,00'), `${width}: home record opens its actual details`);
+    await page.locator('.record-page').waitFor();
+    check((await page.locator('.record-page').innerText()).includes('350,00'), `${width}: home record opens its actual details`);
     await page.getByText('Histórico deste registro', { exact: true }).click();
     await page.locator('.record-history li').first().waitFor();
     check(await page.locator('.record-history li').count() === 2, `${width}: detail retains the audit history`);
     check((await page.locator('.record-history').innerText()).includes('320,00'), `${width}: original amount visible in history`);
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Início', exact: true }).click();
+    await page.locator('.record-page').getByRole('link', { name: '← Início', exact: true }).click();
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('link', { name: 'Início', exact: true }).click();
     await page.locator('.dash-number.expenses').click();
-    check((await page.locator('#dash-expenses').innerText()).includes('Diesel para o trator'), `${width}: spending tile opens read-only expenses`);
-    await page.getByRole('button', { name: 'Fechar gastos do mês' }).click();
+    await page.getByRole('heading', { name: 'Meus gastos', exact: true }).waitFor();
+    check(new URL(page.url()).pathname.endsWith('/gastos'), `${width}: spending tile opens the dedicated expense page`);
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('link', { name: 'Início', exact: true }).click();
     await page.getByRole('button', { name: 'Ver minha produção' }).click();
     await page.getByText('Cebolinha colhida', { exact: true }).waitFor();
     check(await page.getByLabel('Período da atividade').inputValue() === 'range', `${width}: production opens the same monthly scope`);
     check(productionQuery?.has('from') && productionQuery?.has('to'), `${width}: half-open month sent to server`);
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Início', exact: true }).click();
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('link', { name: 'Início', exact: true }).click();
     const summariesBefore = summaryRequests;
     await page.getByLabel('Período de gastos e produção').selectOption('previous_month');
     await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('120,00'));
-    check((await page.locator('.dash-number.expenses').innerText()).includes('setembro de 2026'), `${width}: previous month explicit`);
+    check((await page.locator('.dash-summary-period').innerText()).includes('setembro de 2026'), `${width}: previous month explicit`);
     check(await page.locator('.dash-record').count() === 5, `${width}: period does not hide recent records`);
     check(await page.locator('.dash-task').count() === 1, `${width}: period does not hide pending tasks`);
     check(summaryRequests === summariesBefore, `${width}: period does not reload unrelated sections`);
     await page.getByLabel('Período de gastos e produção').selectOption('custom');
     await page.getByLabel('De', { exact: true }).fill('2026-09-30');
     await page.getByLabel('Até', { exact: true }).fill('2026-10-01');
-    await page.getByRole('button', { name: 'Consultar período', exact: true }).click();
+    await page.getByRole('button', { name: 'Ver resumo', exact: true }).click();
     await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('470,00'));
     check(periodRequests.at(-1).get('from') === '2026-09-30' && periodRequests.at(-1).get('to') === '2026-10-02', `${width}: custom includes the last selected day`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: custom controls fit mobile`);
@@ -136,19 +144,19 @@ try {
     await page.getByRole('button', { name: 'Ver minha produção' }).click();
     await page.getByText('Cebolinha colhida', { exact: true }).waitFor();
     check(productionQuery?.get('from') === '2026-09-30' && productionQuery?.get('to') === '2026-10-02', `${width}: production keeps the custom period`);
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Início', exact: true }).click();
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('link', { name: 'Início', exact: true }).click();
     await page.getByLabel('Período de gastos e produção').selectOption('today');
     await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('350,00'));
     check(periodRequests.at(-1).get('period') === 'today', `${width}: today uses the local-day preset`);
     await page.getByLabel('Período de gastos e produção').selectOption('month');
     await page.waitForFunction(() => document.querySelector('.dash-number.expenses')?.textContent.includes('450,00'));
     fail = true;
-    await page.getByRole('button', { name: 'Atualizar resumo' }).click();
+    await page.getByRole('button', { name: 'Atualizar resumo', exact: true }).click();
     await page.getByText('Os números abaixo são da última consulta.', { exact: false }).waitFor();
     check((await page.locator('.dash-number.expenses').innerText()).includes('450,00'), `${width}: error keeps last known data`);
     check(!(await page.locator('body').innerText()).includes('private database'), `${width}: diagnostic not exposed`);
     fail = false;
-    await page.getByRole('button', { name: 'Atualizar resumo' }).click();
+    await page.getByRole('button', { name: 'Atualizar resumo', exact: true }).click();
     await page.locator('.dash-stale').waitFor({ state: 'detached' });
     await page.waitForFunction(() => !document.querySelector('.refresh').disabled);
     const before = dashboardRequests;
@@ -162,8 +170,18 @@ try {
     await page.getByRole('heading', { name: 'Seus pedidos vão aparecer aqui.' }).waitFor();
     await new Promise(done => setTimeout(done, 750));
     check(await page.locator('.dash-record').count() === 0, `${width}: late response cannot mix property records`);
-    check((await page.locator('.dash-heading').innerText()).includes('CT Horizonte'), `${width}: selected property clear`);
+    check((await page.locator('.dash-heading').innerText()).includes('Fazenda Horizonte'), `${width}: selected property clear`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: empty state fits viewport`);
+    await page.getByRole('heading', { name: 'Faça um pedido. Veja ele aqui.', exact: true }).waitFor();
+    await page.getByText('Começar com uma tarefa minha', { exact: true }).click();
+    await page.getByLabel('O que você precisa fazer?', { exact: true }).fill('Conferir a água dos cavalos');
+    await page.getByLabel('Horário de amanhã', { exact: true }).fill('09:30');
+    await page.getByRole('button', { name: 'Preparar meu pedido', exact: true }).click();
+    const draftUrl = new URL(await page.getByRole('link', { name: 'Abrir pedido no WhatsApp' }).getAttribute('href'));
+    check(draftUrl.searchParams.get('text').includes('Fazenda Horizonte') && draftUrl.searchParams.get('text').includes('09:30'), `${width}: guided request names the selected farm and exact hour`);
+    check(draftUrl.searchParams.get('text').includes('Sem lembrete no WhatsApp'), `${width}: guided task does not silently enable a reminder`);
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: guided request fits mobile`);
+    await page.screenshot({ path: `test-artifacts/dashboard/first-request-${width}.png`, fullPage: true });
     slowFirst = false; fail = true;
     await page.getByLabel('Propriedade', { exact: true }).selectOption(farms[0].id);
     await page.getByRole('heading', { name: 'Não conseguimos abrir o resumo' }).waitFor();
@@ -174,7 +192,7 @@ try {
     check((await page.locator('.dash-number.expenses').innerText()).includes('0,00'), `${width}: confirmed empty month is zero`);
     await context.setOffline(true);
     await page.getByText('Sem conexão.', { exact: false }).first().waitFor();
-    check(!await page.getByRole('button', { name: 'Atualizar resumo' }).isEnabled(), `${width}: offline refresh disabled`);
+    check(!await page.getByRole('button', { name: 'Atualizar resumo', exact: true }).isEnabled(), `${width}: offline refresh disabled`);
     check(errors.length === 0, `${width}: no runtime errors ${errors}`);
     await context.close();
   }
