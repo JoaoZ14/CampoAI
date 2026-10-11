@@ -111,6 +111,7 @@ export async function handleTwilioInbound(req, res, next) {
     const phoneRaw = String(From).replace(/^whatsapp:/i, '').trim();
 
     const payload = {
+      receivedAt: new Date().toISOString(),
       phone: phoneRaw,
       message: Body.trim() || undefined,
       imageUrl: imageUrl || undefined,

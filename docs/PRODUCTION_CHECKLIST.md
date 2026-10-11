@@ -2,6 +2,8 @@
 
 Use este checklist ao colocar o fluxo de cadastro/trial em produção ou após cada deploy relevante.
 
+Para `useaggi.com` (landing) e `app.useaggi.com` (app/API), seguir também [a configuração de domínios e autenticação](DOMAINS.md).
+
 ## 1. Banco (Supabase SQL Editor)
 
 Executar na ordem, se ainda não aplicadas:
@@ -16,9 +18,9 @@ Validar colunas em `public.users`: `signup_completed_at`, `trial_started_at`, `t
 ## 2. Variáveis de ambiente (VPS)
 
 ```env
-PUBLIC_APP_URL=https://campoai-production-b7c7.up.railway.app
-SIGNUP_URL=https://campoai-production-b7c7.up.railway.app/cadastro
-PAYWALL_URL=https://campoai-production-b7c7.up.railway.app/planos
+PUBLIC_APP_URL=https://app.useaggi.com
+SIGNUP_URL=https://app.useaggi.com/cadastro
+PAYWALL_URL=https://app.useaggi.com/planos
 FREE_TRIAL_DAYS=14
 FREE_USAGE_LIMIT=10
 ```
@@ -60,7 +62,7 @@ Reiniciar o processo Node após alterar. Usuários com `trial_ends_at` no passad
 
 Confirmar CTAs apontando para:
 
-`https://campoai-production-b7c7.up.railway.app/cadastro?origin=landing`
+`https://app.useaggi.com/cadastro?origin=landing`
 
 Arquivo: `CampoAILanding/index.html`.
 
@@ -68,10 +70,10 @@ Arquivo: `CampoAILanding/index.html`.
 
 ```bash
 # Health + OpenAPI + planos
-npm run smoke:deploy -- https://campoai-production-b7c7.up.railway.app
+npm run smoke:deploy -- https://app.useaggi.com
 
 # Funil comercial completo (páginas, APIs, guards)
-npm run validate:funnel -- https://campoai-production-b7c7.up.railway.app
+npm run validate:funnel -- https://app.useaggi.com
 
 # Migrações no Supabase
 npm run confirm:migrations

@@ -44,7 +44,7 @@ if (catalogErr) {
   fail('migration_017', 'tabela plan_catalog vazia');
 } else {
   const row = catalogRows[0];
-  if (row.version === '2026-04') pass('migration_017', 'plan_catalog version 2026-04');
+  if (['2026-04', '2026-10'].includes(row.version)) pass('migration_017', 'plan_catalog version 2026-04');
   else fail('migration_017', `version=${row.version ?? 'null'}`);
 }
 

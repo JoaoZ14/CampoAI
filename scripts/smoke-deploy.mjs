@@ -2,7 +2,7 @@
 /**
  * Smoke test pós-deploy — valida endpoints públicos.
  * Uso: node scripts/smoke-deploy.mjs [baseUrl]
- * Ex.: node scripts/smoke-deploy.mjs https://campoai-production-b7c7.up.railway.app
+ * Ex.: node scripts/smoke-deploy.mjs https://app.useaggi.com
  */
 const base = (process.argv[2] || process.env.PUBLIC_APP_URL || 'http://localhost:3001').replace(
   /\/$/,

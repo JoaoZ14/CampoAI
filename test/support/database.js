@@ -43,12 +43,20 @@ class Query {
     this.filters.push([k, "=", v]);
     return this;
   }
+  in(k, values) {
+    this.filters.push([k, 'in', values]);
+    return this;
+  }
   lt(k, v) {
     this.filters.push([k, "<", v]);
     return this;
   }
   gte(k, v) {
     this.filters.push([k, ">=", v]);
+    return this;
+  }
+  contains(k, v) {
+    this.filters.push([k, '@>', v]);
     return this;
   }
   order(k, { ascending = true } = {}) {
@@ -96,7 +104,7 @@ class Query {
     };
     let sql;
     if (this.method === "select")
-      sql = `select ${this.columns === "*" ? "*" : this.columns.split(",").map(quote).join(",")} from ${quote(this.table)}`;
+      sql = `select ${this.columns === "*" ? "*" : this.columns.split(",").map(c => quote(c.trim())).join(",")} from ${quote(this.table)}`;
     else if (this.method === "insert") {
       const keys = Object.keys(this.value);
       sql = `insert into ${quote(this.table)} (${keys.map(quote)}) values (${keys.map((k) => param(this.value[k]))})`;
@@ -120,7 +128,7 @@ class Query {
       sql +=
         " where " +
         this.filters
-          .map(([k, op, v]) => `${quote(k)} ${op} ${param(v)}`)
+          .map(([k, op, v]) => op === 'in' ? `${quote(k)} in (${v.map(param).join(',')})` : `${quote(k)} ${op} ${param(v)}`)
           .join(" and ");
     if (this.method === "select") {
       if (this.orders.length) sql += " order by " + this.orders.join(",");

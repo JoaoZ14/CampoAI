@@ -5,7 +5,7 @@ import { database } from './support/database.js';
 import { RuralRepository } from '../src/rural/repository.js';
 import { RuralService } from '../src/rural/service.js';
 import { farmDashboard } from '../src/rural/dashboard.js';
-import { publicActivity } from '../src/rural/activity.js';
+import { publicActivity, recordHistory } from '../src/rural/activity.js';
 
 let pg, repo, user, farm;
 const now = new Date('2026-10-01T01:30:00Z'); // September 30 in the property's timezone.
@@ -87,4 +87,41 @@ test('disabled modules avoid new tables and disabled expenses are unavailable, n
     assert.equal(result.expenses, null); assert.equal(result.modules_enabled, false);
     assert.deepEqual(result.production, []); assert.deepEqual(result.activities, []);
   } finally { process.env.AGRO_MODULES_ENABLED = 'true'; process.env.EXPENSES_ENABLED = 'true'; }
+});
+test('period presets and inclusive custom dates change totals without hiding pending tasks or recent records', async () => {
+  const instant = new Date('2026-10-02T13:00:00Z');
+  const current = await farmDashboard(service(), farm.id, instant);
+  const previous = await farmDashboard(service(), farm.id, instant, { period: 'previous_month' });
+  const today = await farmDashboard(service(), farm.id, instant, { period: 'today' });
+  const custom = await farmDashboard(service(), farm.id, instant, { period: 'custom', from: '2026-09-30', to: '2026-10-02' });
+  assert.equal(current.expenses.amount, 900); assert.equal(previous.expenses.amount, 51.3); assert.equal(today.expenses.amount, 0);
+  assert.equal(custom.expenses.amount, 951.2);
+  assert.deepEqual(previous.period, { from: '2026-09-01', to_exclusive: '2026-10-01' });
+  assert.ok([previous, today, custom].every(result => result.agenda.pending === current.agenda.pending));
+  assert.deepEqual(previous.recent_records, current.recent_records);
+  assert.equal(previous.production.find(row => row.unit === 'kg').quantity, 3.5);
+  for (const filters of [{ period: 'custom', from: '2026-10-02', to: '2026-10-01' }, { period: 'custom', from: '2025-01-01', to: '2026-10-01' }, { period: 'custom' }, { period: 'month', from: '2026-01-01' }, { period: 'unknown' }]) await assert.rejects(() => farmDashboard(service(), farm.id, instant, filters));
+  assert.deepEqual((await farmDashboard(service(), farm.id, new Date('2027-01-01T13:00:00Z'), { period: 'previous_month' })).period, { from: '2026-12-01', to_exclusive: '2027-01-01' });
+});
+test('the home deduplicates records, reads their current state and retains paginated scoped history', async () => {
+  const isolated = await service().save('farms', null, { name: 'Histórico de teste' });
+  const expense = await service().save('farm_expenses', isolated.id, { description: 'Diesel inicial', category: 'combustivel', amount: 350, expense_date: '2026-10-02' });
+  for (let index = 0; index < 24; index++) await service().save('farm_expenses', isolated.id, { amount: 351 + index, description: `Diesel corrigido ${index}` }, expense.id);
+  const task = await service().save('farm_tasks', isolated.id, { title: 'Olhar baia', due_at: '2099-10-03T12:00:00Z', remind: false });
+  await service().save('farm_tasks', isolated.id, { status: 'completed' }, task.id);
+  const result = await farmDashboard(service(), isolated.id);
+  const changes = result.recent_records.flatMap(action => action.changes);
+  assert.equal(changes.filter(change => change.entity_id === expense.id).length, 1);
+  assert.equal(Number(changes.find(change => change.entity_id === expense.id).details.amount), 374);
+  assert.equal(changes.find(change => change.entity_id === task.id).details.status, 'completed');
+  const first = await recordHistory(service(), isolated.id, 'farm_expenses', expense.id);
+  assert.equal(first.items.length, 20); assert.equal(first.has_more, true);
+  assert.ok(first.items.every(item => item.changes.every(change => change.entity_id === expense.id)));
+  const second = await recordHistory(service(), isolated.id, 'farm_expenses', expense.id, 20);
+  assert.equal(second.items.length, 5); assert.equal(second.has_more, false);
+  assert.ok(second.items.some(item => item.changes.some(change => change.type === 'created' && Number(change.details.amount) === 350)));
+  assert.equal(new Set([...first.items, ...second.items].map(item => item.id)).size, 25);
+  await assert.rejects(() => recordHistory(service(), farm.id, 'farm_expenses', expense.id), /não encontrado/);
+  await assert.rejects(() => recordHistory(service({ id: randomUUID() }), isolated.id, 'farm_expenses', expense.id), /acesso|encontrada/);
+  await assert.rejects(() => recordHistory(service(), isolated.id, 'farm_expenses', expense.id, -1), /Página/);
 });

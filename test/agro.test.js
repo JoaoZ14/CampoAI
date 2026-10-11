@@ -4,13 +4,14 @@ import { randomUUID } from 'node:crypto';
 import { database } from './support/database.js';
 import { RuralRepository } from '../src/rural/repository.js';
 import { RuralService } from '../src/rural/service.js';
-import { agroModules } from '../src/rural/agroCatalog.js';
+import { agroModules, agroCatalog, agroSchemas } from '../src/rural/agroCatalog.js';
 import { createTools, executeTool } from '../src/ai/tools/catalog.js';
 import { actionReceipt } from '../src/ai/policies/receipts.js';
 import { publicActivity } from '../src/rural/activity.js';
 import { runAgent } from '../src/ai/agent/runAgent.js';
 import { intentHint, isExplicitWriteRequest } from '../src/ai/policies/intent.js';
 import { buildFarmReportText } from '../src/rural/reports.js';
+import { unsupportedSportReply } from '../src/ai/policies/productScope.js';
 
 let pg, repo, user, outsider, farm, otherFarm;
 const request = (source = randomUUID(), actor = user) => new RuralService(actor, repo, source);
@@ -29,13 +30,13 @@ before(async () => {
 });
 after(async () => pg?.close());
 
-test('CT: ficha, treino, passada, despesa vinculada e correção auditável', async () => {
+test('Criação de equinos: cuidados, pesagem, despesa e correção auditável', async () => {
   const a = await activity('equines');
-  const u = await unit(a, { name: 'Luna', unit_type: 'animal', species: 'equine', identifier: 'LUNA-01', owner_name: 'Cliente do CT', location: 'Baia 2' });
-  await event(a, u, 'training', { duration_minutes: 25, operator: 'Treinador' });
-  const result = await event(a, u, 'competition', { time_seconds: 18.42, penalty_seconds: 0 });
-  const updated = await save('production_events', { time_seconds: 18.32 }, result.id);
-  assert.equal(Number(updated.time_seconds), 18.32);
+  const u = await unit(a, { name: 'Luna', unit_type: 'animal', species: 'equine', identifier: 'LUNA-01', owner_name: 'Produtor', location: 'Baia 2' });
+  await event(a, u, 'weighing', { quantity: 350, unit: 'kg' });
+  const result = await event(a, u, 'care', { description: 'Cuidados da Luna', operator: 'João' });
+  const updated = await save('production_events', { description: 'Cuidados da Luna corrigidos' }, result.id);
+  assert.equal(updated.description, 'Cuidados da Luna corrigidos');
   const expense = await save('farm_expenses', { activity_id: a.id, production_unit_id: u.id, category: 'ferrageamento', description: 'Ferrageamento da Luna', amount: 180, expense_date: '2026-09-30' });
   assert.equal(expense.production_unit_id, u.id);
   const task = await save('farm_tasks', { activity_id: a.id, production_unit_id: u.id, title: 'Ferrageamento da Luna', due_at: '2099-10-02T12:00:00Z', remind: true });
@@ -43,15 +44,45 @@ test('CT: ficha, treino, passada, despesa vinculada e correção auditável', as
   assert.equal(changed.production_unit_id, u.id);
   const overview = await request().agroOverview(farm.id, { activity_id: a.id });
   assert.equal(overview.financial.expenses, 180);
-  assert.equal(overview.unit_stats[u.id].training_sessions, 1);
-  assert.equal(overview.unit_stats[u.id].training_minutes, 25);
-  assert.equal(overview.unit_stats[u.id].best_measured_seconds, 18.32);
-  assert.equal(overview.unit_stats[u.id].best_time_plus_penalties_seconds, 18.32);
+  assert.equal(overview.unit_stats[u.id].latest_weight_kg, 350);
+  assert.equal('training_sessions' in overview.unit_stats[u.id], false);
   const audits = await pg.query("select * from assistant_actions where tool_name='update_production_events'");
-  assert.equal(Number(audits.rows[0].input_json.changes[0].before.time_seconds), 18.42);
+  assert.equal(audits.rows[0].input_json.changes[0].before.description, 'Cuidados da Luna');
   assert.equal(publicActivity(audits.rows[0]).changes[0].entity, 'production_events');
-  assert.match(actionReceipt('save_agro_record', { entity: 'production_events', record: updated, updated: true }), /18.32 s/);
+  assert.match(actionReceipt('save_agro_record', { entity: 'production_events', record: updated, updated: true }), /Cuidados da Luna corrigidos/);
 });
+
+test('Escopo atual rejeita esporte, preserva dados legados e mantém cuidados de animais', async () => {
+  const a = (await request().list('farm_activities', farm.id, { module_key: 'equines' }))[0];
+  const u = (await request().list('production_units', farm.id, { activity_id: a.id }))[0];
+  assert.equal(agroCatalog().events.training, undefined);
+  assert.equal(agroCatalog().events.competition, undefined);
+  assert.equal(agroSchemas.production_events.properties.duration_minutes, undefined);
+  for (const kind of ['training', 'competition']) await assert.rejects(event(a, u, kind), /opção inválida/);
+  await assert.rejects(save('farm_tasks', { title: 'Treino da Luna', due_at: '2099-10-02T12:00:00Z' }), /fora do escopo/);
+  await assert.rejects(save('farm_activities', { name: 'CT Serra Azul', module_key: 'equines' }), /fora do escopo/);
+  // Simulate a record already present before this release, without calling production.
+  const legacyId = randomUUID();
+  await pg.query("insert into production_events(id,farm_id,activity_id,production_unit_id,event_type,event_date,description,duration_minutes,created_by_user_id) values($1,$2,$3,$4,'training','2026-09-30','Legado esportivo',25,$5)", [legacyId, farm.id, a.id, u.id, user.id]);
+  assert.equal((await pg.query('select id from production_events where id=$1', [legacyId])).rows.length, 1);
+  assert.equal((await request().list('production_events', farm.id, { production_unit_id: u.id })).some(r => r.id === legacyId), false);
+  assert.equal((await request().agroOverview(farm.id)).recent_events.some(r => r.id === legacyId), false);
+  assert.doesNotMatch(await buildFarmReportText(request(), farm.id), /Legado esportivo/);
+  await assert.rejects(request().one('production_events', farm.id, legacyId), /fora do escopo/);
+  await assert.rejects(save('production_events', { description: 'Correção esportiva' }, legacyId), /fora do escopo/);
+  assert.equal(publicActivity({ input_json: { changes: [{ table: 'production_events', after: { id: legacyId, event_type: 'training' } }] } }).changes.length, 0);
+  for (const text of ['Registre 30 minutos de treino da Luna', 'Agende o treino de amanhã', 'Cadastre um CT de três tambores', 'Registre uma passada da Luna com 18 segundos']) {
+    let outcome;
+    const reply = await runAgent({ user, text, provider: { turn: () => { throw new Error('No model call allowed'); } }, onOutcome: value => { outcome = value; } });
+    assert.match(reply, /Não tenho funções de CT/);
+    assert.equal(outcome.charge, false);
+  }
+  assert.equal(unsupportedSportReply('Registre que a Luna consumiu 3 kg de ração'), null);
+  assert.equal(unsupportedSportReply('Agende uma prova de germinação do milho'), null);
+  const emergency = await runAgent({ user, text: 'Meu cavalo caiu durante o treino e tem hemorragia' });
+  assert.match(emergency, /veterinário imediatamente/);
+});
+
 test('Bovinos: ganho calculado apenas de pesagens individuais em datas diferentes', async () => {
   const a = await activity('beef_cattle');
   const u = await unit(a, { name: 'Animal 145', identifier: '145', species: 'bovine', unit_type: 'animal' });
@@ -108,7 +139,7 @@ test('Aquicultura, apicultura e áreas agrícolas conservam as unidades específ
   const bed = await unit(garden, { name: 'Canteiro 3', unit_type: 'crop_area' });
   await event(garden, bed, 'harvest', { quantity: 20, unit: 'maço' });
   await event(garden, bed, 'harvest', { quantity: 4, unit: 'kg' });
-  await assert.rejects(event(garden, bed, 'training', { duration_minutes: 10 }), /incompatível/);
+  await assert.rejects(event(garden, bed, 'training', { duration_minutes: 10 }), /opção inválida|campo não permitido/);
   const summary = await request().agroOverview(farm.id, { activity_id: garden.id });
   assert.equal(summary.production_totals.length, 2);
   assert.equal(summary.production_totals.find(t => t.unit === 'kg').quantity, 4);
@@ -146,7 +177,7 @@ test('Idempotência, auditoria e isolamento entre clientes também cobrem os mó
 test('Ferramentas resolvem ambiguidades, gravam e devolvem recibo com dados reais', async () => {
   const a = (await request().list('farm_activities', farm.id, { module_key: 'equines' }))[0];
   await unit(a, { name: 'Estrela', unit_type: 'animal', species: 'equine' });
-  const tools = createTools(request(), { text: 'Registre um treino do cavalo Estrela' });
+  const tools = createTools(request(), { text: 'Registre uma pesagem do cavalo Estrela' });
   const lookup = await tools.find(t => t.name === 'resolve_production_unit').run({ farm_id: farm.id, name: 'Estrela' });
   assert.equal(lookup.ambiguous, true);
   assert.ok(tools.find(t => t.name === 'save_agro_record'));
@@ -159,8 +190,8 @@ test('Ferramentas resolvem ambiguidades, gravam e devolvem recibo com dados reai
 test('Registros futuros, dados incompatíveis e dinheiro com precisão inválida são rejeitados', async () => {
   const a = (await request().list('farm_activities', farm.id, { module_key: 'equines' }))[0];
   const u = (await request().list('production_units', farm.id, { activity_id: a.id }))[0];
-  await assert.rejects(event(a, u, 'training', { duration_minutes: 20, event_date: '2099-01-01' }), /ação futura/);
-  await assert.rejects(event(a, u, 'care', { duration_minutes: 20 }), /não pertence/);
+  await assert.rejects(event(a, u, 'care', { event_date: '2099-01-01' }), /ação futura/);
+  await assert.rejects(event(a, u, 'care', { duration_minutes: 20 }), /campo não permitido/);
   await assert.rejects(save('farm_sales', { activity_id: a.id, description: 'Pensão', customer: 'Cliente', amount: 100.001, sale_date: '2026-09-30', due_date: '2026-10-10' }), /duas casas/);
 });
 test('Alimentação vinculada ao estoque é atômica, corrigível e reversível', async () => {
@@ -203,7 +234,7 @@ test('Relatório de uma ficha preserva escopo, unidades e correções sem mistur
   const u = (await request().list('production_units', farm.id, { activity_id: a.id })).find(row => row.name === 'Luna');
   const text = await buildFarmReportText(request(), farm.id, { production_unit_id: u.id });
   assert.match(text, /Atividade equines/);
-  assert.match(text, /18.32 s/);
+  assert.match(text, /Cuidados da Luna corrigidos/);
   assert.match(text, /Ferrageamento da Luna/);
   assert.match(text, /AGENDA NO PERÍODO/);
   assert.doesNotMatch(text, /Atividade aquaculture|Vaca 20|Inspeção corrigida: Apicultura/);
@@ -248,10 +279,10 @@ test('Consulta modular força leitura; resumo por ficha é compacto e não expõ
     turn: async ({ toolMode }) => {
       if (round++ === 0) return { calls: [], text: 'Sem registros.' };
       if (round === 2) { assert.equal(toolMode, 'ANY'); return { calls: [{ name: 'get_agro_summary', args: { farm_id: farm.id, filters: { production_unit_id: u.id } } }] }; }
-      return { calls: [], text: 'Luna: 1 treino realizado.' };
+      return { calls: [], text: 'Luna: cuidados e pesagem de 350 kg.' };
     },
   } });
-  assert.match(reply, /Luna: 1 treino/);
+  assert.match(reply, /Luna: cuidados/);
   assert.equal(isExplicitWriteRequest('Quanto leite a vaca produziu?'), false);
 });
 

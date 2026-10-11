@@ -17,7 +17,7 @@ async function agroReportSections(service, farmId, filters, timezone) {
   const parts = [
     'ATIVIDADES PRODUTIVAS\n' + activities.map(a => `${a.name} (${a.status})`).join('\n'),
     'PRODUÇÃO REGISTRADA\n' + (overview.production_totals.map(t => `${t.label}: ${t.quantity} ${t.unit} em ${t.count} registros`).join('\n') || 'Sem produção registrada no período.'),
-    'HISTÓRICO DOS MÓDULOS\n' + (records.map(r => `${r.event_date} — ${names.get(r.production_unit_id) || 'Unidade'} — ${eventDefinitions[r.event_type].label}: ${r.description}${r.quantity ? ` — ${r.quantity} ${r.unit}` : ''}${r.duration_minutes ? ` — ${r.duration_minutes} min` : ''}${r.time_seconds ? ` — ${r.time_seconds} s; penalidade ${r.penalty_seconds || 0} s` : ''} (${r.status})`).join('\n') || 'Sem registros no período.'),
+    'HISTÓRICO DOS MÓDULOS\n' + (records.map(r => `${r.event_date} — ${names.get(r.production_unit_id) || 'Unidade'} — ${eventDefinitions[r.event_type].label}: ${r.description}${r.quantity ? ` — ${r.quantity} ${r.unit}` : ''} (${r.status})`).join('\n') || 'Sem registros no período.'),
     'AGENDA NO PERÍODO\n' + (tasks.map(t => `${new Date(t.due_at).toLocaleString('pt-BR', { timeZone: timezone || 'America/Sao_Paulo' })} — ${t.title} (${t.status})`).join('\n') || 'Sem tarefas no período.'),
   ];
   if (overview.financial) parts.push(`FINANCEIRO DOS MÓDULOS\nDespesas: R$ ${overview.financial.expenses.toFixed(2)}\nVendas no período: R$ ${overview.financial.sold.toFixed(2)}\nRecebido no período: R$ ${overview.financial.received.toFixed(2)}\nA receber (todas as datas): R$ ${overview.financial.outstanding.toFixed(2)}\n${overview.financial.scope}`);

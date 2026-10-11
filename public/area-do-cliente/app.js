@@ -76,7 +76,7 @@ function usageText(out) {
     return `${used} análises no teste grátis`;
   }
   if (u.monthlyAnalysisCap != null && u.monthlyAnalysisCap >= 1) {
-    return `${u.monthlyAnalysisUsed} de ${u.monthlyAnalysisCap} análises neste mês`;
+    return `${u.monthlyAnalysisUsed} de ${u.monthlyAnalysisCap} análises neste mês${u.sharedAllowance ? ' · franquia compartilhada' : ''}`;
   }
   return 'Análises ilimitadas (uso justo)';
 }

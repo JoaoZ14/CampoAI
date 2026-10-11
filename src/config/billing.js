@@ -1,5 +1,14 @@
+import { AppError } from '../utils/errors.js';
+
 /** Desconto na cobrança anual em relação a 12× o preço mensal (mesma regra da página /planos). */
 export const ANNUAL_DISCOUNT_FRACTION = 0.2;
+
+export function assertAcceptedOffer(terms, accepted) {
+  if (!accepted && terms.version !== '2026-10') return;
+  if (!accepted || accepted.priceBrl !== terms.priceBrl || accepted.maxAnalysesPerMonth !== terms.maxAnalysesPerMonth || accepted.seats !== terms.seats) {
+    throw new AppError('As condições do plano foram atualizadas. Volte aos planos e atualize a página antes de confirmar o pagamento.', 409);
+  }
+}
 
 /** YYYY-MM no fuso America/Sao_Paulo (contagem mensal de análises). */
 export function brazilMonthYm() {
@@ -14,7 +23,7 @@ export function brazilMonthYm() {
 export function yearlyTotalFromMonthly(monthlyBrl) {
   const m = Number(monthlyBrl);
   if (!Number.isFinite(m) || m < 0) return 0;
-  return Math.round(m * (1 - ANNUAL_DISCOUNT_FRACTION) * 12);
+  return Math.round(m * (1 - ANNUAL_DISCOUNT_FRACTION) * 12 * 100) / 100;
 }
 
 /**

@@ -344,6 +344,12 @@ select {
   }
 }
 
+.plan-usage-note { text-align: center; margin: 24px auto 12px; }
+.plan-usage { max-width: 720px; margin: 0 auto; padding: 16px 0; border-top: 1px solid #d8e2d1; color: #4f6455; }
+.plan-usage summary { cursor: pointer; font-weight: 600; padding-block: 8px; }
+.plan-usage p { line-height: 1.65; margin: 12px 0 0; }
+.plan-usage summary:focus-visible { outline: 2px solid #224c36; outline-offset: 4px; }
+
 /* —— Toggle mensal / anual —— */
 .billing-toggle {
   margin: 0 auto 1.25rem;

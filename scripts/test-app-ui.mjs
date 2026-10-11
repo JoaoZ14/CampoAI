@@ -25,8 +25,8 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    let failWorkspace = false, failHistory = false, slowFirstFarm = false, completed = false, taskWrites = 0, expenseWrites = 0;
-    const expenseKeys = [];
+    let failWorkspace = false, failSummary = false, slowFirstFarm = false, completed = false, taskWrites = 0, expenseWrites = 0;
+    const expenseKeys = [], expenseBodies = [];
     await page.route('**/auth/v1/**', route => new URL(route.request().url()).pathname.endsWith('/logout')
       ? route.fulfill({ status: 204 })
       : route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'invalid_credentials', message: 'Invalid login credentials' }) }));
@@ -46,22 +46,26 @@ try {
         const farm = path.includes(farms[1].id) ? farms[1] : farms[0];
         if (slowFirstFarm && farm.id === farms[0].id && method === 'GET') await sleep(800);
         if (path.endsWith('/dashboard')) data = { generated_at: '2026-10-01T12:00:00Z', timezone: 'America/Sao_Paulo', today: '2026-10-01', period: { from: '2026-10-01', to_exclusive: '2026-11-01' }, modules_enabled: false, expenses: { amount: 350, count: 1, recent: [] }, agenda: { pending: completed ? 0 : 1, today: 0, overdue: 0, next: completed ? [] : [task] }, activities: [], units_count: 0, production: [], recent_records: [] };
+        else if (path.endsWith('/summary') && !path.endsWith('/expenses/summary') && failSummary) { status = 503; data = { error: 'internal database detail' }; }
         else if (path.endsWith('/summary') && !path.endsWith('/expenses/summary')) data = { farm, fields: [{ id: 'field-fixture', name: farm.id === farms[0].id ? 'Talhão Norte (teste)' : 'Horta Sul (teste)', area_ha: 2 }], seasons: [], tasks: [], operations: [], expenses: { amount: 350, count: 1, cost_per_ha: null }, alerts: [] };
         else if (path.endsWith('/weather')) { status = 400; data = { error: 'Informe a localização.' }; }
         else if (path.endsWith('/activity')) {
-          if (failHistory) { status = 503; data = { error: 'internal database detail' }; }
+          if (failSummary) { status = 503; data = { error: 'internal database detail' }; }
           else data = { items: [{ id: url.searchParams.has('offset') ? 'activity-more' : 'activity-first', source: 'lida', status: 'completed', created_at: '2026-10-01T12:00:00Z', changes: [{ entity: 'farm_expenses', entity_id: 'expense-fixture', type: 'created', label: 'Despesa', title: url.searchParams.has('offset') ? 'Sementes (teste)' : 'Diesel (teste)' }] }], has_more: !url.searchParams.has('offset') };
         }
         else if (path.endsWith('/farm_tasks/task-fixture') && method === 'PATCH') { taskWrites++; completed = true; await sleep(200); data = { ...task, status: 'completed' }; }
         else if (path.endsWith('/farm_tasks')) data = completed ? [] : [task];
+        else if (path.endsWith('/history')) data = { items: [], has_more: false };
+        else if (path.endsWith('/farm_expenses/new-expense')) data = { id: 'new-expense', ...expenseBodies.at(-1) };
         else if (path.endsWith('/farm_expenses/expense-fixture')) data = { id: 'expense-fixture', description: 'Diesel (teste)', amount: 350, category: 'combustivel', expense_date: '2026-10-01' };
         else if (path.endsWith('/farm_expenses') && method === 'POST') {
-          expenseWrites++; expenseKeys.push(route.request().headers()['idempotency-key']); await sleep(200);
+          expenseWrites++; expenseBodies.push(JSON.parse(route.request().postData())); expenseKeys.push(route.request().headers()['idempotency-key']); await sleep(200);
           if (expenseWrites === 1) { status = 503; data = { error: 'database failed' }; }
           else if (expenseWrites === 3) { await route.fulfill({ status: 200, body: '<html>broken proxy response</html>' }); return; }
           else data = { id: 'new-expense', ...JSON.parse(route.request().postData()) };
         }
-        else if (path.endsWith('/farm_operations') || path.endsWith('/farm_expenses')) data = [];
+        else if (path.endsWith('/farm_expenses')) data = url.searchParams.has('offset') ? [{ id: 'expense-more', description: 'Sementes (teste)', amount: 10, category: 'outros', expense_date: '2026-10-01' }] : Array.from({ length: 50 }, (_, index) => ({ id: index ? `expense-${index}` : 'expense-fixture', description: index ? `Despesa ${index} (teste)` : 'Diesel (teste)', amount: 350, category: 'combustivel', expense_date: '2026-10-01' }));
+        else if (path.endsWith('/farm_operations')) data = [];
         else if (path.endsWith('/expenses/summary')) data = { amount: 350, count: 1, cost_per_ha: null };
         else { status = 404; data = { error: `Unconfigured fixture: ${method} ${path}` }; }
       }
@@ -69,13 +73,18 @@ try {
     });
     // The config endpoint has a flat payload, unlike rural endpoints.
     await page.route('**/api/customer/config', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, supabaseUrl: 'https://auth.example.test', supabaseAnonKey: 'test-only-public-key' }) }));
-    await page.goto(`${base}/app/`);
+    await page.goto(`${base}/`);
     await page.getByRole('button', { name: 'Entrar na minha conta' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.waitFor();
     await page.getByLabel('E-mail', { exact: true }).fill('teste@example.test');
     assert.equal(await page.getByLabel('E-mail', { exact: true }).evaluate(element => document.activeElement === element), true);
     await page.getByLabel('Senha', { exact: true }).fill('test-password');
+    await dialog.getByRole('button', { name: 'Mostrar senha' }).click();
+    assert.equal(await page.getByLabel('Senha', { exact: true }).getAttribute('type'), 'text');
+    await dialog.getByRole('button', { name: 'Ocultar senha' }).click();
+    assert.equal(await page.getByLabel('Senha', { exact: true }).getAttribute('type'), 'password');
+    checks += 2;
     await dialog.getByRole('button', { name: 'Entrar', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'E-mail ou senha incorretos' }).waitFor();
     await page.screenshot({ path: `test-artifacts/app/login-${width}.png` });
@@ -83,6 +92,13 @@ try {
     assert.equal(await dialog.count(), 0);
     assert.equal(await page.getByRole('button', { name: 'Entrar na minha conta' }).evaluate(element => document.activeElement === element), true);
     checks += 3;
+    await page.getByRole('button', { name: /Ainda não tem conta/ }).click();
+    await page.getByText('Passo 1 de 3', { exact: true }).waitFor();
+    await page.getByLabel('Crie uma senha', { exact: true }).fill('fixture-password');
+    await page.getByRole('button', { name: 'Mostrar senha' }).click();
+    assert.equal(await page.getByLabel('Crie uma senha', { exact: true }).getAttribute('type'), 'text');
+    await page.getByRole('button', { name: 'Voltar ao início', exact: true }).click();
+    checks += 2;
 
     await page.addInitScript(value => localStorage.setItem('ag-customer-auth', JSON.stringify(value)), session);
     await page.reload();
@@ -96,21 +112,21 @@ try {
     await page.getByLabel('Propriedade', { exact: true }).selectOption(farms[1].id);
     await page.getByLabel('Propriedade', { exact: true }).selectOption(farms[0].id);
     await page.getByLabel('Propriedade', { exact: true }).selectOption(farms[1].id);
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Fazenda', exact: true }).click();
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('link', { name: 'Propriedade', exact: true }).click();
     await page.getByText('Horta Sul (teste)', { exact: true }).waitFor();
     await sleep(900);
     assert.equal(await page.getByText('Talhão Norte (teste)', { exact: true }).count(), 0);
     checks++;
 
-    slowFirstFarm = false; failHistory = true;
+    slowFirstFarm = false; failSummary = true;
     await page.getByLabel('Propriedade', { exact: true }).selectOption(farms[0].id);
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Agenda', exact: true }).click();
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('link', { name: 'Tarefas', exact: true }).click();
     await page.getByText(task.title, { exact: true }).waitFor();
     await page.getByRole('alert').filter({ hasText: 'Alguns dados' }).waitFor();
     assert.equal((await page.locator('body').innerText()).includes('internal database'), false);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'error recovery must fit the mobile viewport');
     await page.screenshot({ path: `test-artifacts/app/agenda-error-${width}.png` });
-    failHistory = false;
+    failSummary = false;
     await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'Alguns dados' }).waitFor({ state: 'detached' });
     checks++;
@@ -121,46 +137,53 @@ try {
     assert.equal(taskWrites, 1);
     checks++;
 
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Registros', exact: true }).click();
-    await page.getByRole('button', { name: 'Abrir registro' }).click();
-    await page.getByText('R$ 350,00', { exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Carregar mais registros' }).click();
+    await page.getByRole('navigation').filter({ visible: true }).getByRole('link', { name: 'Registros', exact: true }).click();
+    await page.getByRole('heading', { name: 'Meus registros', exact: true }).waitFor();
+    await page.getByRole('button', { name: /^Meus gastos/ }).click();
+    await page.getByRole('button', { name: 'Abrir Diesel (teste)', exact: true }).click();
+    await page.locator('.record-page').getByText('R$ 350,00', { exact: true }).waitFor();
+    await page.locator('.record-page').getByRole('link', { name: '← Meus gastos', exact: true }).click();
+    await page.getByRole('button', { name: 'Carregar mais', exact: true }).click();
     await page.getByText('Sementes (teste)', { exact: true }).waitFor();
     await page.screenshot({ path: `test-artifacts/app/activity-${width}.png` });
     checks++;
 
-    await page.getByRole('navigation').filter({ visible: true }).getByRole('button', { name: 'Fazenda', exact: true }).click();
-    await page.getByRole('button', { name: 'Despesa', exact: true }).click();
+    await page.getByRole('button', { name: 'Adicionar gasto', exact: true }).click();
     await page.getByRole('combobox', { name: /^Categoria/ }).selectOption('combustivel');
-    await page.getByLabel('Valor em reais').fill('350');
+    await page.getByLabel('Valor em reais').fill('350,25');
     await page.getByLabel('Descrição', { exact: true }).fill('Diesel para o trator (teste)');
-    const save = page.getByRole('button', { name: 'Salvar despesa', exact: true });
+    await page.screenshot({ path: `test-artifacts/app/expense-form-${width}.png` });
+    const save = page.getByRole('button', { name: 'Salvar gasto', exact: true });
     await save.evaluate(button => { button.click(); button.click(); });
     await page.getByRole('alert').filter({ hasText: 'Não recebemos a confirmação' }).waitFor();
     assert.equal(expenseWrites, 1);
     assert.equal(await page.getByLabel('Descrição', { exact: true }).inputValue(), 'Diesel para o trator (teste)');
     await save.click();
-    await page.getByRole('heading', { name: 'Registrar despesa', exact: true }).waitFor({ state: 'detached' });
+    await page.getByRole('heading', { name: 'Adicionar gasto', exact: true }).waitFor({ state: 'detached' });
+    await page.locator('.record-page').getByRole('link', { name: '← Meus gastos', exact: true }).click();
     assert.equal(expenseKeys[0], expenseKeys[1]);
+    assert.equal(expenseBodies[1].amount, 350.25); checks++;
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.screenshot({ path: `test-artifacts/app/farm-${width}.png` });
     checks += 2;
-    await page.getByRole('button', { name: 'Despesa', exact: true }).click();
+    await page.getByRole('button', { name: 'Adicionar gasto', exact: true }).click();
     await page.getByRole('combobox', { name: /^Categoria/ }).selectOption('combustivel');
-    await page.getByLabel('Valor em reais').fill('120');
+    await page.getByLabel('Valor em reais').fill('1.234,56');
     await page.getByLabel('Descrição', { exact: true }).fill('Gasolina (teste)');
-    await page.getByRole('button', { name: 'Salvar despesa', exact: true }).click();
+    await page.getByRole('button', { name: 'Salvar gasto', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'Não recebemos a confirmação' }).waitFor();
-    assert.equal(await page.getByRole('heading', { name: 'Registrar despesa', exact: true }).count(), 1);
-    await page.getByRole('button', { name: 'Salvar despesa', exact: true }).click();
-    await page.getByRole('heading', { name: 'Registrar despesa', exact: true }).waitFor({ state: 'detached' });
+    assert.equal(await page.getByRole('heading', { name: 'Adicionar gasto', exact: true }).count(), 1);
+    await page.getByRole('button', { name: 'Salvar gasto', exact: true }).click();
+    await page.getByRole('heading', { name: 'Adicionar gasto', exact: true }).waitFor({ state: 'detached' });
+    await page.locator('.record-page').getByRole('link', { name: '← Meus gastos', exact: true }).click();
     assert.equal(expenseKeys[2], expenseKeys[3]);
+    assert.equal(expenseBodies[3].amount, 1234.56); checks++;
     assert.notEqual(expenseKeys[0], expenseKeys[2]);
     checks++;
 
     await context.setOffline(true);
     await page.getByText('Sem conexão.', { exact: false }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Despesa', exact: true }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: 'Adicionar gasto', exact: true }).isDisabled(), true);
     checks++;
     await context.setOffline(false);
 
@@ -170,7 +193,7 @@ try {
     assert.equal((await page.locator('body').innerText()).includes('auth_user_id'), false);
     failWorkspace = false;
     await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
-    await page.getByRole('heading', { name: 'Seu resumo' }).waitFor();
+    await page.getByRole('heading', { name: 'Meus gastos', exact: true }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     assert.deepEqual(errors, []);
     checks += 2;

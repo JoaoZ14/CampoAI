@@ -1,3 +1,4 @@
+import { reserveSubscriptionAnalysis, settleSubscriptionAnalysis } from './subscriptionUsageService.js';
 import { normalizePhone } from '../utils/phone.js';
 import { runAgent } from '../ai/agent/runAgent.js';
 import { hasFeature } from '../rural/features.js';
@@ -168,8 +169,8 @@ const PLAN_DISPLAY = {
 };
 
 export const MSG_LITE_MONTHLY_LIMIT_BASE =
-  'Você atingiu o limite de análises deste mês no plano *Essencial*.\n\n' +
-  'O contador renova no próximo mês (calendário em horário de Brasília). Para análises ilimitadas, faça upgrade para o *Starter*; para mais números no CPF, veja *Team*.';
+  'Você usou todas as análises de IA da sua assinatura neste mês.\n\n' +
+  'A franquia renova no primeiro dia do próximo mês, em horário de Brasília. Você pode continuar registrando, editando e consultando pelo app enquanto sua assinatura estiver ativa. Não há cobrança automática por exceder o limite.';
 
 /**
  * Nome amigável do plano (código + titularidade CPF vs equipe/CNPJ).
@@ -268,17 +269,19 @@ export function formatPlanInquiryMessage(user, phone, usageCtx) {
     : '\n\nPara assinar ou mudar de plano, fale com o suporte.';
 
   if (user.isPaid) {
-    const planName = planDisplayName(user);
+    const planName = usageCtx?.subscriptionPlanName || planDisplayName(user);
     const status = String(user.asaasSubscriptionStatus || 'ativo').trim() || 'ativo';
     const kind =
-      user.billingKind === 'team'
+      usageCtx?.subscriptionCustomerSegment === 'personal' && usageCtx?.sharedAllowance
+        ? 'assinatura compartilhada / CPF'
+        : user.billingKind === 'team'
         ? 'contrato equipe / CNPJ'
         : user.billingKind === 'personal'
           ? 'titularidade CPF (individual)'
           : 'ativo';
     const usageLine =
       usageCtx && usageCtx.monthlyAnalysisCap != null && usageCtx.monthlyAnalysisCap >= 1
-        ? `\n\n*Uso no mês (análises com IA):* ${usageCtx.monthlyAnalysisUsed} de ${usageCtx.monthlyAnalysisCap}`
+        ? `\n\n*Uso no mês (análises com IA):* ${usageCtx.monthlyAnalysisUsed} de ${usageCtx.monthlyAnalysisCap}${usageCtx.sharedAllowance ? ' — franquia compartilhada da assinatura' : ''}`
         : '';
     return (
       `📋 *Seu plano AGGI*\n\n` +
@@ -440,6 +443,7 @@ export async function processIncomingMessage({
   audioUrl,
   unsupportedVideo,
   messageSid,
+  receivedAt,
 }) {
   const phone = normalizePhone(
     typeof rawPhone === 'string' ? rawPhone : String(rawPhone ?? '')
@@ -526,175 +530,179 @@ export async function processIncomingMessage({
     };
   }
 
-  if (isUsageBlocked(usageCtx)) {
-    if (usageCtx.isPaid && usageCtx.monthlyAnalysisCap != null && usageCtx.monthlyAnalysisCap >= 1) {
-      const parts = getLiteMonthlyLimitParts(phone);
-      for (const chunk of parts) {
-        await sendWhatsAppMessage(phone, chunk);
-      }
-    } else {
-      await sendLimitReachedMessages(phone, usageCtx.trialExpiryReason);
-    }
-    return {
-      step: 'limit_reached',
-      userId: user.id,
-      usageCount: user.usageCount,
-      isPaid: user.isPaid,
-    };
+  if (!usageCtx.isPaid && isUsageBlocked(usageCtx)) {
+    await sendLimitReachedMessages(phone, usageCtx.trialExpiryReason);
+    return { step: 'limit_reached', userId: user.id, usageCount: user.usageCount, isPaid: false };
   }
-
-  const textRaw = type.hasText && message != null ? String(message).trim() : '';
-  const reportRequested =
-    textRaw &&
-    type.hasText &&
-    !type.hasImage &&
-    !type.hasAudio &&
-    wantsConversationPdfReport(textRaw) &&
-    !(hasFeature(user, 'agent') && /\b(fazenda|propriedade|safra|talh[aã]o|financeiro)\b/i.test(textRaw)) &&
-    process.env.REPORTS_ENABLED !== 'false';
-
-  if (reportRequested) {
-    const historyForReport = await getChatHistoryForReport(user.id);
-    if (historyForReport.length < 2) {
-      await sendWhatsAppMessage(phone, MSG_REPORT_INSUFFICIENT);
-      return {
-        step: 'report_insufficient_history',
-        userId: user.id,
-        usageCount: user.usageCount,
-      };
+  let reservationId = null;
+  let billed = false;
+  if (usageCtx.isPaid && usageCtx.monthlyAnalysisCap != null) {
+    const reservation = await reserveSubscriptionAnalysis(user.id);
+    if (reservation.exhausted) {
+      for (const chunk of getLiteMonthlyLimitParts(phone)) await sendWhatsAppMessage(phone, chunk);
+      return { step: 'limit_reached', userId: user.id, usageCount: user.usageCount, isPaid: true };
     }
+    reservationId = reservation.id;
+  }
+  const chargeUsage = async () => {
+    if (!reservationId) await incrementUsage(user.id);
+    billed = true;
+  };
+  try {
+    const textRaw = type.hasText && message != null ? String(message).trim() : '';
+    const reportRequested =
+      textRaw &&
+      type.hasText &&
+      !type.hasImage &&
+      !type.hasAudio &&
+      wantsConversationPdfReport(textRaw) &&
+      !(hasFeature(user, 'agent') && /\b(fazenda|propriedade|safra|talh[aã]o|financeiro)\b/i.test(textRaw)) &&
+      process.env.REPORTS_ENABLED !== 'false';
 
-    const sidReport =
-      typeof messageSid === 'string' && messageSid.trim() ? messageSid.trim() : undefined;
-    if (sidReport) {
-      await sendWhatsAppTypingIndicator(sidReport);
-    }
+    if (reportRequested) {
+      const historyForReport = await getChatHistoryForReport(user.id);
+      if (historyForReport.length < 2) {
+        await sendWhatsAppMessage(phone, MSG_REPORT_INSUFFICIENT);
+        return {
+          step: 'report_insufficient_history',
+          userId: user.id,
+          usageCount: user.usageCount,
+        };
+      }
 
-    try {
-      const reportBody = await generateConversationReportText({
-        history: historyForReport,
-        userInstruction: textRaw,
-      });
-      const pdfBuf = await buildConversationReportPdf({
-        title: 'Relatório — AGGI',
-        body: reportBody,
-      });
-      const signedUrl = await uploadReportPdfAndGetSignedUrl(user.id, pdfBuf);
-      await sendWhatsAppWithMedia(
-        phone,
-        'Segue o relatório em PDF com o resumo da nossa conversa.',
-        [signedUrl]
-      );
-      await incrementUsage(user.id);
-      await saveChatTurn(
-        user.id,
-        buildUserTurnSummary(type, message),
-        'Enviei o relatório em PDF com o resumo da conversa.'
-      );
-      return {
-        step: 'report_pdf_sent',
-        userId: user.id,
-        usageCount: user.usageCount + 1,
-      };
-    } catch (err) {
-      console.error('[incoming] relatório PDF:', err);
-      const fb =
-        process.env.WHATSAPP_REPORT_ERROR_TEXT?.trim() ||
-        'Não consegui gerar o relatório em PDF agora. Verifique o bucket no Supabase e tente de novo em instantes.';
+      const sidReport =
+        typeof messageSid === 'string' && messageSid.trim() ? messageSid.trim() : undefined;
+      if (sidReport) {
+        await sendWhatsAppTypingIndicator(sidReport);
+      }
+
       try {
-        await sendWhatsAppMessage(phone, fb);
+        const reportBody = await generateConversationReportText({
+          history: historyForReport,
+          userInstruction: textRaw,
+        });
+        const pdfBuf = await buildConversationReportPdf({
+          title: 'Relatório — AGGI',
+          body: reportBody,
+        });
+        const signedUrl = await uploadReportPdfAndGetSignedUrl(user.id, pdfBuf);
+        await sendWhatsAppWithMedia(
+          phone,
+          'Segue o relatório em PDF com o resumo da nossa conversa.',
+          [signedUrl]
+        );
+        await chargeUsage();
+        await saveChatTurn(
+          user.id,
+          buildUserTurnSummary(type, message),
+          'Enviei o relatório em PDF com o resumo da conversa.'
+        );
+        return {
+          step: 'report_pdf_sent',
+          userId: user.id,
+          usageCount: user.usageCount + 1,
+        };
+      } catch (err) {
+        console.error('[incoming] relatório PDF:', err);
+        const fb =
+          process.env.WHATSAPP_REPORT_ERROR_TEXT?.trim() ||
+          'Não consegui gerar o relatório em PDF agora. Verifique o bucket no Supabase e tente de novo em instantes.';
+        try {
+          await sendWhatsAppMessage(phone, fb);
+        } catch (sendErr) {
+          console.error('[incoming] Falha ao enviar erro do relatório:', sendErr);
+        }
+        return {
+          step: 'report_error',
+          userId: user.id,
+          usageCount: user.usageCount,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }
+
+    const calcIntent = textRaw && type.hasText && !type.hasImage && !type.hasAudio ? fieldCalcIntent(textRaw) : 'none';
+
+    if (calcIntent !== 'none') {
+      const calcReply = tryResolveFieldCalcMessage(textRaw);
+      if (calcReply) {
+        await saveChatTurn(user.id, buildUserTurnSummary(type, message), calcReply);
+        await sendWhatsAppMessage(phone, calcReply);
+        return {
+          step: 'field_calc_help',
+          userId: user.id,
+          usageCount: user.usageCount,
+          replyPreview: calcReply.slice(0, 280),
+        };
+      }
+    }
+
+    const sid =
+      typeof messageSid === 'string' && messageSid.trim() ? messageSid.trim() : undefined;
+    if (sid) {
+      await sendWhatsAppTypingIndicator(sid);
+    }
+
+    const ack = process.env.WHATSAPP_IA_ACK_TEXT?.trim();
+    if (ack && type.hasImage) {
+      try {
+        await sendWhatsAppMessage(phone, ack);
+      } catch (err) {
+        console.warn('[incoming] Falha ao enviar mensagem de aguarde:', err);
+      }
+    }
+
+    const history = await getChatHistoryForModel(user.id);
+
+    let reply;
+    let charge = true;
+    const reportMedia = [];
+    try {
+      const aiInput = {
+        text: type.hasText ? String(message).trim() : undefined,
+        imageUrl: type.hasImage ? String(imageUrl).trim() : undefined,
+        audioUrl: type.hasAudio ? String(audioUrl).trim() : undefined,
+        history,
+        fieldCalcMode: calcIntent === 'compute',
+      };
+      reply = hasFeature(user, 'agent')
+        ? await runAgent({ ...aiInput, user, messageSid, referenceTime: receivedAt || new Date(), onOutcome: outcome => { charge = outcome.charge; }, onArtifact: url => { reportMedia.push(url); } })
+        : await generateAgriculturalReply(aiInput);
+    } catch (err) {
+      console.error('[incoming] Falha na IA:', err);
+      const fallback =
+        process.env.WHATSAPP_IA_ERROR_TEXT?.trim() || MSG_IA_ERRO;
+      try {
+        await sendWhatsAppMessage(phone, fallback);
       } catch (sendErr) {
-        console.error('[incoming] Falha ao enviar erro do relatório:', sendErr);
+        console.error('[incoming] Falha ao enviar WhatsApp de erro:', sendErr);
       }
       return {
-        step: 'report_error',
+        step: 'ai_error',
         userId: user.id,
         usageCount: user.usageCount,
         error: err instanceof Error ? err.message : String(err),
       };
     }
-  }
 
-  const calcIntent = textRaw && type.hasText && !type.hasImage && !type.hasAudio ? fieldCalcIntent(textRaw) : 'none';
+    if (charge) await chargeUsage();
+    await saveChatTurn(
+      user.id,
+      buildUserTurnSummary(type, message),
+      reply
+    );
+    if (reportMedia.length) await sendWhatsAppWithMedia(phone, reply.slice(0,1500), reportMedia.slice(0,1));
+    else await sendWhatsAppMessage(phone, reply);
 
-  if (calcIntent !== 'none') {
-    const calcReply = tryResolveFieldCalcMessage(textRaw);
-    if (calcReply) {
-      await incrementUsage(user.id);
-      await saveChatTurn(user.id, buildUserTurnSummary(type, message), calcReply);
-      await sendWhatsAppMessage(phone, calcReply);
-      return {
-        step: 'field_calc_help',
-        userId: user.id,
-        usageCount: user.usageCount + 1,
-        replyPreview: calcReply.slice(0, 280),
-      };
-    }
-  }
+    const updatedUsage = user.usageCount + (charge ? 1 : 0);
 
-  const sid =
-    typeof messageSid === 'string' && messageSid.trim() ? messageSid.trim() : undefined;
-  if (sid) {
-    await sendWhatsAppTypingIndicator(sid);
-  }
-
-  const ack = process.env.WHATSAPP_IA_ACK_TEXT?.trim();
-  if (ack && type.hasImage) {
-    try {
-      await sendWhatsAppMessage(phone, ack);
-    } catch (err) {
-      console.warn('[incoming] Falha ao enviar mensagem de aguarde:', err);
-    }
-  }
-
-  const history = await getChatHistoryForModel(user.id);
-
-  let reply;
-  let charge = true;
-  const reportMedia = [];
-  try {
-    const aiInput = {
-      text: type.hasText ? String(message).trim() : undefined,
-      imageUrl: type.hasImage ? String(imageUrl).trim() : undefined,
-      audioUrl: type.hasAudio ? String(audioUrl).trim() : undefined,
-      history,
-      fieldCalcMode: calcIntent === 'compute',
-    };
-    reply = hasFeature(user, 'agent')
-      ? await runAgent({ ...aiInput, user, messageSid, onOutcome: outcome => { charge = outcome.charge; }, onArtifact: url => { reportMedia.push(url); } })
-      : await generateAgriculturalReply(aiInput);
-  } catch (err) {
-    console.error('[incoming] Falha na IA:', err);
-    const fallback =
-      process.env.WHATSAPP_IA_ERROR_TEXT?.trim() || MSG_IA_ERRO;
-    try {
-      await sendWhatsAppMessage(phone, fallback);
-    } catch (sendErr) {
-      console.error('[incoming] Falha ao enviar WhatsApp de erro:', sendErr);
-    }
     return {
-      step: 'ai_error',
+      step: 'ai_reply',
       userId: user.id,
-      usageCount: user.usageCount,
-      error: err instanceof Error ? err.message : String(err),
+      usageCount: updatedUsage,
+      replyPreview: reply.slice(0, 280),
     };
+  } finally {
+    if (reservationId) await settleSubscriptionAnalysis(reservationId, billed);
   }
-
-  if (charge) await incrementUsage(user.id);
-  await saveChatTurn(
-    user.id,
-    buildUserTurnSummary(type, message),
-    reply
-  );
-  if (reportMedia.length) await sendWhatsAppWithMedia(phone, reply.slice(0,1500), reportMedia.slice(0,1));
-  else await sendWhatsAppMessage(phone, reply);
-
-  const updatedUsage = user.usageCount + (charge ? 1 : 0);
-
-  return {
-    step: 'ai_reply',
-    userId: user.id,
-    usageCount: updatedUsage,
-    replyPreview: reply.slice(0, 280),
-  };
 }

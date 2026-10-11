@@ -143,7 +143,7 @@ export async function runRuralWorker({
         if (!messages?.length) break;
         const message = messages[0];
         try {
-          await processMessage(message.payload);
+          await processMessage({ ...message.payload, receivedAt: message.created_at });
           await repo.result(
             repo.db
               .from("assistant_inbox")

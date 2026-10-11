@@ -10,7 +10,7 @@ Na pasta `CampoAI`, execute `npm run dev` para a API. Na pasta `CampoAI/app`, ex
 
 ## Build web
 
-Execute `npm run build` em `CampoAI/app`. O Express serve o resultado em `/app/`. O build web usa a mesma origem da API e URLs relativas para os assets.
+Execute `npm run build` em `CampoAI/app`. O Express serve o resultado na raiz de `https://app.useaggi.com/`. O build web usa a mesma origem da API e assets absolutos sob `/assets/`. Endereços antigos `/app/*` redirecionam para os caminhos na raiz. Veja [a configuração dos domínios](../docs/DOMAINS.md).
 
 Para um ambiente de deploy limpo, `npm run build` na pasta `CampoAI` instala as dependências do app a partir do lockfile e produz `app/dist`. Esse comando deve fazer parte do build da hospedagem antes de `npm start`.
 
@@ -24,7 +24,7 @@ npm run sync:android
 npm run open:android
 ```
 
-`sync:android` gera o React em modo nativo e copia os assets para o projeto Android. Execute esse comando depois de alterar o frontend antes de compilar no Android Studio. O build nativo lê `app/.env.native`, que contém somente a URL pública HTTPS da API; nunca coloque segredos em variáveis `VITE_*`. O build web (`npm run build`) continua independente e com API relativa.
+`sync:android` gera o React em modo nativo e copia os assets para o projeto Android. Execute esse comando depois de alterar o frontend antes de compilar no Android Studio. O build nativo lê `app/.env.native`, com `VITE_API_BASE_URL=https://app.useaggi.com`; nunca coloque segredos em variáveis `VITE_*`. O build web (`npm run build`) continua independente e com API relativa.
 
 No Windows, `cd android` e `./gradlew.bat assembleDebug` gera um APK de teste em `android/app/build/outputs/apk/debug/app-debug.apk`. Para instalar diretamente, conecte um aparelho com depuração USB ou inicie um emulador no Android Studio.
 

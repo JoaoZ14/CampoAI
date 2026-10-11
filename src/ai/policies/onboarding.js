@@ -15,7 +15,7 @@ export function firstContactReply(text, context) {
   if (!beginner && !describesWork) return null;
 
   if (describesWork && !beginner) {
-    return 'Legal! Posso ajudar com o que você planta e cria, e também organizar a rotina do sítio para você acompanhar no app. Ainda não registrei plantios ou animais só por você me contar isso. Se quiser começar, como você chama sua propriedade?';
+    return 'Legal! Posso ajudar com o que você planta e cria, e também registrar sua rotina: você me pede no WhatsApp, confere minha confirmação e acompanha no app AGGI. Ainda não registrei plantios ou animais só por você me contar isso. Se quiser começar, como você chama sua propriedade?';
   }
-  return 'Posso tirar dúvidas do campo e também ajudar a organizar seu sítio: cadastrar a propriedade, talhões e tarefas para você acompanhar no app. Vamos começar pelo básico: como você chama sua propriedade?';
+  return 'Sou a Lida. Você me pede pelo WhatsApp para registrar gastos, tarefas e produção; eu confirmo o que salvei, e você acompanha no app AGGI. Também ajudo com dúvidas do campo. Vamos começar pelo básico: como você chama sua propriedade?';
 }
