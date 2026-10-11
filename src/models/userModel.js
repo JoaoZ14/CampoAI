@@ -15,6 +15,7 @@
  * @property {string|null} [asaas_subscription_status]
  * @property {string|null} [billing_usage_ym]
  * @property {number} [billing_usage_count]
+ * @property {object|null} [subscription_terms]
  * @property {string|null} [name]
  * @property {string|null} [email]
  * @property {string|null} [auth_user_id]
@@ -44,6 +45,7 @@ export function mapUserRow(row) {
     asaasSubscriptionStatus: row.asaas_subscription_status ?? null,
     billingUsageYm: row.billing_usage_ym ?? null,
     billingUsageCount: row.billing_usage_count ?? 0,
+    subscriptionTerms: row.subscription_terms ?? null,
     name: row.name ?? null,
     email: row.email ?? null,
     authUserId: row.auth_user_id ?? null,

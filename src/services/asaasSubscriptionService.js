@@ -3,6 +3,7 @@ import {
   brazilMonthYm,
   subscriptionChargeFromMonthlyPrice,
   normalizeBillingCycle,
+  assertAcceptedOffer,
 } from '../config/billing.js';
 import { getProductPlanPriceByCode } from './productPlanRepository.js';
 import { normalizePhone } from '../utils/phone.js';
@@ -81,6 +82,7 @@ export async function subscribeUserWithCreditCardMonthly(input) {
   if (!plan) {
     throw new AppError('Plano não encontrado.', 404);
   }
+  assertAcceptedOffer(plan.terms, input.acceptedOffer);
 
   const billingCycle = normalizeBillingCycle(input.billingCycle);
   const { value: chargeValue, cycle: asaasCycle } = subscriptionChargeFromMonthlyPrice(
@@ -105,6 +107,12 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       'Este número já possui assinatura Asaas cadastrada. Use o painel Asaas ou suporte para alterar.',
       409
     );
+  }
+  if (row.organization_id) {
+    const { data: org, error } = await createSupabaseClient().from('organizations').select('owner_user_id').eq('id', row.organization_id).maybeSingle();
+    if (error || org?.owner_user_id !== row.id) {
+      throw new AppError('Este número participa de uma assinatura de equipe. Fale com o titular ou com o suporte antes de contratar outra assinatura.', 409);
+    }
   }
 
   const cust = input.customer;
@@ -147,6 +155,8 @@ export async function subscribeUserWithCreditCardMonthly(input) {
 
     const remoteIp = String(input.remoteIp || '').trim() || '127.0.0.1';
     const userId = row.id;
+    // Persist the accepted offer before any charge; missing migration fails safely here.
+    await updateUserById(userId, { subscriptionTerms: plan.terms });
 
     let customerId =
       rowFresh?.asaas_customer_id?.trim() || row.asaas_customer_id?.trim() || '';
@@ -223,7 +233,7 @@ export async function subscribeUserWithCreditCardMonthly(input) {
       name: cust.name.trim(),
     });
 
-    if (customerType === 'company') {
+    if (customerType === 'company' || plan.maxWhatsAppSeats > 1) {
       let organizationId = rowFresh?.organization_id || row.organization_id || null;
       if (!organizationId) {
         const org = await createOrganization({
@@ -236,7 +246,7 @@ export async function subscribeUserWithCreditCardMonthly(input) {
 
       await updateUserById(userId, {
         organizationId,
-        billingKind: 'team',
+        billingKind: customerType === 'company' ? 'team' : 'personal',
         isPaid: true,
       });
       await addSeatToOrganization(organizationId, phone);
@@ -290,7 +300,6 @@ export async function activateUserByAsaasSubscriptionId(subscriptionId) {
 
   await updateUserById(row.id, {
     isPaid: true,
-    billingKind: 'personal',
     signupCompletedAt: new Date().toISOString(),
   });
   return { ok: true, userId: row.id };

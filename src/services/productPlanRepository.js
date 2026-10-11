@@ -1,88 +1,27 @@
 import { createSupabaseClient } from '../models/supabaseClient.js';
-import { DEFAULT_PLANS } from '../config/plans.js';
+import { AppError } from '../utils/errors.js';
 
-const defaultByCode = Object.fromEntries(DEFAULT_PLANS.map((p) => [p.code, p]));
-
-/** Teto mensal quando a tabela ainda não tem a coluna (fallback). */
-const FALLBACK_MONTHLY_ANALYSIS_CAP = { lite: 35 };
-
-/**
- * Preço e nome do plano ativo (tabela product_plans) com fallback no código.
- * @param {string} code basic | pro | premium
- * @param {'personal'|'company'} [customerSegment]
- * @returns {Promise<{ priceBrl: number, name: string, maxWhatsAppSeats: number|null } | null>}
- */
+// Checkout requires the typed database offer. Never charge a fallback price.
 export async function getProductPlanPriceByCode(code, customerSegment = 'personal') {
-  const c = String(code ?? '')
-    .trim()
-    .toLowerCase();
-  if (!c) return null;
-  const seg = customerSegment === 'company' ? 'company' : 'personal';
-
-  try {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-      .from('product_plans')
-      .select('price_brl, name, max_whatsapp_seats')
-      .eq('code', c)
-      .eq('customer_segment', seg)
-      .eq('active', true)
-      .maybeSingle();
-
-    if (!error && data && Number(data.price_brl) >= 0) {
-      return {
-        priceBrl: Number(data.price_brl),
-        name: String(data.name || c),
-        maxWhatsAppSeats:
-          data.max_whatsapp_seats == null ? null : Math.max(1, Number(data.max_whatsapp_seats) || 1),
-      };
-    }
-  } catch {
-    // tabela pode não existir ainda
+  const segment = customerSegment === 'company' ? 'company' : 'personal';
+  const { data, error } = await createSupabaseClient().from('product_plans')
+    .select('code, customer_segment, price_brl, name, max_whatsapp_seats, max_analyses_per_month, pricing_version')
+    .eq('code', String(code ?? '').trim().toLowerCase()).eq('customer_segment', segment).eq('active', true).maybeSingle();
+  if (error) throw new AppError('Não foi possível confirmar o preço e as condições do plano. Tente novamente em instantes.', 503);
+  if (!data) return null;
+  const price = Number(data.price_brl);
+  const cap = data.max_analyses_per_month == null ? null : Number(data.max_analyses_per_month);
+  if (!Number.isFinite(price) || price <= 0 || (data.pricing_version === '2026-10' && cap == null) || (cap != null && (!Number.isInteger(cap) || cap < 1))) {
+    throw new AppError('As condições deste plano estão indisponíveis. Fale com o suporte.', 503);
   }
-
-  if (seg === 'company') return null;
-  const d = defaultByCode[c];
-  if (!d) return null;
-  return { priceBrl: d.priceBrl, name: d.name, maxWhatsAppSeats: d.seats ?? 1 };
+  const terms = { version: data.pricing_version, code: data.code, customerSegment: segment, name: data.name, priceBrl: price, maxAnalysesPerMonth: cap, seats: Number(data.max_whatsapp_seats) || 1 };
+  return { priceBrl: price, name: data.name, maxWhatsAppSeats: terms.seats, terms };
 }
 
-/**
- * Teto de análises com IA por mês (null = ilimitado).
- * @param {string} code
- * @param {'personal'|'company'} [customerSegment]
- * @returns {Promise<number|null>}
- */
+// Only for legacy accounts without a stored subscription snapshot.
 export async function getProductPlanAnalysisCap(code, customerSegment = 'personal') {
-  const c = String(code ?? '')
-    .trim()
-    .toLowerCase();
-  if (!c) return null;
-  const seg = customerSegment === 'company' ? 'company' : 'personal';
-
-  try {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-      .from('product_plans')
-      .select('max_analyses_per_month')
-      .eq('code', c)
-      .eq('customer_segment', seg)
-      .eq('active', true)
-      .maybeSingle();
-
-    if (!error && data && data.max_analyses_per_month != null && data.max_analyses_per_month !== '') {
-      const n = Number(data.max_analyses_per_month);
-      if (Number.isFinite(n) && n >= 1) return n;
-    }
-    if (error && seg === 'personal') {
-      const fb = FALLBACK_MONTHLY_ANALYSIS_CAP[c];
-      if (typeof fb === 'number' && fb >= 1) return fb;
-    }
-  } catch {
-    // coluna ou tabela ausente
-  }
-
-  if (seg === 'company') return null;
-  const fb = FALLBACK_MONTHLY_ANALYSIS_CAP[c];
-  return typeof fb === 'number' && fb >= 1 ? fb : null;
+  const { data, error } = await createSupabaseClient().from('product_plans').select('max_analyses_per_month')
+    .eq('code', String(code ?? '').trim().toLowerCase()).eq('customer_segment', customerSegment).maybeSingle();
+  if (error) throw new AppError('Não foi possível conferir o uso da assinatura agora. Tente novamente.', 503);
+  return data?.max_analyses_per_month ?? null;
 }

@@ -1,9 +1,8 @@
-import { brazilMonthYm } from '../config/billing.js';
 import { createSupabaseClient } from '../models/supabaseClient.js';
 import { mapUserRow, FREE_USAGE_LIMIT, FREE_TRIAL_DAYS } from '../models/userModel.js';
 import { AppError } from '../utils/errors.js';
 import { normalizePhone } from '../utils/phone.js';
-import { getProductPlanAnalysisCap } from './productPlanRepository.js';
+import { subscriptionUsage, incrementSubscriptionUsage } from './subscriptionUsageService.js';
 
 function getClient() {
   return createSupabaseClient();
@@ -200,50 +199,9 @@ export async function incrementUsage(userId) {
     throw new AppError('Usuário não encontrado para incrementar uso.', 500);
   }
 
-  const paid = Boolean(row.is_paid);
-  const seg = row.billing_kind === 'team' ? 'company' : 'personal';
-  const planCode = String(row.subscription_plan_code || '').toLowerCase();
-  const cap = paid ? await getProductPlanAnalysisCap(planCode, seg) : null;
-
-  if (!paid) {
-    const next = (row.usage_count ?? 0) + 1;
-    const { error: updateErr } = await supabase
-      .from('users')
-      .update({ usage_count: next })
-      .eq('id', userId);
-    if (updateErr) {
-      throw new AppError(`Erro ao atualizar uso: ${updateErr.message}`, 500);
-    }
-    return;
-  }
-
-  if (cap != null && cap >= 1) {
-    const ym = brazilMonthYm();
-    let ymu = row.billing_usage_ym ?? null;
-    let cnt = Number(row.billing_usage_count) || 0;
-    if (ymu !== ym) {
-      ymu = ym;
-      cnt = 0;
-    }
-    cnt += 1;
-    const { error: updateErr } = await supabase
-      .from('users')
-      .update({ billing_usage_ym: ymu, billing_usage_count: cnt })
-      .eq('id', userId);
-    if (updateErr) {
-      throw new AppError(`Erro ao atualizar uso mensal: ${updateErr.message}`, 500);
-    }
-    return;
-  }
-
-  const next = (row.usage_count ?? 0) + 1;
-  const { error: updateErr } = await supabase
-    .from('users')
-    .update({ usage_count: next })
-    .eq('id', userId);
-  if (updateErr) {
-    throw new AppError(`Erro ao atualizar uso: ${updateErr.message}`, 500);
-  }
+  if (row.is_paid) return incrementSubscriptionUsage(userId, supabase);
+  const { error: updateErr } = await supabase.from('users').update({ usage_count: (row.usage_count ?? 0) + 1 }).eq('id', userId);
+  if (updateErr) throw new AppError('Não foi possível atualizar o uso da conta.', 503);
 }
 
 /**
@@ -266,16 +224,7 @@ export async function incrementUsage(userId) {
 export async function buildUsageAccessContext(user) {
   const supabase = getClient();
   const { data: row, error } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
-  if (error || !row) {
-    return {
-      isPaid: Boolean(user.isPaid),
-      usageCount: user.usageCount ?? 0,
-      monthlyAnalysisCap: null,
-      monthlyAnalysisUsed: 0,
-      trialExpiryReason: null,
-      signupCompleted: hasCompletedSignup(user),
-    };
-  }
+  if (error || !row) throw new AppError('Não foi possível conferir o uso da sua conta agora. Tente novamente.', 503);
 
   const u = mapUserRow(row);
   if (!u.isPaid) {
@@ -289,43 +238,14 @@ export async function buildUsageAccessContext(user) {
     };
   }
 
-  const seg = u.billingKind === 'team' ? 'company' : 'personal';
-  const planCode = String(u.subscriptionPlanCode || '').toLowerCase();
-  const cap = await getProductPlanAnalysisCap(planCode, seg);
-
-  if (cap == null || cap < 1) {
-    return {
-      isPaid: true,
-      usageCount: u.usageCount ?? 0,
-      monthlyAnalysisCap: null,
-      monthlyAnalysisUsed: 0,
-      trialExpiryReason: null,
-      signupCompleted: hasCompletedSignup(u),
-    };
-  }
-
-  const ym = brazilMonthYm();
-  let used = Number(u.billingUsageCount) || 0;
-  let ymu = u.billingUsageYm ?? null;
-
-  if (ymu !== ym) {
-    const { error: upErr } = await supabase
-      .from('users')
-      .update({ billing_usage_ym: ym, billing_usage_count: 0 })
-      .eq('id', user.id);
-    if (!upErr) {
-      ymu = ym;
-      used = 0;
-    }
-  }
-
+  const { cap, used, owner } = await subscriptionUsage(u, supabase);
   return {
-    isPaid: true,
-    usageCount: u.usageCount ?? 0,
-    monthlyAnalysisCap: cap,
-    monthlyAnalysisUsed: used,
-    trialExpiryReason: null,
-    signupCompleted: hasCompletedSignup(u),
+    isPaid: true, usageCount: u.usageCount ?? 0,
+    monthlyAnalysisCap: cap, monthlyAnalysisUsed: used,
+    subscriptionPlanName: owner.subscriptionTerms?.name,
+    subscriptionCustomerSegment: owner.subscriptionTerms?.customerSegment,
+    sharedAllowance: owner.organizationId != null,
+    trialExpiryReason: null, signupCompleted: hasCompletedSignup(u),
   };
 }
 
@@ -396,6 +316,7 @@ export async function updateUserById(userId, patch) {
   }
   if (patch.billingUsageYm !== undefined) row.billing_usage_ym = patch.billingUsageYm;
   if (patch.billingUsageCount !== undefined) row.billing_usage_count = patch.billingUsageCount;
+  if (patch.subscriptionTerms !== undefined) row.subscription_terms = patch.subscriptionTerms;
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.email !== undefined) row.email = patch.email;
   if (patch.authUserId !== undefined) row.auth_user_id = patch.authUserId;

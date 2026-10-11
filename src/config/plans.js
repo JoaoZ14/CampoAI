@@ -3,7 +3,7 @@
  * Os dados publicados vêm da tabela `plan_catalog` no Supabase (ver planCatalogService).
  */
 
-export const DEFAULT_VERSION = '2026-04';
+export const DEFAULT_VERSION = '2026-10';
 
 /**
  * @typedef {{
@@ -16,6 +16,7 @@ export const DEFAULT_VERSION = '2026-04';
  *   seats?: number,
  *   customerSegment?: 'personal'|'company',
  *   highlight?: boolean,
+ *   maxAnalysesPerMonth?: number|null,
  * }} PublicPlan
  */
 
@@ -24,61 +25,65 @@ export const DEFAULT_PLANS = [
   {
     code: 'lite',
     name: 'Essencial',
-    priceBrl: 29,
+    priceBrl: 39,
+    seats: 1,
+    customerSegment: 'personal',
+    maxAnalysesPerMonth: 40,
     period: 'mês',
     summary:
-      'Até 35 análises por mês com política de uso justo; um número de WhatsApp. Entrada com custo menor antes de subir para o Starter.',
+      'Para começar: 40 análises de IA por mês e um número de WhatsApp.',
     bullets: [
-      'Até 35 análises com IA por mês (renova todo mês em horário de Brasília)',
+      'Até 40 análises de IA por mês',
       'Um número de WhatsApp',
-      'Conteúdo técnico em linguagem clara; calc ajuda integrada',
+      'Registrar, editar e consultar pelo app sem consumir análises de IA',
     ],
   },
   {
     code: 'basic',
     name: 'Starter',
-    priceBrl: 49,
+    priceBrl: 79,
+    seats: 1,
+    customerSegment: 'personal',
+    maxAnalysesPerMonth: 100,
+    highlight: true,
     period: 'mês',
     summary:
-      'Entrada no produto: um número, previsibilidade de custo e análises ilimitadas com política de uso justo.',
+      'Para a rotina: 100 análises de IA por mês e um número de WhatsApp.',
     bullets: [
-      'Um número de WhatsApp com análises ilimitadas (uso justo)',
-      'Conteúdo técnico em linguagem clara; calculadora integrada (calc ajuda)',
-      'Memória da conversa conforme a configuração do servidor',
-    ],
-  },
-  {
-    code: 'pro',
-    name: 'Pro',
-    priceBrl: 59,
-    period: 'mês',
-    summary:
-      'Plano intermediário (legado): respostas mais completas e relatório em PDF quando o servidor oferecer.',
-    bullets: [
+      'Até 100 análises de IA por mês',
       'Um número de WhatsApp',
-      'Respostas mais detalhadas quando necessário',
-      'Relatório em PDF da conversa quando estiver ativo no servidor',
+      'Registrar, editar e consultar pelo app sem consumir análises de IA',
     ],
   },
   {
     code: 'premium',
     name: 'Team',
-    priceBrl: 119,
+    priceBrl: 179,
+    customerSegment: 'personal',
+    maxAnalysesPerMonth: 250,
     period: 'mês',
     seats: 3,
     summary:
-      'Até três números numa única assinatura: mesmo nível de serviço para quem divide o uso com equipe ou família.',
+      'Até três números de WhatsApp com 250 análises de IA por mês compartilhadas pela assinatura.',
     bullets: [
       'Até 3 números de WhatsApp no mesmo plano',
-      'Um responsável contrata; você define quem usa (painel administrativo)',
-      'Indicado quando várias pessoas enviam mídia e perguntas no mesmo fluxo',
+      'Até 250 análises de IA por mês, compartilhadas entre os números',
+      'Registrar, editar e consultar pelo app sem consumir análises de IA',
     ],
+  },
+  {
+    code: 'premium', name: 'Business', customerSegment: 'company',
+    priceBrl: 299, period: 'mês', seats: 5, maxAnalysesPerMonth: 400, highlight: true,
+    summary: 'Para empresas: até cinco números de WhatsApp com 400 análises de IA por mês compartilhadas pela assinatura.',
+    bullets: ['Até 5 números de WhatsApp no mesmo plano', 'Até 400 análises de IA por mês, compartilhadas entre os números', 'Cadastro e contratação com CNPJ', 'Registrar, editar e consultar pelo app sem consumir análises de IA'],
   },
 ];
 
 export const DEFAULT_NOTES = [
   'Posicionamento: o cliente compra clareza e tempo — menos erro operacional e menos ida e volta na busca por informação.',
-  'Na vitrine, o Essencial (R$29) é a porta de entrada com teto mensal de análises; o Starter (R$49) é ilimitado no mesmo espírito de uso justo.',
+  'As franquias são mensais, inclusive na assinatura anual, e renovam no primeiro dia do mês em horário de Brasília. Não acumulam e não geram cobrança automática de excedente.',
+  'Uma análise é um pedido processado com sucesso pela IA, seja texto, foto ou áudio. Falhas e respostas de comandos sem IA não consomem a franquia. Pedidos de esclarecimento processados pela IA contam como uma análise.',
+  'Os números dos planos Team e Business dividem a mesma franquia. Ao atingir o limite, você pode continuar registrando, editando e consultando pelo app durante a assinatura ativa.',
 ];
 
 /**
@@ -128,6 +133,13 @@ export function normalizePlan(p, index) {
   }
   /** @type {PublicPlan} */
   const plan = { code, name, priceBrl, period, summary, bullets };
+  plan.customerSegment = o.customerSegment === 'company' ? 'company' : 'personal';
+  plan.highlight = Boolean(o.highlight);
+  if (o.maxAnalysesPerMonth != null) {
+    const cap = Number(o.maxAnalysesPerMonth);
+    if (!Number.isInteger(cap) || cap < 1 || cap > 100000) return null;
+    plan.maxAnalysesPerMonth = cap;
+  }
   if (o.seats != null && o.seats !== '') {
     const seats = typeof o.seats === 'number' ? o.seats : Number(o.seats);
     if (!Number.isInteger(seats) || seats < 1 || seats > 500) {
@@ -163,7 +175,7 @@ export function parseAndValidateCatalog(input) {
   if (plans.length === 0) {
     throw new Error('Nenhum plano válido após validação.');
   }
-  const codes = new Set(plans.map((p) => p.code));
+  const codes = new Set(plans.map((p) => `${p.customerSegment}:${p.code}`));
   if (codes.size !== plans.length) {
     throw new Error('Códigos de plano (code) duplicados.');
   }

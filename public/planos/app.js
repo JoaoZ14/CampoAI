@@ -41,31 +41,31 @@ async function requireCustomerSession() {
 const PLAN_CONTENT = {
   lite: {
     name: 'Essencial',
-    monthly: 29,
+    monthly: 39,
     benefits: [
-      'Até 35 análises com IA por mês (renova no mês civil, horário de Brasília)',
+      'Até 40 análises de IA por mês',
       'Um número de WhatsApp',
       'Conteúdo técnico em linguagem clara; calc ajuda integrada',
     ],
-    summary: 'Entrada com custo menor: teto mensal claro antes de ir para o Starter ilimitado.',
+    summary: 'Para começar: 40 análises de IA por mês e um número de WhatsApp.',
   },
   basic: {
     name: 'Starter',
-    monthly: 49,
+    monthly: 79,
     benefits: [
-      'Um número com análises ilimitadas (política de uso justo)',
+      'Até 100 análises de IA por mês',
       'Respostas técnicas em linguagem clara; calc ajuda integrada',
-      'Memória da conversa conforme o servidor',
+      'Um número de WhatsApp',
     ],
-    summary: 'Ponto de entrada: custo fixo mensal e um WhatsApp para validar o produto no seu ritmo.',
+    summary: 'Para a rotina: 100 análises de IA por mês e um número de WhatsApp.',
   },
   premium: {
     name: 'Team',
-    monthly: 119,
+    monthly: 179,
     benefits: [
       'Até 3 números na mesma assinatura',
       'Um titular; você distribui o acesso à equipe ou família',
-      'Mesmo padrão de resposta para todos os números',
+      'Até 250 análises de IA por mês, compartilhadas entre os números',
     ],
     summary: 'Quando mais de uma pessoa precisa da Lida no mesmo contrato.',
   },
@@ -75,13 +75,15 @@ const COMPANY_FALLBACK_PLAN = {
   code: 'premium',
   customerSegment: 'company',
   name: 'Business',
-  priceBrl: 199,
+  priceBrl: 299,
+  seats: 5,
+  maxAnalysesPerMonth: 400,
   summary:
     'Assinatura em CNPJ: até 5 números, cadastro e faturamento empresariais, NF quando aplicável.',
   bullets: [
     'Até 5 números vinculados ao contrato empresarial',
     'Cadastro e cobrança alinhados ao CNPJ',
-    'Mesmo nível de serviço para a equipe',
+    'Até 400 análises de IA por mês, compartilhadas entre os números',
   ],
   highlight: true,
 };
@@ -94,6 +96,7 @@ function buildStaticFallbackPlans() {
       customerSegment: 'personal',
       name: p.name,
       priceBrl: p.monthly,
+      maxAnalysesPerMonth: { lite: 40, basic: 100, premium: 250 }[code],
       summary: p.summary,
       bullets: p.benefits,
       highlight: code === 'basic',
@@ -333,7 +336,7 @@ async function apiPost(path, body) {
 /** Alinhado a `src/config/billing.js` (ANNUAL_DISCOUNT_FRACTION = 0,2). */
 function formatPrice(monthly, annualMode) {
   if (!annualMode) return { price: monthly, period: 'mês' };
-  const discounted = Math.round(monthly * (1 - 0.2) * 12);
+  const discounted = Math.round(monthly * (1 - 0.2) * 12 * 100) / 100;
   return { price: discounted, period: 'ano' };
 }
 
@@ -502,8 +505,9 @@ function applySelectedPlan(code, segment, opts = {}) {
   const selected = plansForRender().find((plan) => plan.code === code && plan.customerSegment === segment);
   const monthlyPrice = Number(selected?.priceBrl);
   const amount = Number.isFinite(monthlyPrice) ? formatPrice(monthlyPrice, annualMode) : null;
-  const charge = amount ? ` — R$ ${amount.price}/${amount.period}` : '';
-  summary.textContent = `Plano: ${label} — cobrança ${annualMode ? 'anual' : 'mensal'}${charge} — ${doc}`;
+  const charge = amount ? ` — R$ ${amount.price.toLocaleString('pt-BR', { minimumFractionDigits: annualMode ? 2 : 0, maximumFractionDigits: 2 })}/${amount.period}` : '';
+  const allowance = selected?.maxAnalysesPerMonth ? ` — ${selected.maxAnalysesPerMonth} análises de IA por mês${Number(selected.seats) > 1 ? ', compartilhadas entre os números' : ''}` : '';
+  summary.textContent = `Plano: ${label} — cobrança ${annualMode ? 'anual' : 'mensal'}${charge}${allowance} — ${doc}`;
   highlightPlanCard(code, segment);
   refreshCompanyFields();
 
@@ -587,7 +591,7 @@ function renderPlans() {
         <h3 class="plan-title">${name}</h3>
         <p class="plan-audience">${audience}</p>
         <div class="plan-price-row">
-          <p class="price">R$&nbsp;${pricing.price}</p>
+          <p class="price">R$&nbsp;${pricing.price.toLocaleString('pt-BR', { minimumFractionDigits: annualMode ? 2 : 0, maximumFractionDigits: 2 })}</p>
           <p class="period">/${pricing.period}</p>
         </div>
         <p class="summary">${sum}</p>
@@ -745,7 +749,9 @@ function bindFlow() {
         notes: '',
       });
 
+      const selectedOffer = plansForRender().find(plan => plan.code === getText(fd, 'planCode') && planSegmentFromRow(plan) === getText(fd, 'customerType'));
       const out = await apiPost('/api/billing/checkout', {
+        acceptedOffer: { priceBrl: Number(selectedOffer?.priceBrl), maxAnalysesPerMonth: selectedOffer?.maxAnalysesPerMonth ?? null, seats: Number(selectedOffer?.seats) || 1 },
         verificationToken: state.verificationToken,
         planCode: getText(fd, 'planCode'),
         customerType: getText(fd, 'customerType'),

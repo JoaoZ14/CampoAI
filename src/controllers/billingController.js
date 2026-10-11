@@ -132,6 +132,7 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       phone: body.phone,
       planCode: body.planCode,
       customerType,
+      acceptedOffer: body.acceptedOffer,
       billingCycle: body.billingCycle,
       authUserId: req.authUser.id,
       customer: {

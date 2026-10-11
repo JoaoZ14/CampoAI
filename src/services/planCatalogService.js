@@ -35,19 +35,19 @@ async function mergePlansWithProductRows(catalogPlans) {
     const { data, error } = await supabase
       .from('product_plans')
       .select(
-        'code, customer_segment, name, price_brl, summary, max_whatsapp_seats, highlight, sort_order, active'
+        'code, customer_segment, name, price_brl, summary, max_whatsapp_seats, max_analyses_per_month, highlight, sort_order, active'
       )
       .eq('active', true)
       .order('sort_order', { ascending: true });
 
     if (error || !Array.isArray(data) || data.length === 0) {
-      return catalogPlans.map((p) => ({ ...p, customerSegment: 'personal' }));
+      return catalogPlans;
     }
 
     return data.map((row) => {
       const code = String(row.code ?? '').trim();
       const cat =
-        catalogPlans.find((p) => p.code === code) || DEFAULT_PLANS.find((p) => p.code === code);
+        catalogPlans.find((p) => p.code === code && p.customerSegment === row.customer_segment) || DEFAULT_PLANS.find((p) => p.code === code && p.customerSegment === row.customer_segment);
       const segment = row.customer_segment === 'company' ? 'company' : 'personal';
       if (!cat) {
         return {
@@ -59,6 +59,7 @@ async function mergePlansWithProductRows(catalogPlans) {
           bullets: ['Detalhes no checkout.'],
           customerSegment: segment,
           highlight: Boolean(row.highlight),
+          maxAnalysesPerMonth: row.max_analyses_per_month ?? null,
           seats:
             row.max_whatsapp_seats != null && row.max_whatsapp_seats !== ''
               ? Number(row.max_whatsapp_seats)
@@ -73,16 +74,17 @@ async function mergePlansWithProductRows(catalogPlans) {
         priceBrl: Number(row.price_brl),
         summary: row.summary ? String(row.summary) : cat.summary,
         highlight: Boolean(row.highlight),
+        maxAnalysesPerMonth: row.max_analyses_per_month ?? null,
         seats:
           row.max_whatsapp_seats != null && row.max_whatsapp_seats !== ''
             ? Number(row.max_whatsapp_seats)
             : cat.seats,
         bullets:
-          bulletsWithProductSeatCap(cat.bullets, row.max_whatsapp_seats) ?? cat.bullets,
+          [row.max_analyses_per_month == null ? 'Análises ilimitadas (uso justo)' : `Até ${row.max_analyses_per_month} análises de IA por mês${Number(row.max_whatsapp_seats) > 1 ? ', compartilhadas entre os números' : ''}`, ...(bulletsWithProductSeatCap(cat.bullets, row.max_whatsapp_seats) ?? cat.bullets).filter(b => !/análises.*(?:mês|ilimitad)/i.test(b))],
       };
     });
   } catch {
-    return catalogPlans.map((p) => ({ ...p, customerSegment: 'personal' }));
+    return catalogPlans;
   }
 }
 

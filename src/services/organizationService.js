@@ -192,7 +192,7 @@ export async function addSeatToOrganization(organizationId, rawPhone) {
   }
 
   const user = await findOrCreateUser(phone);
-  if (user.isPaid && user.billingKind === BILLING.PERSONAL) {
+  if (user.isPaid && user.billingKind === BILLING.PERSONAL && user.id !== org.owner_user_id) {
     throw new AppError(
       'Este número já é assinante pessoal. Cancele ou ajuste o plano individual antes de vincular ao equipe.',
       409
@@ -217,7 +217,7 @@ export async function addSeatToOrganization(organizationId, rawPhone) {
     .update({
       is_paid: true,
       organization_id: organizationId,
-      billing_kind: BILLING.TEAM,
+      billing_kind: user.id === org.owner_user_id ? user.billingKind : BILLING.TEAM,
       signup_completed_at: new Date().toISOString(),
     })
     .eq('id', user.id);

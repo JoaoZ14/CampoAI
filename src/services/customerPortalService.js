@@ -3,12 +3,16 @@ import { AppError } from '../utils/errors.js';
 import { FREE_TRIAL_DAYS } from '../models/userModel.js';
 import { buildUsageAccessContext, getUserById, updateUserById } from './userService.js';
 import { addSeatToOrganization, listSeatsForOrganization, removeSeatFromOrganization } from './organizationService.js';
+import { subscriptionOwner } from './subscriptionUsageService.js';
 
 function getClient() {
   return createSupabaseClient();
 }
 
 async function getPlanMetaForUser(user) {
+  const owner = await subscriptionOwner(user);
+  const terms = owner.subscriptionTerms;
+  if (terms) return { code: terms.code, name: terms.name, customerSegment: terms.customerSegment, priceBrl: terms.priceBrl, billingPeriodLabel: 'mês', maxWhatsappSeats: terms.seats, maxAnalysesPerMonth: terms.maxAnalysesPerMonth, pricingVersion: terms.version };
   const supabase = getClient();
   const code = String(user.subscriptionPlanCode || '').toLowerCase();
   if (!code) return null;
@@ -110,7 +114,7 @@ export async function updateCustomerProfile(userId, patch) {
 
 async function requireOwnedOrganization(userId) {
   const org = await getOwnedOrganizationOrNull(userId);
-  if (!org) throw new AppError('Somente o titular da conta empresa pode gerenciar números.', 403);
+  if (!org) throw new AppError('Somente o titular da assinatura de equipe pode gerenciar números.', 403);
   if (!org.is_active) throw new AppError('Organização inativa.', 400);
   return org;
 }
