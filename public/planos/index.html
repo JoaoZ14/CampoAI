@@ -100,27 +100,54 @@
 
       <section class="forms">
         <div id="checkout-panel" class="checkout-panel" hidden>
-        <div class="card flow-card">
+        <header class="checkout-heading">
           <button type="button" id="back-to-plans" class="link-back-plans">
             ← Escolher outro plano
           </button>
-          <h2 class="section-heading">Assinar com segurança</h2>
-          <p id="plan-selected-summary" class="plan-picked checkout-summary muted" aria-live="polite"></p>
-          <p class="muted flow-intro">Celular, código por SMS e o cartão.</p>
-          <p id="checkout-auth-gate" class="auth-gate" hidden>
-            Entre ou crie uma conta web para assinar.
-            <a href="/entrar?next=/planos">Entrar</a>
-            ·
-            <a href="/cadastro">Cadastro</a>
-          </p>
+          <span class="checkout-eyebrow">SUA ASSINATURA AGGI</span>
+          <h1>Um passo de cada vez.</h1>
+          <p>Confira o plano escolhido e siga para continuar com a Lida.</p>
+          <ol class="checkout-steps" aria-label="Etapas da assinatura">
+            <li data-checkout-stage="account"><span class="checkout-step-number" aria-hidden="true">1</span><span>Sua conta</span></li>
+            <li data-checkout-stage="phone"><span class="checkout-step-number" aria-hidden="true">2</span><span>Celular</span></li>
+            <li data-checkout-stage="payment"><span class="checkout-step-number" aria-hidden="true">3</span><span>Pagamento</span></li>
+          </ol>
+        </header>
+        <div class="checkout-layout">
+          <aside id="plan-selected-summary" class="checkout-order" aria-labelledby="selected-plan-name" aria-live="polite">
+            <div class="checkout-order-top"><span>PLANO ESCOLHIDO</span><span id="selected-billing-label" class="checkout-billing-pill"></span></div>
+            <h2 id="selected-plan-name"></h2>
+            <p class="checkout-order-price"><strong id="selected-plan-price"></strong><span id="selected-plan-period"></span></p>
+            <p id="selected-billing-detail" class="checkout-billing-detail"></p>
+            <div class="checkout-order-allowance"><span>Uso da Lida</span><strong id="selected-plan-allowance"></strong></div>
+            <details id="checkout-order-details" class="checkout-order-details" open>
+            <summary>Detalhes da assinatura</summary>
+            <dl class="checkout-order-facts">
+              <div><dt>WhatsApp</dt><dd id="selected-plan-seats"></dd></div>
+              <div><dt>Contratação</dt><dd id="selected-plan-document"></dd></div>
+            </dl>
+            <p class="checkout-order-note">Registrar e consultar diretamente pelo app não consome análises de IA.</p>
+            <div class="checkout-payment-provider"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Pagamento processado pelo Asaas</span></div>
+            </details>
+          </aside>
+        <div class="card flow-card checkout-form-card">
+          <p id="checkout-step-kicker" class="checkout-step-kicker"></p>
+          <h2 id="checkout-step-title" class="checkout-form-title" tabindex="-1">Entre para continuar</h2>
+          <p id="checkout-step-description" class="checkout-form-description"></p>
+          <div id="checkout-auth-gate" class="checkout-account" hidden>
+            <a id="checkout-login" class="checkout-primary-link" href="/entrar?next=/planos">Entrar na minha conta <span aria-hidden="true">→</span></a>
+            <div class="checkout-account-new"><p>É sua primeira vez no AGGI?</p><a id="checkout-signup" class="checkout-secondary-link" href="/cadastro?origin=checkout">Criar minha conta</a></div>
+            <p class="checkout-account-note">Se você já fez o cadastro para conversar com a Lida, use o mesmo e-mail e senha.</p>
+          </div>
+          <div id="checkout-feedback"></div>
 
           <form id="flow-form">
             <input type="hidden" name="planCode" id="planCode" value="" />
             <input type="hidden" name="customerType" id="customerType" value="" />
 
             <fieldset data-step="2" hidden>
-              <legend>1) Seu celular (SMS)</legend>
-              <label>Celular (recebe o código por SMS)
+              <legend class="visually-hidden">Confirme seu celular</legend>
+              <label>Seu número de celular
                 <input
                   type="tel"
                   name="phone"
@@ -132,11 +159,12 @@
                   placeholder="(11) 98765-4321"
                 />
               </label>
+              <p class="checkout-field-help">Inclua o DDD. Você receberá um código por SMS neste número.</p>
               <button type="button" id="send-otp">Enviar código por SMS</button>
             </fieldset>
 
             <fieldset data-step="3" hidden>
-              <legend>2) Código recebido</legend>
+              <legend class="visually-hidden">Código de confirmação</legend>
               <label>Código (6 dígitos)
                 <input
                   type="text"
@@ -149,11 +177,14 @@
                   autocomplete="one-time-code"
                 />
               </label>
+              <p id="otp-destination" class="checkout-field-help"></p>
               <button type="button" id="verify-otp">Validar código</button>
+              <button type="button" id="change-phone" class="link-btn checkout-change-phone">Alterar número ou reenviar código</button>
             </fieldset>
 
-            <fieldset data-step="4" hidden>
-              <legend>3) Dados e pagamento</legend>
+            <fieldset data-step="4" class="checkout-payment-fields" hidden>
+              <legend class="visually-hidden">Dados e pagamento</legend>
+              <h3>Dados do titular</h3>
               <div class="company-only" hidden>
                 <label>Nome da empresa
                   <input
@@ -221,7 +252,7 @@
                 />
               </label>
 
-              <h3>Cartão</h3>
+              <h3>Cartão de crédito</h3>
               <label>Nome no cartão
                 <input
                   type="text"
@@ -330,9 +361,11 @@
                 </label>
               </div>
 
-              <button type="submit" id="submit-subscribe">Finalizar assinatura</button>
+              <p id="checkout-submit-detail" class="checkout-field-help"></p>
+              <button type="submit" id="submit-subscribe">Confirmar e assinar</button>
             </fieldset>
           </form>
+        </div>
         </div>
         </div>
 
@@ -365,7 +398,7 @@
         </p>
       </footer>
 
-      <p id="feedback" class="feedback" hidden></p>
+      <div id="plans-feedback"><p id="feedback" class="feedback" role="status" hidden></p></div>
       </div>
     </main>
 
