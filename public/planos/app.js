@@ -20,15 +20,50 @@ let customerAuthed = false;
 
 /** Impede escolhas repetidas enquanto uma etapa do checkout está em andamento. */
 let flowInteractionLock = false;
+let currentCheckoutStep = null;
+
+function setText(id, text) {
+  const node = byId(id);
+  if (node) node.textContent = text;
+}
+
+function syncCheckoutProgress() {
+  const stage = !customerAuthed ? 'account' : currentCheckoutStep === 4 ? 'payment' : 'phone';
+  const stages = ['account', 'phone', 'payment'];
+  document.querySelectorAll('[data-checkout-stage]').forEach(node => {
+    const index = stages.indexOf(node.dataset.checkoutStage);
+    const active = node.dataset.checkoutStage === stage;
+    node.classList.toggle('is-current', active);
+    node.classList.toggle('is-complete', index < stages.indexOf(stage));
+    node.querySelector('.checkout-step-number').textContent = index < stages.indexOf(stage) ? '✓' : String(index+1);
+    if (active) node.setAttribute('aria-current', 'step');
+    else node.removeAttribute('aria-current');
+  });
+  const copy = !customerAuthed
+    ? ['ETAPA 1 DE 3', 'Entre para continuar', 'Sua assinatura fica vinculada à sua conta. Entre ou faça seu cadastro para seguir.']
+    : currentCheckoutStep === 4
+      ? ['ETAPA 3 DE 3', 'Finalize sua assinatura', 'Preencha os dados do titular e do cartão. Confira o valor antes de confirmar.']
+      : currentCheckoutStep === 3
+        ? ['ETAPA 2 DE 3', 'Digite o código do SMS', 'São 6 números. Confira as mensagens recebidas no seu celular.']
+        : ['ETAPA 2 DE 3', 'Confirme seu celular', 'Vamos confirmar o número que ficará vinculado à sua assinatura.'];
+  setText('checkout-step-kicker', copy[0]);
+  setText('checkout-step-title', copy[1]);
+  setText('checkout-step-description', copy[2]);
+}
 
 function syncCheckoutAuthGate() {
   const gate = byId('checkout-auth-gate');
   if (gate) gate.hidden = customerAuthed;
+  if (byId('flow-form')) byId('flow-form').hidden = !customerAuthed;
+  syncCheckoutProgress();
 }
 
 async function requireCustomerSession() {
   if (customerAuthed) return true;
-  showFeedback('Entre ou crie uma conta web para assinar.', true);
+  customerAuthed = false;
+  syncCheckoutAuthGate();
+  setStep(null);
+  showFeedback('Entre na sua conta para continuar.');
   const gate = byId('checkout-auth-gate');
   if (gate) {
     gate.hidden = false;
@@ -316,6 +351,7 @@ function showFeedback(msg, isError = false) {
   el.hidden = false;
   el.textContent = msg;
   el.classList.toggle('error', Boolean(isError));
+  el.setAttribute('role', isError ? 'alert' : 'status');
 }
 
 async function apiGet(path) {
@@ -360,9 +396,6 @@ function bulletsAlignedToSeats(bullets, seats) {
   );
 }
 
-const PLAN_SUMMARY_EMPTY =
-  'Escolha a aba Pessoal ou Empresa e toque em “Assinar agora” no card do plano desejado.';
-
 function enterCheckout() {
   const merch = byId('plans-merchandise');
   const panel = byId('checkout-panel');
@@ -371,6 +404,7 @@ function enterCheckout() {
   if (success) success.hidden = true;
   merch.hidden = true;
   panel.hidden = false;
+  if (byId('feedback')) byId('checkout-feedback')?.append(byId('feedback'));
   document.body.classList.add('checkout-flow-active');
 }
 
@@ -381,6 +415,7 @@ function exitCheckout() {
   if (!merch || !panel) return;
   merch.hidden = false;
   panel.hidden = true;
+  if (byId('feedback')) byId('plans-feedback')?.append(byId('feedback'));
   if (success) success.hidden = true;
   document.body.classList.remove('checkout-flow-active');
 }
@@ -483,7 +518,6 @@ function applySelectedPlan(code, segment, opts = {}) {
   if (!code || !segment) {
     planInput.value = '';
     typeInput.value = '';
-    summary.textContent = PLAN_SUMMARY_EMPTY;
     highlightPlanCard('', '');
     refreshCompanyFields();
     exitCheckout();
@@ -497,28 +531,34 @@ function applySelectedPlan(code, segment, opts = {}) {
   planInput.value = code;
   typeInput.value = segment;
   const label = planLabelFromCache(code, segment);
-  const doc =
-    segment === 'company'
-      ? 'Contrato em nome de empresa (CNPJ)'
-      : 'Pagamento e titularidade em CPF (produtor ou família)';
   const annualMode = byId('billing-toggle-btn')?.getAttribute('aria-pressed') === 'true';
   const selected = plansForRender().find((plan) => plan.code === code && plan.customerSegment === segment);
   const monthlyPrice = Number(selected?.priceBrl);
   const amount = Number.isFinite(monthlyPrice) ? formatPrice(monthlyPrice, annualMode) : null;
-  const charge = amount ? ` — R$ ${amount.price.toLocaleString('pt-BR', { minimumFractionDigits: annualMode ? 2 : 0, maximumFractionDigits: 2 })}/${amount.period}` : '';
-  const allowance = selected?.maxAnalysesPerMonth ? ` — ${selected.maxAnalysesPerMonth} análises de IA por mês${Number(selected.seats) > 1 ? ', compartilhadas entre os números' : ''}` : '';
-  summary.textContent = `Plano: ${label} — cobrança ${annualMode ? 'anual' : 'mensal'}${charge}${allowance} — ${doc}`;
+  const price = amount ? amount.price.toLocaleString('pt-BR', {style:'currency',currency:'BRL'}) : 'Valor indisponível';
+  setText('selected-plan-name', label);
+  setText('selected-plan-price', price);
+  setText('selected-plan-period', annualMode ? '/ ano' : '/ mês');
+  setText('selected-billing-label', annualMode ? 'Anual' : 'Mensal');
+  setText('selected-billing-detail', annualMode ? 'Uma cobrança por ano, com 20% de desconto.' : 'Cobrança recorrente a cada mês.');
+  setText('selected-plan-allowance', selected?.maxAnalysesPerMonth ? `${selected.maxAnalysesPerMonth} análises de IA por mês${Number(selected.seats)>1 ? ', compartilhadas entre os números' : ''}` : 'Confira a franquia do plano');
+  setText('selected-plan-seats', Number(selected?.seats)>1 ? `Até ${selected.seats} números na assinatura` : '1 número na assinatura');
+  setText('selected-plan-document', segment === 'company' ? 'Empresa · CNPJ' : 'Pessoa física · CPF');
+  setText('checkout-submit-detail', amount ? `Ao confirmar, você autoriza a cobrança ${annualMode ? 'anual' : 'mensal'} de ${price} no cartão informado.` : 'Confira o valor antes de confirmar.');
+  const next = new URLSearchParams({plan:code,segment,cycle:annualMode?'YEARLY':'MONTHLY'});
+  if (byId('checkout-login')) byId('checkout-login').href = `/entrar?next=${encodeURIComponent('/planos?'+next.toString())}`;
+  if (byId('submit-subscribe')) byId('submit-subscribe').textContent = amount ? `Assinar por ${price}${annualMode ? '/ano' : '/mês'}` : 'Confirmar e assinar';
   highlightPlanCard(code, segment);
   refreshCompanyFields();
 
   if (fromUserClick && !silent) {
     if (!customerAuthed) {
       syncCheckoutAuthGate();
-      showFeedback('Entre ou crie uma conta web para assinar.', true);
       enterCheckout();
       setStep(null);
       requestAnimationFrame(() => {
-        byId('checkout-auth-gate')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        byId('checkout-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        byId('checkout-step-title')?.focus({preventScroll:true});
       });
       return;
     }
@@ -617,9 +657,11 @@ function renderPlans() {
 
 function setStep(step) {
   const n = step == null || step === '' ? NaN : Number(step);
+  currentCheckoutStep = Number.isFinite(n) ? n : null;
   document.querySelectorAll('[data-step]').forEach((el) => {
     el.hidden = !Number.isFinite(n) || Number(el.dataset.step) !== n;
   });
+  syncCheckoutProgress();
   const toggleBtn = byId('billing-toggle-btn');
   if (toggleBtn) {
     const lockBilling = Number.isFinite(n) && n >= 3;
@@ -662,10 +704,17 @@ function bindFlow() {
     if (flowInteractionLock) return;
     state.verificationToken = '';
     state.billingCycle = 'MONTHLY';
+    const selectedCode = byId('planCode').value;
+    const selectedSegment = byId('customerType').value;
     form.reset();
+    const url = new URL(location.href);
+    ['plan', 'segment', 'cycle'].forEach(key => url.searchParams.delete(key));
+    history.replaceState(null, '', url.pathname+url.search+url.hash);
     applySelectedPlan('', '');
     setStep(null);
     showFeedback();
+    const cta = [...document.querySelectorAll('.plan-cta')].find(button => button.dataset.planCode === selectedCode && button.dataset.customerSegment === selectedSegment);
+    cta?.focus();
   });
 
   byId('success-done-btn')?.addEventListener('click', () => {
@@ -675,11 +724,23 @@ function bindFlow() {
     refreshCompanyFields();
   });
 
+  byId('change-phone')?.addEventListener('click', () => {
+    if (flowInteractionLock) return;
+    state.verificationToken = '';
+    showFeedback();
+    byId('otpCode').value = '';
+    setStep(2);
+    byId('phone')?.focus();
+  });
+
   byId('send-otp').addEventListener('click', async () => {
     if (flowInteractionLock) return;
     const fd = new FormData(form);
     setFlowInteractionLock(true);
+    byId('send-otp').textContent = 'Enviando código…';
     try {
+      if (!(await requireCustomerSession())) return;
+      if (!byId('phone').reportValidity()) return;
       const annualMode = toggleBtn.getAttribute('aria-pressed') === 'true';
       state.billingCycle = annualMode ? 'YEARLY' : 'MONTHLY';
       const out = await apiPost('/api/billing/otp/send', {
@@ -689,10 +750,13 @@ function bindFlow() {
         billingCycle: state.billingCycle,
       });
       showFeedback(`Código enviado para ${out.phone} por SMS.`);
+      setText('otp-destination', `Enviado para ${formatPhoneDisplay(out.phone || getText(fd, 'phone'))}.`);
       setStep(3);
+      byId('otpCode')?.focus();
     } catch (e) {
       showFeedback(e.message || String(e), true);
     } finally {
+      byId('send-otp').textContent = 'Enviar código por SMS';
       setFlowInteractionLock(false);
     }
   });
@@ -701,7 +765,12 @@ function bindFlow() {
     if (flowInteractionLock) return;
     const fd = new FormData(form);
     setFlowInteractionLock(true);
+    byId('verify-otp').textContent = 'Conferindo código…';
     try {
+      if (onlyDigits(getText(fd, 'otpCode')).length !== 6) {
+        byId('otpCode')?.focus();
+        throw new Error('Digite os 6 números do código recebido por SMS.');
+      }
       const out = await apiPost('/api/billing/otp/verify', {
         phone: onlyDigits(getText(fd, 'phone')),
         planCode: getText(fd, 'planCode'),
@@ -713,9 +782,11 @@ function bindFlow() {
       showFeedback('Telefone validado com sucesso. Agora finalize o pagamento.');
       refreshCompanyFields();
       setStep(4);
+      byId('checkout-step-title')?.focus({preventScroll:true});
     } catch (e) {
       showFeedback(e.message || String(e), true);
     } finally {
+      byId('verify-otp').textContent = 'Validar código';
       setFlowInteractionLock(false);
     }
   });
@@ -800,6 +871,10 @@ function bindFlow() {
 }
 
 async function init() {
+  const compactCheckout = matchMedia('(max-width: 760px)');
+  const syncOrderDetails = () => { if (byId('checkout-order-details')) byId('checkout-order-details').open = !compactCheckout.matches; };
+  syncOrderDetails();
+  compactCheckout.addEventListener('change', syncOrderDetails);
   try {
     await initCustomerSupabase();
     const session = await getSession();
@@ -809,6 +884,7 @@ async function init() {
       const emailEl = byId('email');
       if (emailEl) {
         emailEl.value = session.user.email;
+        emailEl.defaultValue = session.user.email;
         emailEl.readOnly = true;
       }
     }
@@ -833,6 +909,15 @@ async function init() {
   const qs = new URLSearchParams(globalThis.location.search);
   const prePhone = qs.get('phone');
   if (prePhone) byId('phone').value = formatPhoneDisplay(prePhone);
+  const returnPlan = qs.get('plan');
+  const returnSegment = qs.get('segment');
+  if (returnPlan && ['personal','company'].includes(returnSegment) && plansForRender().some(plan => plan.code === returnPlan && plan.customerSegment === returnSegment)) {
+    byId('billing-toggle-btn').setAttribute('aria-pressed',String(qs.get('cycle')==='YEARLY'));
+    activeSegmentTab = returnSegment;
+    syncSegmentTabs();
+    renderPlans();
+    applySelectedPlan(returnPlan,returnSegment,{fromUserClick:true});
+  }
 }
 
 const PLAN_REASONS = {
