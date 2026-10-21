@@ -228,6 +228,7 @@ Checklist completo de produção: **`docs/PRODUCTION_CHECKLIST.md`**.
 
 ## Documentação de produto
 
+- **[`docs/GUIA_TECNICO_DESENVOLVEDOR.md`](docs/GUIA_TECNICO_DESENVOLVEDOR.md)** — resumo técnico, arquitetura, setup local, fluxos, mapa do código e orientações de manutenção.
 - **`PRODUCT.md`** — visão de produto, jornadas e nomenclatura (AGGI)
 - **`DESIGN.md`** — tokens visuais compartilhados entre `/cadastro`, `/planos` e landing
 - **`docs/DEV_WORKFLOW.md`** — fluxo de desenvolvimento por feature
