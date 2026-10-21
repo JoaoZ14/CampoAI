@@ -317,6 +317,9 @@ export async function updateUserById(userId, patch) {
   if (patch.billingUsageYm !== undefined) row.billing_usage_ym = patch.billingUsageYm;
   if (patch.billingUsageCount !== undefined) row.billing_usage_count = patch.billingUsageCount;
   if (patch.subscriptionTerms !== undefined) row.subscription_terms = patch.subscriptionTerms;
+  if (patch.billingAccessStatus !== undefined) row.billing_access_status = patch.billingAccessStatus;
+  if (patch.subscriptionPaidUntil !== undefined) row.subscription_paid_until = patch.subscriptionPaidUntil;
+  if (patch.asaasCheckoutUncertain !== undefined) row.asaas_checkout_uncertain = patch.asaasCheckoutUncertain;
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.email !== undefined) row.email = patch.email;
   if (patch.authUserId !== undefined) row.auth_user_id = patch.authUserId;

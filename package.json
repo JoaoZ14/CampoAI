@@ -7,7 +7,9 @@
   "scripts": {
     "build": "npm --prefix app ci --offline=false --include=dev && npm --prefix app run build",
     "preview:app": "node --import dotenv/config scripts/previewApp.mjs",
-    "test": "node --test test/rural.test.js test/agro.test.js test/dashboard.test.js test/task-time.test.js test/pricing.test.js",
+    "test": "node --test test/rural.test.js test/agro.test.js test/dashboard.test.js test/task-time.test.js test/pricing.test.js test/billing.test.js",
+    "test:billing": "node --test test/billing.test.js",
+    "billing:reconcile": "node scripts/reconcile-asaas.mjs",
     "test:pricing": "node --test test/pricing.test.js",
     "test:pricing-ui": "node scripts/test-pricing-ui.mjs",
     "test:checkout-ui": "node scripts/test-checkout-ui.mjs",

@@ -12,7 +12,7 @@ export async function subscriptionOwner(user, db = createSupabaseClient()) {
   if (!org.owner_user_id || org.owner_user_id === user.id) return user;
   const { data: seat, error: seatError } = await db.from('organization_seats').select('id').eq('organization_id', org.id).eq('phone', user.phone).eq('active', true).maybeSingle();
   const { data: owner, error: ownerError } = await db.from('users').select('*').eq('id', org.owner_user_id).maybeSingle();
-  if (seatError || ownerError || !seat || !owner?.is_paid) throw new AppError('Seu acesso à assinatura de equipe está indisponível. Fale com o suporte GMK.', 403);
+  if (seatError || ownerError || !seat || !owner || !mapUserRow(owner).isPaid) throw new AppError('Seu acesso à assinatura de equipe está indisponível. Fale com o suporte GMK.', 403);
   return mapUserRow(owner);
 }
 

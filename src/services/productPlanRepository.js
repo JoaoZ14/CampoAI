@@ -11,7 +11,7 @@ export async function getProductPlanPriceByCode(code, customerSegment = 'persona
   if (!data) return null;
   const price = Number(data.price_brl);
   const cap = data.max_analyses_per_month == null ? null : Number(data.max_analyses_per_month);
-  if (!Number.isFinite(price) || price <= 0 || (data.pricing_version === '2026-10' && cap == null) || (cap != null && (!Number.isInteger(cap) || cap < 1))) {
+  if (!Number.isFinite(price) || price <= 0 || (data.pricing_version !== 'legacy' && cap == null) || (cap != null && (!Number.isInteger(cap) || cap < 1))) {
     throw new AppError('As condições deste plano estão indisponíveis. Fale com o suporte.', 503);
   }
   const terms = { version: data.pricing_version, code: data.code, customerSegment: segment, name: data.name, priceBrl: price, maxAnalysesPerMonth: cap, seats: Number(data.max_whatsapp_seats) || 1 };

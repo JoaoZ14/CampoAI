@@ -38,7 +38,10 @@ export function mapUserRow(row) {
     id: row.id,
     phone: row.phone,
     usageCount: row.usage_count,
-    isPaid: row.is_paid,
+    isPaid: Boolean(row.is_paid) && (row.billing_access_status == null ||
+      (['ACTIVE','CANCELLED'].includes(row.billing_access_status) && Date.parse(row.subscription_paid_until)>Date.now())),
+    billingAccessStatus: row.billing_access_status==='ACTIVE' && Date.parse(row.subscription_paid_until)<=Date.now() ? 'EXPIRED' : row.billing_access_status ?? null,
+    subscriptionPaidUntil: row.subscription_paid_until ?? null,
     organizationId: row.organization_id ?? null,
     billingKind: row.billing_kind ?? 'free',
     subscriptionPlanCode: row.subscription_plan_code ?? null,

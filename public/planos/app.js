@@ -11,6 +11,7 @@ function byId(id) {
 
 /** @type {Array<Record<string, unknown>> | null} */
 let cachedCatalogPlans = null;
+let catalogState = 'loading';
 
 /** @type {'personal'|'company'} */
 let activeSegmentTab = 'personal';
@@ -72,77 +73,29 @@ async function requireCustomerSession() {
   return false;
 }
 
-/** Fallback se /api/plans falhar (alinhado à oferta atual: PF dois níveis + PJ). */
-const PLAN_CONTENT = {
-  lite: {
-    name: 'Essencial',
-    monthly: 39,
-    benefits: [
-      'Até 40 análises de IA por mês',
-      'Um número de WhatsApp',
-      'Conteúdo técnico em linguagem clara; calc ajuda integrada',
-    ],
-    summary: 'Para começar: 40 análises de IA por mês e um número de WhatsApp.',
-  },
-  basic: {
-    name: 'Starter',
-    monthly: 79,
-    benefits: [
-      'Até 100 análises de IA por mês',
-      'Respostas técnicas em linguagem clara; calc ajuda integrada',
-      'Um número de WhatsApp',
-    ],
-    summary: 'Para a rotina: 100 análises de IA por mês e um número de WhatsApp.',
-  },
-  premium: {
-    name: 'Team',
-    monthly: 179,
-    benefits: [
-      'Até 3 números na mesma assinatura',
-      'Um titular; você distribui o acesso à equipe ou família',
-      'Até 250 análises de IA por mês, compartilhadas entre os números',
-    ],
-    summary: 'Quando mais de uma pessoa precisa da Lida no mesmo contrato.',
-  },
-};
-
-const COMPANY_FALLBACK_PLAN = {
-  code: 'premium',
-  customerSegment: 'company',
-  name: 'Business',
-  priceBrl: 299,
-  seats: 5,
-  maxAnalysesPerMonth: 400,
-  summary:
-    'Assinatura em CNPJ: até 5 números, cadastro e faturamento empresariais, NF quando aplicável.',
-  bullets: [
-    'Até 5 números vinculados ao contrato empresarial',
-    'Cadastro e cobrança alinhados ao CNPJ',
-    'Até 400 análises de IA por mês, compartilhadas entre os números',
-  ],
-  highlight: true,
-};
-
-function buildStaticFallbackPlans() {
-  const personal = ['lite', 'basic', 'premium'].map((code) => {
-    const p = PLAN_CONTENT[code];
-    return {
-      code,
-      customerSegment: 'personal',
-      name: p.name,
-      priceBrl: p.monthly,
-      maxAnalysesPerMonth: { lite: 40, basic: 100, premium: 250 }[code],
-      summary: p.summary,
-      bullets: p.benefits,
-      highlight: code === 'basic',
-      seats: code === 'lite' ? 1 : code === 'premium' ? 3 : 1,
-    };
-  });
-  return [...personal, COMPANY_FALLBACK_PLAN];
+function plansForRender() {
+  return cachedCatalogPlans ?? [];
 }
 
-function plansForRender() {
-  return cachedCatalogPlans?.length ? cachedCatalogPlans : buildStaticFallbackPlans();
+async function loadPlanCatalog() {
+  catalogState = 'loading';
+  renderPlans();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch('/api/plans', {cache:'no-store',signal:controller.signal});
+    if (!res.ok) throw new Error('Catálogo indisponível');
+    const payload = await res.json();
+    if (!payload.ok || payload.currency !== 'BRL' || payload.catalogSource === 'fallback' || !Array.isArray(payload.plans)
+      || !payload.plans.every(p => p && /^[a-z0-9_-]+$/i.test(p.code) && ['personal','company'].includes(p.customerSegment)
+        && typeof p.name === 'string' && Number.isFinite(p.priceBrl) && p.priceBrl>0
+        && Number.isInteger(p.seats) && p.seats>0 && Array.isArray(p.bullets) && p.bullets.every(b=>typeof b==='string'))) throw new Error('Oferta não confirmada');
+    cachedCatalogPlans = payload.plans;
+    catalogState = 'loaded';
+  } catch {
+    cachedCatalogPlans = null;
+    catalogState = 'error';
+  } finally { clearTimeout(timer); renderPlans(); }
 }
 
 function planSegmentFromRow(p) {
@@ -451,18 +404,22 @@ function showSubscriptionSuccess(out) {
   const checkout = byId('checkout-panel');
   const panel = byId('subscription-success');
   const detail = byId('success-plan-detail');
+  const confirmed = out.paymentConfirmed === true;
+  setText('subscription-result-title', confirmed ? 'Pagamento confirmado' : 'Aguardando confirmação');
+  setText('subscription-result-lead', confirmed
+    ? 'Sua assinatura está ativa. Continue conversando com a Lida pelo WhatsApp cadastrado.'
+    : 'Seu pedido foi recebido. Aguarde a confirmação do Asaas; não é necessário refazer o pagamento.');
+  if (byId('success-sms')) byId('success-sms').hidden = out.smsSent !== true;
   if (checkout) checkout.hidden = true;
   if (panel) {
     panel.hidden = false;
     const name =
       String(out.planName != null ? out.planName : out.planCode != null ? out.planCode : '')
         .trim() || 'AGGI';
-    const status = String(out.status != null ? out.status : '').trim();
-    const due = String(out.nextDueDate != null ? out.nextDueDate : '').trim();
     const cycle =
       String(out.billingCycle || '').toUpperCase() === 'YEARLY' ? 'Cobrança anual' : 'Cobrança mensal';
     if (detail) {
-      detail.textContent = `Plano: ${name} — ${cycle}. Status ${status}. Próximo vencimento (referência): ${due}.`;
+      detail.textContent = `Plano ${name} · ${cycle}.${confirmed && out.paidUntil ? ' Acesso pago até '+new Date(out.paidUntil).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'})+'.' : ''}`;
     }
     requestAnimationFrame(() =>
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -579,8 +536,10 @@ function renderPlans() {
   const prevSeg = byId('customerType')?.value || '';
 
   if (!list.length) {
-    target.innerHTML =
-      '<p class="plan-grid-empty muted">Nenhum plano disponível nesta aba no momento.</p>';
+    target.innerHTML = catalogState === 'error'
+      ? '<div class="plan-grid-empty muted" role="status"><p>Não conseguimos carregar os planos agora.</p><button type="button" id="retry-plans">Tentar novamente</button></div>'
+      : `<p class="plan-grid-empty muted" role="status">${catalogState === 'loading' ? 'Carregando os planos…' : 'Nenhum plano disponível nesta aba no momento.'}</p>`;
+    byId('retry-plans')?.addEventListener('click', loadPlanCatalog);
     target.className = 'plan-grid';
     return;
   }
@@ -894,15 +853,7 @@ async function init() {
     console.warn('[planos] login web indisponível:', e);
   }
 
-  try {
-    const payload = await apiGet('/api/plans');
-    cachedCatalogPlans = Array.isArray(payload.plans) ? payload.plans : null;
-    renderPlans();
-  } catch (e) {
-    showFeedback(`Não consegui carregar os planos: ${e.message || e}`, true);
-    cachedCatalogPlans = null;
-    renderPlans();
-  }
+  await loadPlanCatalog();
   bindFlow();
   setStep(null);
 

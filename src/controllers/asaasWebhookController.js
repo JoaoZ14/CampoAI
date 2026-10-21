@@ -1,40 +1,30 @@
-import { activateUserByAsaasSubscriptionId } from '../services/asaasSubscriptionService.js';
+import { timingSafeEqual } from 'node:crypto';
+import { processAsaasBillingEvent } from '../services/billing/asaasAccessService.js';
 
 /**
  * POST /webhook/asaas
  * Configure no painel Asaas (Integrações → Webhooks) com o mesmo token em ASAAS_WEBHOOK_TOKEN.
  * Eventos úteis: PAYMENT_RECEIVED, PAYMENT_CONFIRMED.
  */
-export async function handleAsaasWebhook(req, res) {
+export function createAsaasWebhookHandler(options = {}) {
+return async function handleWebhook(req, res) {
   const expected = process.env.ASAAS_WEBHOOK_TOKEN?.trim();
-  if (expected) {
-    const got = String(req.headers['asaas-access-token'] ?? '').trim();
-    if (got !== expected) {
-      return res.status(401).json({ ok: false, error: 'token inválido' });
-    }
-  } else {
-    console.warn('[asaas webhook] ASAAS_WEBHOOK_TOKEN vazio — webhook desprotegido.');
+  if (!expected) {
+    return res.status(503).json({ ok:false, error:'Validação do webhook indisponível.' });
   }
-
-  const body = req.body && typeof req.body === 'object' ? req.body : {};
-  const event = String(body.event || '');
-
+  const got = String(req.headers['asaas-access-token'] ?? '').trim();
+  if (Buffer.byteLength(got)!==Buffer.byteLength(expected) || !timingSafeEqual(Buffer.from(got),Buffer.from(expected))) {
+    return res.status(401).json({ok:false,error:'Token inválido.'});
+  }
   try {
-    if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
-      const pay = body.payment;
-      const subId =
-        pay && typeof pay.subscription === 'string'
-          ? pay.subscription
-          : pay && typeof pay.subscriptionId === 'string'
-            ? pay.subscriptionId
-            : '';
-      if (subId) {
-        await activateUserByAsaasSubscriptionId(subId);
-      }
-    }
-  } catch (err) {
-    console.error('[asaas webhook] processamento:', err);
+    const result = await processAsaasBillingEvent(req.body, options);
+    return res.status(200).json({ok:true,...result});
+  } catch (error) {
+    // Never acknowledge a failed commit; Asaas can resend the same event ID.
+    console.error('[asaas webhook] Falha de sincronização:', {eventId:req.body?.id,code:error.statusCode ?? 503});
+    return res.status(error.statusCode===400 ? 400 : 503).json({ok:false,error:'Não foi possível sincronizar o evento. Reenvie a notificação.'});
   }
-
-  return res.status(200).json({ ok: true });
 }
+}
+
+export const handleAsaasWebhook = createAsaasWebhookHandler();

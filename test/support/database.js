@@ -168,7 +168,7 @@ class Adapter {
   async rpc(name, args = {}) {
     const keys = Object.keys(args);
     const values = keys.map((k) =>
-      typeof args[k] === "object" ? JSON.stringify(args[k]) : args[k],
+      typeof args[k] === "object" && args[k] !== null ? JSON.stringify(args[k]) : args[k],
     );
     try {
       const { rows } = await this.pg.query(

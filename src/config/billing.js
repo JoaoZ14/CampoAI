@@ -4,7 +4,7 @@ import { AppError } from '../utils/errors.js';
 export const ANNUAL_DISCOUNT_FRACTION = 0.2;
 
 export function assertAcceptedOffer(terms, accepted) {
-  if (!accepted && terms.version !== '2026-10') return;
+  if (!accepted && terms.version === 'legacy') return;
   if (!accepted || accepted.priceBrl !== terms.priceBrl || accepted.maxAnalysesPerMonth !== terms.maxAnalysesPerMonth || accepted.seats !== terms.seats) {
     throw new AppError('As condições do plano foram atualizadas. Volte aos planos e atualize a página antes de confirmar o pagamento.', 409);
   }

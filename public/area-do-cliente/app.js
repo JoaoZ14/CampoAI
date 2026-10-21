@@ -86,12 +86,14 @@ function renderPlan(out) {
   if (!dl) return;
   const p = out.profile || {};
   const plan = out.plan;
+  const status = {PENDING:'Aguardando pagamento',ACTIVE:'Assinatura ativa',PAST_DUE:'Pagamento em atraso',CANCELLED:p.isPaid?'Renovação cancelada · período pago ativo':'Assinatura cancelada',REFUNDED:'Pagamento estornado',CHARGEBACK:'Pagamento em contestação',EXPIRED:'Período pago encerrado'}[p.billingAccessStatus];
   const rows = [
-    ['Situação', p.isPaid ? 'Assinante' : 'Teste grátis'],
+    ['Situação', status || (p.isPaid ? 'Assinante' : 'Teste grátis')],
     ['Plano', plan?.name || (p.isPaid ? p.subscriptionPlanCode || '—' : 'Trial')],
     ['Titularidade', billingLabel(p.billingKind)],
     ['Uso', usageText(out)],
   ];
+  if(p.subscriptionPaidUntil) rows.push(['Período pago até',fmtDate(p.subscriptionPaidUntil)]);
   if (!p.isPaid && p.trialEndsAt) {
     rows.push(['Trial até', fmtDate(p.trialEndsAt)]);
   }

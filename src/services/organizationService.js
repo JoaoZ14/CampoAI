@@ -215,7 +215,7 @@ export async function addSeatToOrganization(organizationId, rawPhone) {
   const { error: updUserErr } = await supabase
     .from('users')
     .update({
-      is_paid: true,
+      is_paid: user.id === org.owner_user_id ? user.isPaid : true,
       organization_id: organizationId,
       billing_kind: user.id === org.owner_user_id ? user.billingKind : BILLING.TEAM,
       signup_completed_at: new Date().toISOString(),

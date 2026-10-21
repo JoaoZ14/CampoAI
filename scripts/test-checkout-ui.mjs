@@ -26,7 +26,7 @@ try {
       getSession:async()=>({data:{session:localStorage.getItem('fixture-signed-in') ? {access_token:'fixture-token',user:{email:'fixture@example.test'}} : null}}),
       signInWithPassword:async()=>{localStorage.setItem('fixture-signed-in','yes');return {data:{},error:null}}
     }}}`}));
-    const control={sendError:false,verifyError:false};
+    const control={sendError:false,verifyError:false,result:'error'};
     const posts=[];
     await context.route('**/api/**',async route => {
       const path = new URL(route.request().url()).pathname;
@@ -36,7 +36,10 @@ try {
       if(path==='/api/plans') data=catalog;
       if(path==='/api/billing/otp/send') {status=control.sendError?400:200;data=control.sendError?{error:'Não foi possível enviar o código. Tente novamente.'}:{ok:true,phone:'+5511988887777'};}
       if(path==='/api/billing/otp/verify') {status=control.verifyError?400:200;data=control.verifyError?{error:'Código incorreto. Confira os números recebidos.'}:{ok:true,verificationToken:'fixture-verification'};}
-      if(path==='/api/billing/checkout') {status=400;data={error:'Não foi possível processar o pagamento. Confira os dados do cartão.'};}
+      if(path==='/api/billing/checkout') {
+        status=control.result==='error'?400:201;
+        data=control.result==='error'?{error:'Não foi possível processar o pagamento. Confira os dados do cartão.'}:{ok:true,planName:company?'Business':'Individual',billingCycle:yearly?'YEARLY':'MONTHLY',status:'ACTIVE',paymentConfirmed:control.result==='confirmed',smsSent:false};
+      }
       await route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
     });
     const page=await context.newPage(), errors=[];
@@ -126,6 +129,14 @@ try {
     check(await page.locator('#checkout-feedback #feedback.error').isVisible(),'payment errors appear next to the form');
     check(await page.locator('#submit-subscribe').isEnabled(),'payment errors allow correcting and retrying');
     check((await page.locator('#submit-subscribe').innerText()).includes(selectedPrice),'payment error restores price on button');
+    control.result=width===390?'confirmed':'pending';
+    await page.locator('#submit-subscribe').click();
+    await page.waitForSelector('#subscription-success:not([hidden])');
+    check(await page.locator('#subscription-result-title').innerText()===(width===390?'Pagamento confirmado':'Aguardando confirmação'),'payment result matches financial confirmation, not subscription ACTIVE');
+    check(await page.locator('#success-sms').isHidden(),'SMS is not promised when it was not sent');
+    if(width!==390) check((await page.locator('#subscription-result-lead').innerText()).includes('não é necessário refazer'),'pending payment discourages duplicate submission');
+    await page.locator('#success-done-btn').click();
+    await page.locator('.plan-cta').first().click();
     await page.locator('#back-to-plans').click();
     await page.locator('.plan-cta').first().click();
     check(await page.locator('#email').inputValue()==='fixture@example.test','changing plans preserves the account email');

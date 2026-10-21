@@ -152,7 +152,7 @@ export async function handleCheckoutAfterOtp(req, res, next) {
         ? 'A cobrança anual (com desconto em relação a 12 meses no mensal) segue no cartão que você cadastrou.'
         : 'A cobrança mensal segue no cartão que você cadastrou.';
     const welcomeMsg =
-      `Parabéns — você agora faz parte do AGGI.\n\n` +
+      `Pagamento confirmado — sua assinatura AGGI está ativa.\n\n` +
       `Plano: ${planLabel}\n` +
       `Status: ${result.status}\n` +
       `Próximo vencimento (referência): ${result.nextDueDate}\n\n` +
@@ -160,13 +160,17 @@ export async function handleCheckoutAfterOtp(req, res, next) {
       `${billingLine}\n\n` +
       `Bem-vindo e bom trabalho na roça.`;
 
-    try {
-      await sendSmsMessage(body.phone, welcomeMsg);
-    } catch (e) {
-      console.warn('[billing] falha ao enviar confirmação por SMS:', e);
+    let smsSent = false;
+    if (result.paymentConfirmed) {
+      try {
+        await sendSmsMessage(body.phone, welcomeMsg);
+        smsSent = true;
+      } catch {
+        console.warn('[billing] Não foi possível enviar o SMS de confirmação.');
+      }
     }
 
-    res.status(201).json({ ok: true, ...result });
+    res.status(201).json({ ok: true, ...result, smsSent });
   } catch (e) {
     next(e);
   }

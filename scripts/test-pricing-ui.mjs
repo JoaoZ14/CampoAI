@@ -13,7 +13,7 @@ await mkdir('test-artifacts/pricing',{recursive:true});
 let checks=0;
 const check=(ok,label)=>{assert.ok(ok,label);checks++;};
 try {
-  for(const [width,unavailable] of [[1280,false],[390,false],[320,true]]) {
+  for(const [width,unavailable] of [[1280,false],[390,false],[320,false]]) {
     const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
     // Entire auth provider and every API are synthetic: no account, SMS or payment side effects.
     await context.route('https://esm.sh/**',route=>route.fulfill({contentType:'application/javascript',body:"export function createClient(){return {auth:{getSession:async()=>({data:{session:{access_token:'fixture',user:{email:'fixture@example.test'}}}})}}}"}));
@@ -49,6 +49,22 @@ try {
     check(errors.length===0,'no page JavaScript errors');
     check(posts.length===0,'no SMS or payments sent');
     await page.locator('#plans-merchandise').screenshot({path:`test-artifacts/pricing/plans-${width}.png`});
+    await context.close();
+  }
+  for(const payload of [null,{ok:true,currency:'BRL',catalogSource:'fallback',plans:DEFAULT_PLANS}]) {
+    const context=await browser.newContext({viewport:{width:390,height:844}});
+    await context.route('https://esm.sh/**',route=>route.fulfill({contentType:'application/javascript',body:"export function createClient(){return {auth:{getSession:async()=>({data:{session:null}})}}}"}));
+    let unavailable=true;
+    await context.route('**/api/**',route=>{
+      const config=new URL(route.request().url()).pathname==='/api/customer/config';
+      route.fulfill({status:config?200:unavailable&&payload===null?503:200,contentType:'application/json',body:JSON.stringify(config?{ok:true,supabaseUrl:'https://fixture.example.test',supabaseAnonKey:'public-fixture'}:unavailable?payload:{ok:true,currency:'BRL',catalogSource:'database',plans:DEFAULT_PLANS})});
+    });
+    const page=await context.newPage();await page.goto(base+'/planos',{waitUntil:'networkidle'});
+    await page.waitForSelector('#retry-plans');
+    check(await page.locator('.plan-card').count()===0,'unconfirmed offers are not displayed');
+    check(await page.locator('.plan-cta').count()===0,'unconfirmed offers cannot enter checkout');
+    unavailable=false;await page.locator('#retry-plans').click();await page.waitForSelector('.plan-card');
+    check(await page.locator('.plan-card').count()===3,'retry recovers the backend catalog');
     await context.close();
   }
   console.log(`${checks} verificações da vitrine de planos passaram.`);

@@ -69,6 +69,8 @@ export async function getCustomerDashboard(userId) {
       isPaid: user.isPaid,
       subscriptionPlanCode: user.subscriptionPlanCode,
       asaasSubscriptionStatus: user.asaasSubscriptionStatus,
+      billingAccessStatus: user.billingAccessStatus,
+      subscriptionPaidUntil: user.subscriptionPaidUntil,
       trialEndsAt: user.trialEndsAt,
       trialDays: FREE_TRIAL_DAYS,
       phoneVerifiedAt: user.phoneVerifiedAt,

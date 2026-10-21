@@ -27,14 +27,27 @@ export async function asaasRequest(path, opts = {}) {
       access_token: key,
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      'User-Agent': 'AGGI/1.0',
     },
   };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), method === 'POST' ? 60_000 : 30_000);
+  const abort = () => controller.abort();
+  if (opts.signal?.aborted) controller.abort();
+  else opts.signal?.addEventListener('abort', abort, {once:true});
+  init.signal = controller.signal;
   if (opts.body != null && method !== 'GET' && method !== 'HEAD') {
     init.body = JSON.stringify(opts.body);
   }
 
-  const res = await fetch(url, init);
-  const text = await res.text();
+  let res, text;
+  try {
+    res = await fetch(url, init);
+    text = await res.text();
+  } finally {
+    clearTimeout(timer);
+    opts.signal?.removeEventListener('abort', abort);
+  }
   let data = {};
   try {
     data = text ? JSON.parse(text) : {};
